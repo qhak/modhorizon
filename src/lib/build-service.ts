@@ -1,9 +1,10 @@
 import { limitedJson, trustedEndpoint } from "./ai-provider";
+import { PLATFORMS, javaVersionFor, mappingsFor } from "./platforms";
 import type {
   BuildResult,
   BuildService,
+  BuildTarget,
   GeneratedProject,
-  MinecraftVersion,
 } from "./types";
 
 export const MAX_ARTIFACT_BYTES = 5_000_000;
@@ -11,13 +12,13 @@ export const MAX_ARTIFACT_BYTES = 5_000_000;
 export class RemoteBuildService implements BuildService {
   async build(
     project: GeneratedProject,
-    version: MinecraftVersion,
+    { platform, version }: BuildTarget,
   ): Promise<BuildResult> {
     const endpoint = process.env.BUILD_SERVICE_URL;
     const token = process.env.BUILD_SERVICE_TOKEN;
     if (!endpoint || !token)
       throw new Error(
-        "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN to compile plugins in an isolated build service.",
+        "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN to compile projects in an isolated build service.",
       );
     const response = await fetch(
       trustedEndpoint(endpoint, "BUILD_SERVICE_URL"),
@@ -30,10 +31,15 @@ export class RemoteBuildService implements BuildService {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          schemaVersion: 1,
-          platform: "paper",
-          javaVersion: 21,
-          minecraftVersion: version,
+          schemaVersion: 2,
+          platform,
+          family: PLATFORMS[platform].family,
+          javaVersion: javaVersionFor(platform, version),
+          mappings: mappingsFor(platform, version),
+          // Proxy platforms are versioned by API rather than Minecraft release.
+          ...(PLATFORMS[platform].kind === "proxy"
+            ? { apiVersion: version }
+            : { minecraftVersion: version }),
           project,
         }),
       },

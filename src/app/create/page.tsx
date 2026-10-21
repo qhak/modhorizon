@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -27,10 +28,24 @@ import {
   SlidersHorizontal,
   Sparkles,
   SquareTerminal,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MINECRAFT_VERSIONS, type Project } from "@/lib/types";
+import type { Project } from "@/lib/types";
+import {
+  DEFAULT_PLATFORM,
+  MINECRAFT_RELEASES,
+  PLATFORMS,
+  PLATFORM_GROUPS,
+  describeTarget,
+  incompatibility,
+  isPlatformId,
+  javaVersionFor,
+  platformOf,
+  versionLines,
+  type PlatformId,
+} from "@/lib/platforms";
 import { MODEL_OPTIONS, type ModelOption, type ModelProvider } from "@/lib/models";
 
 
@@ -38,22 +53,20 @@ type SourceFile = { path: string; content: string };
 type Message = { role: "user" | "assistant"; text: string };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
-const suggestions = [
-  { title: "Zombie rewards", description: "Reward zombie kills with a speed boost", prompt: milestone },
-  { title: "Spawn command", description: "A /spawn command with a welcome message", prompt: "Create a Paper plugin with a /spawn command that teleports players to the world spawn and sends a configurable welcome message." },
-  { title: "Server menu", description: "A custom server menu with /menu", prompt: "Create a Paper plugin with a /menu command that opens a simple inventory GUI containing a compass that teleports the player to spawn." },
+const suggestions: { title: string; description: string; prompt: string; platform: PlatformId }[] = [
+  { title: "Zombie rewards", description: "Paper · Reward zombie kills with a speed boost", prompt: milestone, platform: "paper" },
+  { title: "Ruby gear", description: "Fabric · A ruby ore, ingot and sword", prompt: "Create a Fabric mod that adds ruby ore, a ruby ingot smelted from it, and a ruby sword slightly stronger than iron.", platform: "fabric" },
+  { title: "Lobby command", description: "Velocity · A /lobby command that sends players to the hub", prompt: "Create a Velocity plugin with a /lobby command that sends the player to a server named lobby, with a configurable message.", platform: "velocity" },
 ];
 
-function Logo({ small = false }: { small?: boolean }) {
+function Logo() {
   return (
-    <div className={`brand ${small ? "brand-small" : ""}`}>
+    <Link href="/" className="brand" aria-label="ModHorizon home">
       <span className="brand-icon">
-        <Blocks size={21} strokeWidth={1.8} />
+        <Blocks size={20} strokeWidth={1.8} />
       </span>
-      <span>
-        ModHorizon<span className="brand-dot">.</span>
-      </span>
-    </div>
+      <span>ModHorizon</span>
+    </Link>
   );
 }
 function fileLabel(path: string) {
@@ -119,16 +132,78 @@ function Highlight({ code, path }: { code: string; path: string }) {
   );
 }
 
-function VersionPicker({ value, onChange, disabled }: {
-  value: string; onChange: (version: string) => void; disabled: boolean;
+function PlatformPicker({ value, onChange, disabled }: {
+  value: PlatformId; onChange: (platform: PlatformId) => void; disabled: boolean;
 }) {
-  return <label className="version-picker">
-    <span className="sr-only">Minecraft version</span>
-    <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
-      {[...MINECRAFT_VERSIONS].reverse().map((version) => <option key={version} value={version}>{version}</option>)}
+  return <label className="version-picker platform-picker">
+    <span className="sr-only">Platform</span>
+    <select value={value} onChange={(event) => { if (isPlatformId(event.target.value)) onChange(event.target.value); }} disabled={disabled}>
+      {PLATFORM_GROUPS.map((group) => (
+        <optgroup key={group.kind} label={group.label}>
+          {group.ids.map((id) => <option key={id} value={id}>{PLATFORMS[id].label}</option>)}
+        </optgroup>
+      ))}
     </select>
     <ChevronDown size={13} aria-hidden="true" />
   </label>;
+}
+
+/** Lists every Minecraft release so unsupported picks can be explained, not hidden. */
+function VersionPicker({ platform, value, onChange, disabled }: {
+  platform: PlatformId; value: string; onChange: (version: string) => void; disabled: boolean;
+}) {
+  const { kind, label, versions } = PLATFORMS[platform];
+  const choices = kind === "proxy" ? versions : MINECRAFT_RELEASES;
+  return <label className="version-picker">
+    <span className="sr-only">{kind === "proxy" ? `${label} API version` : "Minecraft version"}</span>
+    <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
+      {versionLines(choices).map(({ line, versions: group }) => (
+        <optgroup key={line} label={kind === "proxy" ? `${label} ${line}` : `Minecraft ${line}`}>
+          {group.map((version) => (
+            <option key={version} value={version}>
+              {versions.includes(version) ? version : `${version} · not on ${label}`}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+    <ChevronDown size={13} aria-hidden="true" />
+  </label>;
+}
+
+function CompatibilityNotice({ platform, version, onVersion, onPlatform }: {
+  platform: PlatformId;
+  version: string;
+  onVersion: (version: string) => void;
+  onPlatform: (platform: PlatformId) => void;
+}) {
+  const [explained, setExplained] = useState(false);
+  const problem = incompatibility(platform, version);
+  if (!problem) return null;
+  return (
+    <div className="compat-notice" role="alert">
+      <div className="compat-head">
+        <TriangleAlert size={15} aria-hidden="true" />
+        <strong>{problem.title}</strong>
+        <button type="button" className="compat-why" aria-expanded={explained} aria-controls="compat-reason" onClick={() => setExplained((open) => !open)}>
+          {explained ? "Hide" : "Why?"}
+        </button>
+      </div>
+      {explained && <p id="compat-reason">{problem.reason}</p>}
+      <div className="compat-actions">
+        {problem.nearest && (
+          <button type="button" onClick={() => onVersion(problem.nearest!)}>
+            Use {PLATFORMS[platform].label} {problem.nearest}
+          </button>
+        )}
+        {problem.alternatives.slice(0, 3).map((id) => (
+          <button type="button" key={id} onClick={() => onPlatform(id)}>
+            Switch to {PLATFORMS[id].label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ModelPicker({
@@ -297,9 +372,64 @@ function ProviderLogo({ provider }: { provider: Exclude<ModelProvider, "demo"> }
   );
 }
 
+function TestGuide({ project, target, onTarget }: {
+  project: Project;
+  target: "local" | "hosted";
+  onTarget: (target: "local" | "hosted") => void;
+}) {
+  const platform = platformOf(project.platform);
+  const java = javaVersionFor(platform.id, project.version);
+  const javaLink = <a href={`https://adoptium.net/temurin/releases/?version=${java}`} target="_blank" rel="noreferrer">Get Temurin {java} <ExternalLink size={12} /></a>;
+  const setupLink = <a href={platform.setupUrl} target="_blank" rel="noreferrer">{platform.label} setup <ExternalLink size={12} /></a>;
+  const folder = platform.kind === "mod" ? "mods" : "plugins";
+  const loaded = platform.kind === "mod"
+    ? <>Open the <strong>Mods</strong> list from the title screen, or check the log for the mod loading,</>
+    : platform.kind === "proxy"
+      ? <>Check the proxy console for the plugin enabling without errors,</>
+      : <>Confirm the plugin is listed by <code>{platform.family === "sponge" ? "/sponge plugins" : "/plugins"}</code>,</>;
+  return (
+    <>
+      <div className="test-target-toggle" role="group" aria-label="Choose test setup">
+        <button type="button" aria-pressed={target === "local"} className={target === "local" ? "target-active" : ""} onClick={() => onTarget("local")}>{platform.kind === "mod" ? "Local game" : `Local ${platform.label} ${platform.kind === "proxy" ? "proxy" : "server"}`}</button>
+        <button type="button" aria-pressed={target === "hosted"} className={target === "hosted" ? "target-active" : ""} onClick={() => onTarget("hosted")}>My server host</button>
+      </div>
+      {target === "local" ? (
+        <div className="test-instructions">
+          <h3>{platform.kind === "mod" ? `Run ${platform.label} ${project.version} locally` : `Run a private ${platform.label} ${platform.kind === "proxy" ? "proxy" : "server"}`}</h3>
+          <ol>
+            <li><strong>Install Java {java}.</strong> {describeTarget(platform.id, project.version)} needs Java {java}. {javaLink}</li>
+            {platform.kind === "mod" ? (
+              <li><strong>Install {platform.label} for Minecraft {project.version}.</strong> Use the official installer to create a {platform.label} profile in your launcher. {setupLink}</li>
+            ) : platform.kind === "proxy" ? (
+              <li><strong>Download {platform.label} {project.version}</strong> and run it in front of at least one backend server with forwarding configured. {setupLink}</li>
+            ) : (
+              <li><strong>Download {platform.label} {project.version}.</strong> Use the official setup guide and select the same Minecraft version as this project. {setupLink}</li>
+            )}
+            {platform.kind !== "mod" && <li><strong>Start it once, then stop it.</strong> {platform.kind === "plugin" && <>If you agree to Mojang’s EULA, set <code>eula=true</code> in <code>eula.txt</code>.</>}</li>}
+            <li><strong>Install the {platform.kind === "mod" ? "mod" : "plugin"}.</strong> Place the downloaded JAR in the <code>{folder}</code> folder{platform.kind === "mod" ? " of your game directory (and of a server, if it adds server-side features)" : ""}, then start {platform.kind === "mod" ? "the game with the " + platform.label + " profile" : "it again"}.</li>
+            <li><strong>Check it in game.</strong> {loaded} then try the behavior described in your prompt.</li>
+          </ol>
+        </div>
+      ) : (
+        <div className="test-instructions">
+          <h3>Install on a hosted {platform.kind === "proxy" ? "proxy" : "server"}</h3>
+          <ol>
+            <li><strong>Back up your world</strong> and stop the server from your host’s control panel.</li>
+            <li><strong>Check compatibility.</strong> The host must run {describeTarget(platform.id, project.version)} on Java {java}.</li>
+            <li><strong>Upload the JAR</strong> into the server’s <code>{folder}</code> folder using its file manager or SFTP.{platform.kind === "mod" && " Players need the same mod installed if it adds items, blocks or client features."}</li>
+            <li><strong>Start the server</strong> and check the console for errors before anyone joins.</li>
+            <li><strong>Test the mechanic</strong> in a private world before using it on a live server.</li>
+          </ol>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Home() {
   const [prompt, setPrompt] = useState("");
-  const [version, setVersion] = useState("1.21.11");
+  const [platform, setPlatform] = useState<PlatformId>(DEFAULT_PLATFORM);
+  const [version, setVersion] = useState<string>(PLATFORMS[DEFAULT_PLATFORM].versions[0]);
   const [selectedModel, setSelectedModel] = useState("demo");
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
@@ -324,6 +454,7 @@ export default function Home() {
     preferred: string;
   } | null>(null);
   const generationUnavailable = !services?.choices[selectedModel];
+  const versionProblem = incompatibility(platform, version);
   const input = useRef<HTMLTextAreaElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -336,6 +467,21 @@ export default function Home() {
     } catch {
       // The shared graphite palette also works without browser storage.
     }
+  }, []);
+
+  useEffect(() => {
+    // Landing-page links prefill the composer with ?prompt=, ?platform= and ?version=.
+    const query = new URLSearchParams(window.location.search);
+    const shared = query.get("prompt");
+    const sharedPlatform = query.get("platform");
+    const sharedVersion = query.get("version");
+    if (shared) setPrompt(shared.slice(0, 4000));
+    if (isPlatformId(sharedPlatform)) {
+      choosePlatform(sharedPlatform);
+      if (sharedVersion && PLATFORMS[sharedPlatform].versions.includes(sharedVersion)) setVersion(sharedVersion);
+    }
+    if (shared || sharedPlatform) window.history.replaceState(null, "", window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -435,6 +581,17 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handler);
   }, [busy, modal]);
 
+  function choosePlatform(next: PlatformId) {
+    setPlatform(next);
+    // Keep the Minecraft version so an unsupported pick is explained; proxies use their own API versions.
+    setVersion((current) => {
+      const target = PLATFORMS[next];
+      const wasProxy = !MINECRAFT_RELEASES.includes(current as (typeof MINECRAFT_RELEASES)[number]);
+      return target.kind === "proxy" || wasProxy
+        ? target.versions.includes(current) ? current : target.versions[0]
+        : current;
+    });
+  }
   function newProject() {
     setProject(null);
     setPrompt("");
@@ -445,6 +602,8 @@ export default function Home() {
   }
   function openProject(p: Project) {
     setProject(p);
+    setPlatform(platformOf(p.platform).id);
+    setVersion(p.version);
     if (p.modelId && MODEL_OPTIONS.some((model) => model.id === p.modelId))
       setSelectedModel(p.modelId);
     setMessages([
@@ -454,7 +613,7 @@ export default function Home() {
         text:
           p.error ||
           (p.status === "success"
-            ? "The build service compiled this plugin. Download it and verify its behavior on a local Paper server."
+            ? `The build service compiled this project. Download it and verify its behavior on ${describeTarget(platformOf(p.platform).id, p.version)}.`
             : "Source preview ready. This has not been compiled. Connect an isolated build service to build a JAR."),
       },
     ]);
@@ -465,9 +624,9 @@ export default function Home() {
     setMobileNav(false);
   }
   async function generate() {
-    if (busy || generationUnavailable || prompt.trim().length < 12) return;
-    const text = prompt.trim();
     const current = project;
+    if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && versionProblem)) return;
+    const text = prompt.trim();
     if (current) setTab("conversation");
     setBusy(true);
     setError("");
@@ -477,6 +636,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: text,
+          platform: current ? platformOf(current.platform).id : platform,
           version: current?.version || version,
           modelId: selectedModel,
           ...(current
@@ -521,7 +681,7 @@ export default function Home() {
           text:
             next.error ||
             (next.status === "success"
-              ? "Your plugin compiled successfully. Review the source and test it on a local Paper server before use."
+              ? `Your project compiled successfully. Review the source and test it on ${describeTarget(platformOf(next.platform).id, next.version)} before use.`
               : next.provider === "mock"
                 ? "Your source preview is ready. The development provider generated a zombie speed-boost example. No compilation has run and no JAR is available."
                 : "Your AI-generated source is ready. No build service is configured, so compilation has not run and no JAR is available."),
@@ -634,7 +794,7 @@ export default function Home() {
             <span className="workspace-label">Workspace</span>
             <span className="crumb-slash">/</span>
             <span>{project?.name || "New project"}</span>
-            {project && <span className="tag paper-tag">Paper</span>}
+            {project && <span className="tag paper-tag">{platformOf(project.platform).label}</span>}
           </div>
           <div className="topbar-right">
             <button
@@ -654,7 +814,7 @@ export default function Home() {
               <div className="workspace-home-heading">
                 <div>
                   <h1>What will you create?</h1>
-                  <p>Describe your idea. Make it a Minecraft plugin.</p>
+                  <p>Describe your idea. Pick a loader and any Minecraft version.</p>
                 </div>
               </div>
               <form
@@ -666,11 +826,11 @@ export default function Home() {
               >
                 <textarea
                   ref={input}
-                  aria-label="Describe your Minecraft plugin"
+                  aria-label="Describe your Minecraft plugin or mod"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   maxLength={4000}
-                  placeholder="A plugin that gives players a speed boost when they defeat a zombie…"
+                  placeholder={PLATFORMS[platform].kind === "mod" ? "A mod that adds a sword which sets mobs on fire…" : PLATFORMS[platform].kind === "proxy" ? "A proxy plugin with a /lobby command that sends players to the hub…" : "A plugin that gives players a speed boost when they defeat a zombie…"}
                   disabled={busy}
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -681,7 +841,18 @@ export default function Home() {
                 />
                 <div className="composer-footer">
                   <div className="selectors">
-                    <span className="platform-pill" title="Paper is the supported platform">Paper</span>
+                    <PlatformPicker
+                      value={platform}
+                      onChange={choosePlatform}
+                      disabled={busy}
+                    />
+                    <span className="select-separator" />
+                    <VersionPicker
+                      platform={platform}
+                      value={version}
+                      onChange={setVersion}
+                      disabled={busy}
+                    />
                     <span className="select-separator" />
                     <ModelPicker
                       value={selectedModel}
@@ -690,17 +861,11 @@ export default function Home() {
                       choices={services?.choices || {}}
                       disabled={busy}
                     />
-                    <span className="select-separator" />
-                    <VersionPicker
-                      value={version}
-                      onChange={setVersion}
-                      disabled={busy}
-                    />
                   </div>
                   <Button
                     type="submit"
-                    disabled={busy || generationUnavailable || prompt.trim().length < 12}
-                    title={generationUnavailable ? "Connect an AI provider in the server configuration to enable generation." : undefined}
+                    disabled={busy || generationUnavailable || Boolean(versionProblem) || prompt.trim().length < 12}
+                    title={versionProblem ? versionProblem.title : generationUnavailable ? "Connect an AI provider in the server configuration to enable generation." : undefined}
                   >
                     {busy ? (
                       <LoaderCircle size={16} className="spin" />
@@ -710,6 +875,13 @@ export default function Home() {
                   </Button>
                 </div>
               </form>
+              <CompatibilityNotice
+                key={`${platform}-${version}`}
+                platform={platform}
+                version={version}
+                onVersion={setVersion}
+                onPlatform={choosePlatform}
+              />
               <div className="composer-meta">
                 <span className="composer-meta-right">
                   <span className="provider-note">{services?.message || "Checking provider…"}</span>
@@ -746,6 +918,7 @@ export default function Home() {
                     disabled={busy}
                     onClick={() => {
                       setPrompt(s.prompt);
+                      choosePlatform(s.platform);
                       input.current?.focus();
                     }}
                   >
@@ -823,7 +996,7 @@ export default function Home() {
                 <span>
                   <Sparkles size={15} /> Build with ModHorizon
                 </span>
-                <span className="tag">{project.version}</span>
+                <span className="tag">{platformOf(project.platform).label} {project.version}</span>
               </div>
               <div className="chat-messages">
                 {messages.map((message, i) => (
@@ -896,7 +1069,7 @@ export default function Home() {
                   onChange={(e) => setPrompt(e.target.value)}
                   disabled={busy}
                   maxLength={4000}
-                  placeholder="Describe a change to your plugin…"
+                  placeholder="Describe a change…"
                 />
                 <div>
                   <ModelPicker
@@ -956,7 +1129,7 @@ export default function Home() {
                   <ol className="test-steps" aria-label="Plugin testing progress">
                     <li className={project.files.length ? "test-step-done" : "test-step-current"}><span>1</span><div><strong>Describe and generate</strong><small>{project.files.length ? "Source files are ready for review." : "Generation did not return source files. Review the conversation and try again."}</small></div>{project.files.length ? <Check size={15} /> : <span className="step-state">Review</span>}</li>
                     <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>Compile the plugin</strong><small>{project.artifactAvailable ? "A JAR was returned by the build service." : project.files.length ? project.status === "failed" ? "The build failed. Open Build to review the logs." : "Waiting for an isolated build service. Source preview is not a JAR." : "Available after source generation succeeds."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and playtest</strong><small>{project.artifactAvailable ? `Install the JAR on a Paper ${project.version} server you control, then check the behavior in game.` : "Available after a compiled JAR is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and playtest</strong><small>{project.artifactAvailable ? `Install the JAR on ${describeTarget(platformOf(project.platform).id, project.version)} that you control, then check the behavior in game.` : "Available after a compiled JAR is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
                   </ol>
                   {!project.artifactAvailable && (
                     <div className="test-blocker" role="status">
@@ -965,34 +1138,8 @@ export default function Home() {
                       <button type="button" onClick={() => setTab(project.status === "failed" && project.files.length ? "logs" : project.files.length ? "code" : "conversation")}>{project.status === "failed" && project.files.length ? "Review build output" : project.files.length ? "Review generated source" : "Review generation"}<ArrowRight size={14} /></button>
                     </div>
                   )}
-                  <div className="test-target-toggle" role="group" aria-label="Choose server setup">
-                    <button type="button" aria-pressed={testTarget === "local"} className={testTarget === "local" ? "target-active" : ""} onClick={() => setTestTarget("local")}>Local Paper server</button>
-                    <button type="button" aria-pressed={testTarget === "hosted"} className={testTarget === "hosted" ? "target-active" : ""} onClick={() => setTestTarget("hosted")}>My server host</button>
-                  </div>
-                  {testTarget === "local" ? (
-                    <div className="test-instructions">
-                      <h3>Run a private test server</h3>
-                      <ol>
-                        <li><strong>Install Java 21.</strong> Paper 1.21.x requires Java 21. <a href="https://adoptium.net/temurin/releases/?version=21" target="_blank" rel="noreferrer">Get Temurin 21 <ExternalLink size={12} /></a></li>
-                        <li><strong>Download Paper {project.version}.</strong> Use Paper’s official setup guide and select the same Minecraft version as this project. <a href="https://docs.papermc.io/paper/getting-started/" target="_blank" rel="noreferrer">Paper server setup <ExternalLink size={12} /></a></li>
-                        <li><strong>Start the server once, then stop it.</strong> If you agree to Mojang’s EULA, set <code>eula=true</code> in <code>eula.txt</code> and start it again.</li>
-                        <li><strong>Install the plugin.</strong> Stop the server, place the downloaded JAR in its <code>plugins</code> folder, and start it again.</li>
-                        <li><strong>Check it in game.</strong> Confirm the plugin is listed by <code>/plugins</code>, then try the behavior described in your prompt.</li>
-                      </ol>
-                    </div>
-                  ) : (
-                    <div className="test-instructions">
-                      <h3>Install on a hosted server</h3>
-                      <ol>
-                        <li><strong>Back up your world</strong> and stop the server from your host’s control panel.</li>
-                        <li><strong>Check compatibility.</strong> Use a Paper server on Minecraft {project.version} with Java 21.</li>
-                        <li><strong>Upload the JAR</strong> into the server’s <code>plugins</code> folder using its file manager or SFTP.</li>
-                        <li><strong>Start the server</strong> and check the console for plugin errors. In game, use <code>/plugins</code> to confirm it loaded.</li>
-                        <li><strong>Test the mechanic</strong> in a private world before using it on a live server.</li>
-                      </ol>
-                    </div>
-                  )}
-                  <p className="test-safety"><ShieldCheck size={14} /> Generated plugins run with your server’s permissions. Review the source and test on a server you control before installing it on a live server.</p>
+                  <TestGuide project={project} target={testTarget} onTarget={setTestTarget} />
+                  <p className="test-safety"><ShieldCheck size={14} /> Generated code runs with full access to your {platformOf(project.platform).kind === "mod" ? "game and server" : "server"}. Review the source and test it somewhere you control before installing it on a live server.</p>
                 </div>
               ) : tab === "logs" ? (
                 <div className="build-logs">
@@ -1012,7 +1159,7 @@ export default function Home() {
                   )}
                   <p>
                     Compilation is not a behavior test. Always test on a local
-                    Paper server.
+                    {platformOf(project.platform).kind === "mod" ? " instance" : " server"} first.
                   </p>
                 </div>
               ) : (
@@ -1160,14 +1307,15 @@ export default function Home() {
               <li>
                 <strong>Describe your idea</strong>
                 <span>
-                  Choose Paper and a Minecraft 1.21.x version. The built-in
-                  preview supports the zombie speed example.
+                  Choose a loader and a Minecraft version. If the pair is not
+                  compatible, ModHorizon tells you why. The built-in preview
+                  supports the Paper zombie speed example.
                 </span>
               </li>
               <li>
                 <strong>Inspect the source</strong>
                 <span>
-                  Review the Java, plugin.yml, configuration, and build logs.
+                  Review the Java, the plugin or mod descriptor, configuration, and build logs.
                   Source previews have not been compiled.
                 </span>
               </li>
@@ -1175,7 +1323,7 @@ export default function Home() {
                 <strong>Build, then playtest</strong>
                 <span>
                   Connect a secure build service for JARs. Test on a matching
-                  local Paper server with Java 21.
+                  local server or game instance first.
                 </span>
               </li>
             </ol>
@@ -1183,6 +1331,8 @@ export default function Home() {
               onClick={() => {
                 setModal(null);
                 newProject();
+                choosePlatform("paper");
+                setVersion(PLATFORMS.paper.versions[0]);
                 setPrompt(milestone);
               }}
             >
@@ -1191,11 +1341,11 @@ export default function Home() {
             </Button>
             <a
               className="docs-link"
-              href="https://docs.papermc.io/paper/getting-started/"
+              href={PLATFORMS[platform].setupUrl}
               target="_blank"
               rel="noreferrer"
             >
-              Paper server setup
+              {PLATFORMS[platform].label} setup
               <ExternalLink size={13} />
             </a>
           </>
@@ -1245,10 +1395,10 @@ export default function Home() {
             </div>
             <div className="settings-row">
               <div>
-                <strong>Fabric & NeoForge</strong>
-                <span>Coming soon. This release supports Paper only.</span>
+                <strong>Platforms</strong>
+                <span>{Object.values(PLATFORMS).map((entry) => entry.label).join(", ")}.</span>
               </div>
-              <span className="tag">PLANNED</span>
+              <span className="tag">{Object.keys(PLATFORMS).length} LOADERS</span>
             </div>
             <p className="settings-local">
               <ShieldCheck size={15} /> Local account placeholder ·

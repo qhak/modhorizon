@@ -20,6 +20,7 @@ import { hasAllowedOrigin } from "../src/lib/request-origin";
 const request: GenerateRequest = {
   prompt:
     "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.",
+  platform: "paper",
   version: "1.21.4",
 };
 
@@ -124,7 +125,13 @@ test("mock refuses other prompts, extra instructions, and follow-up edits", asyn
 });
 
 test("input validation rejects invalid versions, unsafe source paths, collisions and oversized content", async () => {
-  assert.throws(() => validateRequest({ ...request, version: "1.20.4" }));
+  assert.throws(() => validateRequest({ ...request, version: "1.21.99" }));
+  // 1.6.4 is a real release, but Paper never shipped a build for it.
+  assert.throws(() => validateRequest({ ...request, version: "1.6.4" }));
+  assert.throws(() => validateRequest({ ...request, platform: "liteloader" }));
+  assert.throws(() => validateRequest({ ...request, platform: "neoforge", version: "1.19.2" }));
+  assert.equal(validateRequest({ ...request, platform: undefined }).platform, "paper");
+  assert.equal(validateRequest({ ...request, platform: "forge", version: "1.7.10" }).version, "1.7.10");
   assert.throws(() => validateRequest({ ...request, prompt: "short" }));
   const generated = await new MockProvider().generate(request);
   for (const path of [
@@ -263,7 +270,12 @@ test("remote build verifies returned artifact and authenticates server-side", as
         "Bearer test-secret",
       );
       assert.equal(init?.redirect, "error");
-      assert.equal(JSON.parse(init!.body as string).javaVersion, 21);
+      const body = JSON.parse(init!.body as string);
+      assert.equal(body.schemaVersion, 2);
+      assert.equal(body.platform, "paper");
+      assert.equal(body.minecraftVersion, "1.21.4");
+      assert.equal(body.javaVersion, 21);
+      assert.equal(body.mappings, "none");
       return Response.json({
         success: true,
         logs: ["Built"],
@@ -271,7 +283,7 @@ test("remote build verifies returned artifact and authenticates server-side", as
       });
     };
     await assert.rejects(
-      () => new RemoteBuildService().build(fixture, request.version),
+      () => new RemoteBuildService().build(fixture, request),
       /invalid JAR/,
     );
     globalThis.fetch = async () =>
@@ -280,10 +292,7 @@ test("remote build verifies returned artifact and authenticates server-side", as
         logs: ["Built"],
         artifactBase64: Buffer.from([0x50, 0x4b, 3, 4]).toString("base64"),
       });
-    const result = await new RemoteBuildService().build(
-      fixture,
-      request.version,
-    );
+    const result = await new RemoteBuildService().build(fixture, request);
     assert.equal(result.success, true);
     assert.equal(result.artifact?.length, 4);
   } finally {

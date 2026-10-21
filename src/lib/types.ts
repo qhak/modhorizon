@@ -1,22 +1,14 @@
-export const MINECRAFT_VERSIONS = [
-  "1.21.1",
-  "1.21.2",
-  "1.21.3",
-  "1.21.4",
-  "1.21.5",
-  "1.21.6",
-  "1.21.7",
-  "1.21.8",
-  "1.21.9",
-  "1.21.10",
-  "1.21.11",
-] as const;
-export type MinecraftVersion = (typeof MINECRAFT_VERSIONS)[number];
+import type { PlatformId } from "./platforms";
+
+/** A Minecraft release, or a proxy API version for proxy platforms. */
+export type MinecraftVersion = string;
 export type GeneratedFile = { path: string; content: string };
 export type Project = {
   id: string;
   name: string;
   prompt: string;
+  /** Absent on projects saved before multi-platform support; treat as Paper. */
+  platform?: PlatformId;
   version: MinecraftVersion;
   files: GeneratedFile[];
   status: "preview" | "success" | "failed";
@@ -28,6 +20,7 @@ export type Project = {
 };
 export type GenerateRequest = {
   prompt: string;
+  platform: PlatformId;
   version: MinecraftVersion;
   modelId?: string;
   project?: { name: string; files: GeneratedFile[] };
@@ -45,9 +38,10 @@ export interface AIProvider {
     errors?: string[],
   ): Promise<GeneratedProject>;
 }
+export type BuildTarget = { platform: PlatformId; version: MinecraftVersion };
 export interface BuildService {
   build(
     project: GeneratedProject,
-    version: MinecraftVersion,
+    target: BuildTarget,
   ): Promise<BuildResult>;
 }

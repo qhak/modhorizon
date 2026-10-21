@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { saveArtifact } from "./project-store";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
+import { PLATFORMS, describeTarget } from "./platforms";
 import type {
   AIProvider,
   BuildService,
@@ -18,6 +19,7 @@ export async function generatePlugin(
     id: randomUUID(),
     name: request.project?.name || "UntitledPlugin",
     prompt: request.prompt,
+    platform: request.platform,
     version: request.version,
     files: [],
     status: "failed",
@@ -28,12 +30,12 @@ export async function generatePlugin(
   };
   try {
     project.logs.push(
-      `Generating Paper ${request.version} source using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
+      `Generating ${describeTarget(request.platform, request.version)} source using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
     );
     const skills = selectGenerationSkills(request.prompt);
     if (skills.length)
       project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
-    let generated = validateProject(await provider.generate(request));
+    let generated = validateProject(await provider.generate(request), request.platform, request.version);
     project.name = generated.name;
     project.files = generated.files;
     if (!builder) {
@@ -49,7 +51,7 @@ export async function generatePlugin(
           ? "Submitting source to the isolated build service."
           : `Repair ${attempt}/3: compiling revised source.`,
       );
-      const result = await builder.build(generated, request.version);
+      const result = await builder.build(generated, { platform: request.platform, version: request.version });
       project.logs.push(...result.logs);
       if (result.success) {
         if (!result.artifact?.length)
@@ -58,8 +60,11 @@ export async function generatePlugin(
           );
         project.status = "success";
         project.artifactAvailable = true;
+        const { kind, label } = PLATFORMS[request.platform];
         project.logs.push(
-          "Build succeeded. Test plugin behavior on a local Paper server before use.",
+          kind === "mod"
+            ? `Build succeeded. Test the mod in a ${label} ${request.version} instance before use.`
+            : `Build succeeded. Test behavior on a local ${label} ${kind === "proxy" ? "proxy" : "server"} before use.`,
         );
         saveArtifact(project, result.artifact);
         return project;
@@ -73,6 +78,8 @@ export async function generatePlugin(
             { ...request, project: generated },
             result.logs,
           ),
+          request.platform,
+          request.version,
         );
         project.name = generated.name;
         project.files = generated.files;

@@ -10,9 +10,9 @@ export class MockProvider implements AIProvider {
       .trim();
     const supported =
       "create a paper plugin where players receive speed ii for 10 seconds whenever they kill a zombie";
-    if (request.project || normalized !== supported) {
+    if (request.project || request.platform !== "paper" || normalized !== supported) {
       throw new Error(
-        "Development preview supports only the example: Speed II for 10 seconds after killing a zombie. Configure an AI provider for other prompts and follow-up edits.",
+        "Development preview supports only the Paper example: Speed II for 10 seconds after killing a zombie. Configure an AI provider for other platforms, prompts and follow-up edits.",
       );
     }
     return {
