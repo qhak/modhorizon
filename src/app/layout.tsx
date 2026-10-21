@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "ModHorizon — Your Paper plugin studio",
+  title: "ModHorizon — Your Minecraft ideas. Built with AI.",
   description:
     "Turn an idea into a Paper plugin. Generate, inspect, and build Minecraft plugins in one focused workspace.",
 };

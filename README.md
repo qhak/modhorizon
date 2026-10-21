@@ -2,6 +2,8 @@
 
 A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 
+Batch 1 adds the cinematic landing page at `/`. Start Building opens the preserved prototype at `/workspace`. Accounts and credit rewards are presented as planned, with no client-side balance changes. See the [Batch 1 implementation record](docs/batch-1.md) for assets, validation and remaining scope.
+
 Cloudflare deployment and hosted-preview configuration are documented in [Cloudflare hosting](docs/cloudflare.md). Run `npm run deploy` to build and deploy the configured Worker. The initial hosted version disables generation until provider credentials are connected.
 
 ## Local setup
