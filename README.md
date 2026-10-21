@@ -1,0 +1,66 @@
+# ModHorizon
+
+A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
+
+Cloudflare deployment and hosted-preview configuration are documented in [Cloudflare hosting](docs/cloudflare.md). Run `npm run deploy` to build and deploy the configured Worker. The initial hosted version disables generation until provider credentials are connected.
+
+## Local setup
+
+Install Node.js 22 LTS or newer, then:
+
+```powershell
+cd modhorizon
+npm install
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+On macOS/Linux, replace `Copy-Item .env.example .env.local` with `cp .env.example .env.local`. Open [localhost:3215](http://localhost:3215). The server binds to loopback by default. Java and Gradle are not required to explore the development preview.
+
+Start with:
+
+> Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.
+
+The development provider generates a fixed, clearly identified source preview for this example. It does not understand arbitrary prompts or follow-up edits. With no build service configured, development mode does not compile Java, report a successful build, or provide a downloadable JAR. A working end-to-end compiled artifact requires the separate build service described in [the architecture](docs/architecture.md).
+
+## Configuration and checks
+
+Copy the provided `.env.example` and follow its comments to select the AI provider and build service. Keep all API keys in server-only environment variables; never prefix them with `NEXT_PUBLIC_`.
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` | Server-only provider credentials. Configure one or more to enable those model choices. |
+| `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL`, `GEMINI_BASE_URL` | Optional trusted provider API bases. |
+| `AI_PROVIDER` | `mock` for the local fixed example preview. Kept for compatibility with earlier setup. |
+| `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` | Legacy OpenAI-compatible Chat Completions configuration. |
+| `BUILD_SERVICE_URL` | Exact trusted build HTTP endpoint; unset locally to preview sources only. |
+| `BUILD_SERVICE_TOKEN` | Credential for the trusted build service. |
+
+Service URLs require HTTPS; HTTP loopback is permitted only in development. Configuring a URL does not create a build worker. The real provider must support Chat Completions with JSON-object responses. Follow-up edits are available only through the real provider.
+
+```powershell
+npm test
+npm run typecheck
+npm run build
+```
+
+Tests cover the generation/build orchestration and validation. They do not prove Minecraft behavior or the isolation of an external worker.
+
+For a production-mode smoke test, configure a real AI provider and a trusted build service first, then run `npm run build` and `npm start`. Mock modes are development-only and must fail closed in production. This prototype has no production authentication, tenant ownership, durable project storage, distributed queue, payment flow, or abuse controls. Keep it local until those deployment requirements are addressed.
+
+## Manual Paper 1.21.4 acceptance test
+
+Perform these steps only after obtaining a real compiled JAR from a reviewed build service. The preview cannot satisfy this test, and no Minecraft runtime verification is claimed by this repository.
+
+1. Create a disposable local server folder and use Java 21. Download **Paper 1.21.4**, rename its server JAR to `paper.jar`, and follow [Paper's server setup guide](https://docs.papermc.io/paper/admin/getting-started/). Use a fresh test world without other plugins. Start it with `java -Xms1G -Xmx2G -jar paper.jar --nogui`; review and accept the Minecraft EULA if you agree, then start again. Restrict the server to your machine using `server-ip=127.0.0.1` in `server.properties`.
+2. Stop the server. Copy the generated plugin JAR into `plugins/`, then restart. Confirm the console enables `ZombieSprint` without exceptions and `/plugins` lists it. Join with a Minecraft Java 1.21.4 client on `localhost`. Give your test player operator permissions through the server console if needed.
+3. Set `/time set midnight`, `/difficulty normal`, and `/gamemode survival`. Clear effects with `/effect clear @s`. Summon `/summon minecraft:zombie ~ ~ ~3 {NoAI:1b}` and kill it with a sword. Expect the activation message and **Speed II**, lasting about **10 seconds** (200 server ticks at 20 TPS). Confirm it expires. Repeat a kill before expiry to check reapplication.
+4. Clear effects before each case. Kill a skeleton, husk, drowned, and zombie villager: none should grant this reward. Let an untouched zombie die from an environmental cause: no player should receive the effect. With two players, confirm only the player credited with the kill receives it.
+5. Kill a zombie using your bow or crossbow. The implementation uses Paper's `getKiller()` attribution, so a projectile kill credited to the player should grant the effect. A mob or dispenser projectile with no credited player should not. Also test a recently player-damaged zombie that later dies to fire/falling: Paper may still credit the player; that attribution is the current intended boundary, rather than a requirement for a direct melee final hit.
+6. Test an existing Speed effect separately. Minecraft effect merging can preserve a stronger effect; this plugin does not promise to downgrade it. Verify no unexpected console exceptions. Change `plugins/ZombieSprint/config.yml`'s `activation-message`, restart, and confirm the changed message.
+
+See the [Paper 1.21.4 `LivingEntity` API](https://jd.papermc.io/paper/1.21.4/org/bukkit/entity/LivingEntity.html) for kill attribution and [the `PotionEffect` API](https://jd.papermc.io/paper/1.21.4/org/bukkit/potion/PotionEffect.html) for duration units. Compilation and behavior on each selectable Minecraft version require separate verification.
+
+## Next implementation steps
+
+Implement and audit the isolated Java 21/Gradle worker, then run the above acceptance test with a real artifact. Next add durable jobs and artifact storage, cancellation and progress streaming, ownership/authentication, quotas and rate limits, and broader prompt and gameplay evaluation. Fabric and NeoForge remain unavailable.
