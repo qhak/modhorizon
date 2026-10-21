@@ -20,9 +20,9 @@
 /* Hero */
 .hero-section { position: relative; min-height: 100svh; overflow: hidden; }
 .hero-backdrop { position: absolute; inset: 0; }
-.hero-backdrop::before { content: ""; position: absolute; inset: 0; background: var(--poster) center / cover no-repeat; opacity: .45; }
-.hero-video.is-live { opacity: .5; }
-.video-gradient { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(transparent 0, rgb(0 0 0 / .5) 40%, rgb(0 0 0 / .95)), linear-gradient(to bottom, transparent 70%, var(--background)); }
+/* Dim with the overlay, not opacity: a translucent video would let the poster show through. */
+.hero-backdrop::before { content: ""; position: absolute; inset: 0; background: var(--poster) center / cover no-repeat; }
+.video-gradient { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(transparent 0, rgb(0 0 0 / .5) 40%, rgb(0 0 0 / .95)), linear-gradient(to bottom, transparent 70%, var(--background)), rgb(10 10 13 / .5); }
 .video-toggle { position: absolute; right: 24px; bottom: 24px; z-index: 20; padding: 7px 14px; border: 1px solid rgb(255 255 255 / .15); border-radius: 999px; background: rgb(10 10 13 / .55); color: rgb(255 255 255 / .7); font-size: 12px; font-weight: 500; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .video-toggle:hover { border-color: rgb(255 255 255 / .3); color: #fff; }
 .hero-wrapper { position: relative; z-index: 10; pointer-events: none; display: flex; align-items: center; justify-content: center; min-height: 100svh; padding: 112px 0 64px; }
