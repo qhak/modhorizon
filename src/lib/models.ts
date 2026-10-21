@@ -155,3 +155,39 @@ export function preferredModelId(
   if (choices.demo) return "demo";
   return DEFAULT_MODEL_ID;
 }
+
+export type ReasoningLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+export const REASONING_LABELS: Record<ReasoningLevel, string> = {
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max",
+};
+
+// The effort levels each provider's API accepts, lowest first.
+const PROVIDER_REASONING: Record<Exclude<ModelProvider, "demo">, ReasoningLevel[]> = {
+  openai: ["low", "medium", "high"],
+  anthropic: ["low", "medium", "high", "xhigh", "max"],
+  google: ["minimal", "low", "medium", "high"],
+};
+
+// Each provider's own default; Claude Opus 5.5 defaults lower than other Claude models.
+const PROVIDER_DEFAULT: Record<Exclude<ModelProvider, "demo">, ReasoningLevel> = {
+  openai: "medium",
+  anthropic: "high",
+  google: "high",
+};
+const MODEL_DEFAULT: Record<string, ReasoningLevel> = { "claude-opus-5-5": "medium" };
+
+/** Reasoning levels a model offers, or null for the local preview, which makes no AI call. */
+export function reasoningFor(modelId: string): { levels: ReasoningLevel[]; default: ReasoningLevel } | null {
+  const model = findModel(modelId);
+  if (!model || model.provider === "demo") return null;
+  return {
+    levels: PROVIDER_REASONING[model.provider],
+    default: MODEL_DEFAULT[model.id] ?? PROVIDER_DEFAULT[model.provider],
+  };
+}

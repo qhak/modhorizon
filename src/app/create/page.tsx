@@ -7,6 +7,11 @@ import {
   ArrowRight,
   ArrowUp,
   Blocks,
+  Brain,
+  Database,
+  Palette,
+  Puzzle,
+  Sun,
   Check,
   ChevronDown,
   CircleHelp,
@@ -46,7 +51,15 @@ import {
   versionLines,
   type PlatformId,
 } from "@/lib/platforms";
-import { MODEL_OPTIONS, type ModelOption, type ModelProvider } from "@/lib/models";
+import {
+  MODEL_OPTIONS,
+  REASONING_LABELS,
+  reasoningFor,
+  type ModelOption,
+  type ModelProvider,
+  type ReasoningLevel,
+} from "@/lib/models";
+import { SITE_MEDIA } from "@/lib/site-media";
 
 
 type SourceFile = { path: string; content: string };
@@ -132,13 +145,66 @@ function Highlight({ code, path }: { code: string; path: string }) {
   );
 }
 
-function PlatformPicker({ value, onChange, disabled }: {
-  value: PlatformId; onChange: (platform: PlatformId) => void; disabled: boolean;
+// Field values match the generation API's artifactType contract.
+const CONTENT_TYPES = [
+  { id: "plugin", label: "Plugin", icon: Puzzle, image: SITE_MEDIA.types.plugins.src, loaders: "" },
+  { id: "mod", label: "Mod", icon: Blocks, image: SITE_MEDIA.types.mods.src, loaders: "" },
+  { id: "shader_pack", label: "Shader", icon: Sun, image: SITE_MEDIA.types.shaders.src, loaders: "Iris · Oculus · OptiFine" },
+  { id: "resource_pack", label: "Texture pack", icon: Palette, image: SITE_MEDIA.types.texturePacks.src, loaders: "Vanilla resource pack" },
+  { id: "datapack", label: "Datapack", icon: Database, image: SITE_MEDIA.types.datapacks.src, loaders: "Vanilla datapack" },
+] as const;
+type ContentType = (typeof CONTENT_TYPES)[number]["id"];
+const CODE_TYPES: readonly ContentType[] = ["plugin", "mod"];
+
+function ContentTypeSlider({ value, onChange, supported, disabled }: {
+  value: ContentType;
+  onChange: (type: ContentType) => void;
+  supported: readonly string[];
+  disabled: boolean;
+}) {
+  return (
+    <div className="type-slider" role="group" aria-label="What are you making?">
+      {CONTENT_TYPES.map((type) => (
+        <button
+          key={type.id}
+          type="button"
+          aria-pressed={value === type.id}
+          className={`type-chip ${value === type.id ? "active" : ""}`}
+          disabled={disabled}
+          onClick={() => onChange(type.id)}
+        >
+          <span className="type-thumb" style={{ backgroundImage: `url(${type.image})` }} aria-hidden="true" />
+          <type.icon size={15} aria-hidden="true" />
+          <span>{type.label}</span>
+          {!supported.includes(type.id) && <small>Soon</small>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReasoningPicker({ modelId, value, onChange, disabled }: {
+  modelId: string; value: ReasoningLevel; onChange: (level: ReasoningLevel) => void; disabled: boolean;
+}) {
+  const reasoning = reasoningFor(modelId);
+  if (!reasoning) return null;
+  return <label className="version-picker reasoning-picker" title="How much the model thinks before it answers">
+    <Brain size={13} aria-hidden="true" />
+    <span className="sr-only">Reasoning effort</span>
+    <select value={reasoning.levels.includes(value) ? value : reasoning.default} onChange={(event) => onChange(event.target.value as ReasoningLevel)} disabled={disabled}>
+      {reasoning.levels.map((level) => <option key={level} value={level}>{REASONING_LABELS[level]} reasoning</option>)}
+    </select>
+    <ChevronDown size={13} aria-hidden="true" />
+  </label>;
+}
+
+function PlatformPicker({ value, onChange, disabled, kinds }: {
+  value: PlatformId; onChange: (platform: PlatformId) => void; disabled: boolean; kinds: readonly string[];
 }) {
   return <label className="version-picker platform-picker">
     <span className="sr-only">Platform</span>
     <select value={value} onChange={(event) => { if (isPlatformId(event.target.value)) onChange(event.target.value); }} disabled={disabled}>
-      {PLATFORM_GROUPS.map((group) => (
+      {PLATFORM_GROUPS.filter((group) => kinds.includes(group.kind)).map((group) => (
         <optgroup key={group.kind} label={group.label}>
           {group.ids.map((id) => <option key={id} value={id}>{PLATFORMS[id].label}</option>)}
         </optgroup>
@@ -149,11 +215,12 @@ function PlatformPicker({ value, onChange, disabled }: {
 }
 
 /** Lists every Minecraft release so unsupported picks can be explained, not hidden. */
-function VersionPicker({ platform, value, onChange, disabled }: {
-  platform: PlatformId; value: string; onChange: (version: string) => void; disabled: boolean;
+function VersionPicker({ platform, value, onChange, disabled, anyRelease = false }: {
+  platform: PlatformId; value: string; onChange: (version: string) => void; disabled: boolean; anyRelease?: boolean;
 }) {
-  const { kind, label, versions } = PLATFORMS[platform];
-  const choices = kind === "proxy" ? versions : MINECRAFT_RELEASES;
+  const { kind, label } = PLATFORMS[platform];
+  const versions: readonly string[] = anyRelease ? MINECRAFT_RELEASES : PLATFORMS[platform].versions;
+  const choices = kind === "proxy" && !anyRelease ? versions : MINECRAFT_RELEASES;
   return <label className="version-picker">
     <span className="sr-only">{kind === "proxy" ? `${label} API version` : "Minecraft version"}</span>
     <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
@@ -312,6 +379,15 @@ function ModelPicker({
                 <span className="model-option-main">
                   <strong>{model.label}</strong>
                   <small>{model.description}</small>
+                  {(() => {
+                    const reasoning = reasoningFor(model.id);
+                    return reasoning && (
+                      <small className="model-option-reasoning">
+                        <Brain size={11} aria-hidden="true" />
+                        Reasoning: {REASONING_LABELS[reasoning.levels[0]]} – {REASONING_LABELS[reasoning.levels.at(-1)!]}
+                      </small>
+                    );
+                  })()}
                 </span>
                 <span className="model-option-price">
                   {showRate(model.inputUsdPerMillion, model.outputUsdPerMillion)}
@@ -431,6 +507,8 @@ export default function Home() {
   const [platform, setPlatform] = useState<PlatformId>(DEFAULT_PLATFORM);
   const [version, setVersion] = useState<string>(PLATFORMS[DEFAULT_PLATFORM].versions[0]);
   const [selectedModel, setSelectedModel] = useState("demo");
+  const [reasoning, setReasoning] = useState<ReasoningLevel>("medium");
+  const [contentType, setContentType] = useState<ContentType>("plugin");
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -452,9 +530,14 @@ export default function Home() {
     message: string;
     choices: Record<string, boolean>;
     preferred: string;
+    /** Content types the generation API can build; plugins and mods when it doesn't say. */
+    artifactTypes?: string[];
   } | null>(null);
   const generationUnavailable = !services?.choices[selectedModel];
   const versionProblem = incompatibility(platform, version);
+  const supportedTypes = services?.artifactTypes ?? CODE_TYPES;
+  const typeUnavailable = !supportedTypes.includes(contentType);
+  const contentLabel = CONTENT_TYPES.find((type) => type.id === contentType)!.label;
   const input = useRef<HTMLTextAreaElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -468,6 +551,11 @@ export default function Home() {
       // The shared graphite palette also works without browser storage.
     }
   }, []);
+
+  useEffect(() => {
+    const options = reasoningFor(selectedModel);
+    if (options) setReasoning(options.default);
+  }, [selectedModel]);
 
   useEffect(() => {
     // Landing-page links prefill the composer with ?prompt=, ?platform= and ?version=.
@@ -583,6 +671,7 @@ export default function Home() {
 
   function choosePlatform(next: PlatformId) {
     setPlatform(next);
+    setContentType(PLATFORMS[next].kind === "mod" ? "mod" : "plugin");
     // Keep the Minecraft version so an unsupported pick is explained; proxies use their own API versions.
     setVersion((current) => {
       const target = PLATFORMS[next];
@@ -591,6 +680,11 @@ export default function Home() {
         ? target.versions.includes(current) ? current : target.versions[0]
         : current;
     });
+  }
+  function chooseContentType(next: ContentType) {
+    if (next === "plugin" && PLATFORMS[platform].kind === "mod") choosePlatform("paper");
+    else if (next === "mod" && PLATFORMS[platform].kind !== "mod") choosePlatform("fabric");
+    setContentType(next);
   }
   function newProject() {
     setProject(null);
@@ -625,7 +719,7 @@ export default function Home() {
   }
   async function generate() {
     const current = project;
-    if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && versionProblem)) return;
+    if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || typeUnavailable))) return;
     const text = prompt.trim();
     if (current) setTab("conversation");
     setBusy(true);
@@ -639,6 +733,9 @@ export default function Home() {
           platform: current ? platformOf(current.platform).id : platform,
           version: current?.version || version,
           modelId: selectedModel,
+          // Read by the generation API; this build's server ignores fields it doesn't use.
+          artifactType: current ? (platformOf(current.platform).kind === "mod" ? "mod" : "plugin") : contentType,
+          ...(reasoningFor(selectedModel) ? { reasoning } : {}),
           ...(current
             ? { project: { name: current.name, files: current.files } }
             : {}),
@@ -817,6 +914,12 @@ export default function Home() {
                   <p>Describe your idea. Pick a loader and any Minecraft version.</p>
                 </div>
               </div>
+              <ContentTypeSlider
+                value={contentType}
+                onChange={chooseContentType}
+                supported={supportedTypes}
+                disabled={busy}
+              />
               <form
                 className="composer"
                 onSubmit={(e) => {
@@ -826,11 +929,18 @@ export default function Home() {
               >
                 <textarea
                   ref={input}
-                  aria-label="Describe your Minecraft plugin or mod"
+                  aria-label={`Describe your Minecraft ${contentLabel.toLowerCase()}`}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   maxLength={4000}
-                  placeholder={PLATFORMS[platform].kind === "mod" ? "A mod that adds a sword which sets mobs on fire…" : PLATFORMS[platform].kind === "proxy" ? "A proxy plugin with a /lobby command that sends players to the hub…" : "A plugin that gives players a speed boost when they defeat a zombie…"}
+                  placeholder={
+                    contentType === "shader_pack" ? "A shader pack with warm sunsets, soft shadows and waving leaves…"
+                      : contentType === "resource_pack" ? "A texture pack that makes ores glow and gives tools a clean, flat look…"
+                        : contentType === "datapack" ? "A datapack that adds a crafting recipe for saddles and a daily login reward…"
+                          : PLATFORMS[platform].kind === "mod" ? "A mod that adds a sword which sets mobs on fire…"
+                            : PLATFORMS[platform].kind === "proxy" ? "A proxy plugin with a /lobby command that sends players to the hub…"
+                              : "A plugin that gives players a speed boost when they defeat a zombie…"
+                  }
                   disabled={busy}
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -841,17 +951,23 @@ export default function Home() {
                 />
                 <div className="composer-footer">
                   <div className="selectors">
-                    <PlatformPicker
-                      value={platform}
-                      onChange={choosePlatform}
-                      disabled={busy}
-                    />
+                    {CODE_TYPES.includes(contentType) ? (
+                      <PlatformPicker
+                        value={platform}
+                        onChange={choosePlatform}
+                        disabled={busy}
+                        kinds={contentType === "mod" ? ["mod"] : ["plugin", "proxy"]}
+                      />
+                    ) : (
+                      <span className="platform-pill">{CONTENT_TYPES.find((type) => type.id === contentType)!.loaders}</span>
+                    )}
                     <span className="select-separator" />
                     <VersionPicker
                       platform={platform}
                       value={version}
                       onChange={setVersion}
                       disabled={busy}
+                      anyRelease={!CODE_TYPES.includes(contentType)}
                     />
                     <span className="select-separator" />
                     <ModelPicker
@@ -861,11 +977,12 @@ export default function Home() {
                       choices={services?.choices || {}}
                       disabled={busy}
                     />
+                    <ReasoningPicker modelId={selectedModel} value={reasoning} onChange={setReasoning} disabled={busy} />
                   </div>
                   <Button
                     type="submit"
-                    disabled={busy || generationUnavailable || Boolean(versionProblem) || prompt.trim().length < 12}
-                    title={versionProblem ? versionProblem.title : generationUnavailable ? "Connect an AI provider in the server configuration to enable generation." : undefined}
+                    disabled={busy || generationUnavailable || typeUnavailable || Boolean(versionProblem && !typeUnavailable) || prompt.trim().length < 12}
+                    title={typeUnavailable ? `${contentLabel} generation isn't available in this build yet.` : versionProblem ? versionProblem.title : generationUnavailable ? "Connect an AI provider in the server configuration to enable generation." : undefined}
                   >
                     {busy ? (
                       <LoaderCircle size={16} className="spin" />
@@ -875,13 +992,27 @@ export default function Home() {
                   </Button>
                 </div>
               </form>
-              <CompatibilityNotice
-                key={`${platform}-${version}`}
-                platform={platform}
-                version={version}
-                onVersion={setVersion}
-                onPlatform={choosePlatform}
-              />
+              {typeUnavailable ? (
+                <div className="compat-notice" role="status">
+                  <div className="compat-head">
+                    <TriangleAlert size={15} aria-hidden="true" />
+                    <strong>{contentLabel} generation isn&apos;t connected in this build yet.</strong>
+                  </div>
+                  <p>It runs on the new generation API. Plugins and mods work here today.</p>
+                  <div className="compat-actions">
+                    <button type="button" onClick={() => chooseContentType("plugin")}>Make a plugin</button>
+                    <button type="button" onClick={() => chooseContentType("mod")}>Make a mod</button>
+                  </div>
+                </div>
+              ) : (
+                <CompatibilityNotice
+                  key={`${platform}-${version}`}
+                  platform={platform}
+                  version={version}
+                  onVersion={setVersion}
+                  onPlatform={choosePlatform}
+                />
+              )}
               <div className="composer-meta">
                 <span className="composer-meta-right">
                   <span className="provider-note">{services?.message || "Checking provider…"}</span>
@@ -1072,13 +1203,16 @@ export default function Home() {
                   placeholder="Describe a change…"
                 />
                 <div>
-                  <ModelPicker
-                    value={selectedModel}
-                    onChange={setSelectedModel}
-                    onSetup={() => setModal("settings")}
-                    choices={services?.choices || {}}
-                    disabled={busy}
-                  />
+                  <div className="followup-pickers">
+                    <ModelPicker
+                      value={selectedModel}
+                      onChange={setSelectedModel}
+                      onSetup={() => setModal("settings")}
+                      choices={services?.choices || {}}
+                      disabled={busy}
+                    />
+                    <ReasoningPicker modelId={selectedModel} value={reasoning} onChange={setReasoning} disabled={busy} />
+                  </div>
                   <Button
                     size="icon"
                     aria-label="Send follow-up"

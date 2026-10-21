@@ -69,8 +69,8 @@ async function bundleLanding() {
             namespace: "static-index",
           }));
           context.onLoad({ filter: /.*/, namespace: "static-index" }, () => ({
-            contents: `export const SITE_MEDIA = ${JSON.stringify(
-              Object.fromEntries(Object.entries(SITE_MEDIA).map(([key, value]) => [key, mediaPath(value)])),
+            contents: `export const SITE_MEDIA = ${JSON.stringify(SITE_MEDIA, (_key, value: unknown) =>
+              typeof value === "string" && value.startsWith("/media/") ? mediaPath(value) : value,
             )};`,
             loader: "js",
           }));
