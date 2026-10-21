@@ -9,9 +9,12 @@ import { validateCreation, validateSnapshot } from "../src/lib/managed-project";
 
 const input = { name: "Nightfall Rewards", description: "A new mechanic", kind: "plugin", platform: "paper", version: "1.21.4" };
 
-test("project creation rejects unsupported loaders, platforms, versions, and invalid fields", () => {
+test("project creation accepts supported artifact targets and rejects invalid platforms, versions, and fields", () => {
   assert.equal(validateCreation(input).platform, "paper");
-  for (const change of [{ kind: "mod", platform: "fabric" }, { platform: "spigot" }, { version: "9.9" }, { name: " " }, { name: "x".repeat(49) }, { description: "x".repeat(4001) }]) assert.throws(() => validateCreation({ ...input, ...change }));
+  assert.equal(validateCreation({ ...input, kind: "mod", platform: "fabric" }).platform, "fabric");
+  assert.equal(validateCreation({ ...input, kind: "resource_pack", platform: "vanilla" }).platform, "vanilla");
+  assert.equal(validateCreation({ ...input, kind: "shader_pack", platform: "iris" }).platform, "iris");
+  for (const change of [{ platform: "spigot" }, { kind: "mod", platform: "paper" }, { kind: "resource_pack", platform: "iris" }, { version: "9.9" }, { name: " " }, { name: "x".repeat(49) }, { description: "x".repeat(4001) }]) assert.throws(() => validateCreation({ ...input, ...change }));
 });
 
 test("local gate rejects production, unknown hosts, unauthenticated reads and forged mutation origins", async () => {

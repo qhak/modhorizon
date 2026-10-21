@@ -33,8 +33,9 @@ export type Project = {
 export type GenerateRequest = {
   prompt: string;
   version: MinecraftVersion;
-  artifactType: ArtifactType;
-  target: ArtifactTarget;
+  /** Omitted by legacy callers; validated API requests always provide both fields. */
+  artifactType?: ArtifactType;
+  target?: ArtifactTarget;
   modelId?: string;
   project?: { name: string; files: GeneratedFile[] };
 };
@@ -54,6 +55,6 @@ export interface AIProvider {
 export interface BuildService {
   build(
     project: GeneratedProject,
-    version: MinecraftVersion,
+    request: Pick<GenerateRequest, "version" | "artifactType" | "target"> | MinecraftVersion,
   ): Promise<BuildResult>;
 }

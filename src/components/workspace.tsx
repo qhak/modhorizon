@@ -33,11 +33,12 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MINECRAFT_VERSIONS, type Project } from "@/lib/types";
+import { MINECRAFT_VERSIONS, type ArtifactTarget, type ArtifactType, type Project } from "@/lib/types";
 import { MODEL_OPTIONS, type ModelOption, type ModelProvider } from "@/lib/models";
 
 
 type SourceFile = { path: string; content: string };
+type ArtifactOption = { type: ArtifactType; label: string; targets: { id: ArtifactTarget; label: string }[]; output: string; limitations: string[] };
 type Message = { role: "user" | "assistant"; text: string };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
@@ -46,6 +47,21 @@ const suggestions = [
   { title: "Spawn command", description: "A /spawn command with a welcome message", prompt: "Create a Paper plugin with a /spawn command that teleports players to the world spawn and sends a configurable welcome message." },
   { title: "Server menu", description: "A custom server menu with /menu", prompt: "Create a Paper plugin with a /menu command that opens a simple inventory GUI containing a compass that teleports the player to spawn." },
 ];
+const DEFAULT_ARTIFACT_OPTIONS: ArtifactOption[] = [
+  { type: "plugin", label: "Server plugin", targets: [{ id: "paper", label: "Paper" }], output: "paper-jar-requires-build-service", limitations: [] },
+  { type: "mod", label: "Minecraft mod", targets: [{ id: "fabric", label: "Fabric" }, { id: "forge", label: "Minecraft Forge" }, { id: "neoforge", label: "NeoForge" }], output: "mod-jar-requires-mod-loader-build-service", limitations: [] },
+  { type: "resource_pack", label: "Resource pack", targets: [{ id: "vanilla", label: "Vanilla resource pack" }], output: "installable-zip", limitations: [] },
+  { type: "shader_pack", label: "Shader pack", targets: [{ id: "iris", label: "Iris" }, { id: "optifine", label: "OptiFine" }], output: "installable-zip", limitations: [] },
+];
+const EXAMPLE_PROMPTS: Record<ArtifactType, string> = {
+  plugin: "Create a Paper plugin with a /spawn command that teleports players to world spawn.",
+  mod: "Create a Fabric mod that adds a craftable copper lantern with a soft blue glow.",
+  resource_pack: "Create a resource pack that renames the diamond sword to 'Nightfall Blade' in English and adds a short purple-themed pack description.",
+  shader_pack: "Create a lightweight Iris shader pack with warm sunset colors, subtle water reflections, and a performance-friendly settings file.",
+};
+const ARTIFACT_LABELS: Record<ArtifactType, string> = {
+  plugin: "server plugin", mod: "Minecraft mod", resource_pack: "resource pack", shader_pack: "shader pack",
+};
 
 function Logo({ small = false }: { small?: boolean }) {
   return (
@@ -129,6 +145,31 @@ function VersionPicker({ value, onChange, disabled }: {
     <span className="sr-only">Minecraft version</span>
     <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
       {[...MINECRAFT_VERSIONS].reverse().map((version) => <option key={version} value={version}>{version}</option>)}
+    </select>
+    <ChevronDown size={13} aria-hidden="true" />
+  </label>;
+}
+
+function ArtifactPicker({ value, options, onChange, disabled }: {
+  value: ArtifactType; options: ArtifactOption[]; onChange: (type: ArtifactType) => void; disabled: boolean;
+}) {
+  return <label className="version-picker">
+    <span className="sr-only">Minecraft project type</span>
+    <select value={value} onChange={(event) => onChange(event.target.value as ArtifactType)} disabled={disabled}>
+      {options.map((option) => <option key={option.type} value={option.type}>{option.label}</option>)}
+    </select>
+    <ChevronDown size={13} aria-hidden="true" />
+  </label>;
+}
+
+function TargetPicker({ value, targets, onChange, disabled }: {
+  value: ArtifactTarget; targets: ArtifactOption["targets"]; onChange: (target: ArtifactTarget) => void; disabled: boolean;
+}) {
+  if (targets.length < 2) return <span className="platform-pill">{targets[0]?.label || value}</span>;
+  return <label className="version-picker">
+    <span className="sr-only">Build target</span>
+    <select value={value} onChange={(event) => onChange(event.target.value as ArtifactTarget)} disabled={disabled}>
+      {targets.map((target) => <option key={target.id} value={target.id}>{target.label}</option>)}
     </select>
     <ChevronDown size={13} aria-hidden="true" />
   </label>;
@@ -309,6 +350,9 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
   const [pendingSnapshot, setPendingSnapshot] = useState<Project | null>(null);
   const [prompt, setPrompt] = useState("");
   const [version, setVersion] = useState("1.21.11");
+  const [artifactOptions, setArtifactOptions] = useState(DEFAULT_ARTIFACT_OPTIONS);
+  const [artifactType, setArtifactType] = useState<ArtifactType>("plugin");
+  const [target, setTarget] = useState<ArtifactTarget>("paper");
   const [selectedModel, setSelectedModel] = useState("demo");
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
@@ -333,6 +377,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
     preferred: string;
   } | null>(null);
   const generationUnavailable = !services?.choices[selectedModel];
+  const artifactOption = artifactOptions.find((option) => option.type === artifactType) || DEFAULT_ARTIFACT_OPTIONS[0];
   const input = useRef<HTMLTextAreaElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -354,7 +399,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
     fetch(`/api/library/projects/${managedId}`, { cache: "no-store", signal: controller.signal })
       .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); return data.project as ManagedProject; })
       .then(saved => {
-        setManaged(saved); setVersion(saved.version);
+        setManaged(saved); setVersion(saved.version); setArtifactType(saved.kind); setTarget(saved.platform);
         if (saved.snapshot) openProject(saved.snapshot);
         else setPrompt(saved.description);
         setManagedError("");
@@ -396,6 +441,15 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
         setSelectedModel((current) => data.choices[current] ? current : data.preferred);
       })
       .catch(() => { /* Submission still reports service errors if status cannot load. */ });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/generate", { signal: controller.signal, cache: "force-cache" })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => { if (Array.isArray(data.artifacts) && data.artifacts.length) setArtifactOptions(data.artifacts); })
+      .catch(() => { /* Local defaults keep the mode picker usable if the catalog is offline. */ });
     return () => controller.abort();
   }, []);
 
@@ -488,6 +542,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
   function newProject() {
     if (managedId) { window.location.href = "/dashboard/new"; return; }
     setProject(null);
+    if (!managedId) { setArtifactType("plugin"); setTarget("paper"); }
     setPrompt("");
     setMessages([]);
     setError("");
@@ -496,6 +551,9 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
   }
   function openProject(p: Project) {
     setProject(p);
+    setArtifactType(p.artifactType || "plugin");
+    setTarget(p.target || "paper");
+    setVersion(p.version);
     if (p.modelId && MODEL_OPTIONS.some((model) => model.id === p.modelId))
       setSelectedModel(p.modelId);
     setMessages([
@@ -505,8 +563,16 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
         text:
           p.error ||
           (p.status === "success"
-            ? "The build service compiled this plugin. Download it and verify its behavior on a local Paper server."
-            : "Source preview ready. This has not been compiled. Connect an isolated build service to build a JAR."),
+            ? p.artifactType === "resource_pack" || p.artifactType === "shader_pack"
+              ? "Your pack ZIP is ready to download. Install it in Minecraft and verify the result in game."
+              : p.artifactType === "mod"
+                ? `The ${p.target} build service returned a mod JAR. Test it on a matching client and server.`
+                : "The build service compiled this plugin. Download it and verify its behavior on a local Paper server."
+            : p.artifactType === "resource_pack" || p.artifactType === "shader_pack"
+              ? "Source preview ready. The validated pack files will be packaged as a ZIP."
+              : p.artifactType === "mod"
+                ? "Source preview ready. Connect a loader-capable isolated build service to compile a mod JAR."
+                : "Source preview ready. This has not been compiled. Connect an isolated build service to build a JAR."),
       },
     ]);
     setSelectedFile(p.files[0]?.path || "");
@@ -529,6 +595,8 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
         body: JSON.stringify({
           prompt: text,
           version: current?.version || version,
+          artifactType: current?.artifactType || artifactType,
+          target: current?.target || target,
           modelId: selectedModel,
           ...(current
             ? { project: { name: current.name, files: current.files } }
@@ -589,10 +657,11 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
   const currentFile = project?.files.find((f) => f.path === selectedFile);
   const statusLabel =
     project?.status === "success"
-      ? "Build passed"
+      ? project.artifactType === "resource_pack" || project.artifactType === "shader_pack" ? "Packaged and ready" : "Build passed"
       : project?.status === "failed"
         ? "Build failed"
         : "Source preview";
+  const artifactExtension = project?.artifactType === "plugin" || project?.artifactType === "mod" ? "jar" : "zip";
 
   return (
     <div className="app-shell">
@@ -691,7 +760,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
             <span className="workspace-label">Workspace</span>
             <span className="crumb-slash">/</span>
             <span>{managed?.name || project?.name || "New project"}</span>
-            {project && <span className="tag paper-tag">Paper</span>}
+            {project && <span className="tag paper-tag">{artifactOption.targets.find((item) => item.id === project.target)?.label || project.target}</span>}
           </div>
           <div className="topbar-right">
             {managedId && <Link href="/dashboard/credits"><CreditBalance balance={profile?.credits ?? null} /></Link>}
@@ -712,7 +781,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
               <div className="workspace-home-heading">
                 <div>
                   <h1>{managed ? managed.name : "What will you create?"}</h1>
-                  <p>Describe your idea. Make it a Minecraft plugin.</p>
+                  <p>Describe your idea. Make it a {ARTIFACT_LABELS[artifactType]}.</p>
                 </div>
               </div>
               <form
@@ -724,11 +793,11 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
               >
                 <textarea
                   ref={input}
-                  aria-label="Describe your Minecraft plugin"
+                  aria-label={`Describe your Minecraft ${ARTIFACT_LABELS[artifactType]}`}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   maxLength={4000}
-                  placeholder="A plugin that gives players a speed boost when they defeat a zombie…"
+                  placeholder={artifactType === "plugin" ? "A plugin that gives players a speed boost when they defeat a zombie…" : EXAMPLE_PROMPTS[artifactType]}
                   disabled={busy}
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -739,7 +808,12 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                 />
                 <div className="composer-footer">
                   <div className="selectors">
-                    <span className="platform-pill" title="Paper is the supported platform">Paper</span>
+                    <ArtifactPicker value={artifactType} options={artifactOptions} onChange={(type) => {
+                      setArtifactType(type);
+                      setTarget(artifactOptions.find((option) => option.type === type)?.targets[0]?.id || "paper");
+                    }} disabled={busy || Boolean(managedId)} />
+                    <span className="select-separator" />
+                    <TargetPicker value={target} targets={artifactOption.targets} onChange={setTarget} disabled={busy || Boolean(managedId)} />
                     <span className="select-separator" />
                     <ModelPicker
                       value={selectedModel}
@@ -770,7 +844,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
               </form>
               <div className="composer-meta">
                 <span className="composer-meta-right">
-                  <span className="provider-note">{services?.message || "Checking provider…"}</span>
+                  <span className="provider-note">{services?.message || "Checking provider…"}{artifactOption.limitations.length ? ` · ${artifactOption.limitations[0]}` : ""}</span>
                   <span className="keyboard-hint"><span>Ctrl / ⌘ + Enter</span></span>
                 </span>
               </div>
@@ -794,10 +868,10 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
               )}
               <section id="starter-prompts" className="starter-section">
                 <div className="starter-section-heading">
-                  <h2>A few ideas to start with</h2>
+                  <h2>{artifactType === "plugin" ? "A few ideas to start with" : `Try a ${ARTIFACT_LABELS[artifactType]} prompt`}</h2>
                 </div>
                 <div className="starter-list">
-                {suggestions.slice(0, 3).map((s) => (
+                {(artifactType === "plugin" ? suggestions : [{ title: artifactOption.label, description: `Start with a simple ${ARTIFACT_LABELS[artifactType]}`, prompt: EXAMPLE_PROMPTS[artifactType] }]).map((s) => (
                   <button
                     key={s.title}
                     className="starter-prompt"
@@ -864,15 +938,15 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                     disabled={!project.artifactAvailable}
                     title={
                       !project.artifactAvailable
-                        ? "No compiled artifact. Connect the isolated build service."
-                        : "Download compiled plugin"
+                        ? project.artifactType === "mod" ? "Connect a loader-capable isolated build service to compile this mod." : "No installable artifact is available yet."
+                        : `Download ${ARTIFACT_LABELS[project.artifactType]} .${artifactExtension}`
                     }
                     onClick={() => {
                       window.location.href = `/api/projects/${project.id}/download`;
                     }}
                   >
                     <ArrowDownToLine size={14} />
-                    <span>Download .jar</span>
+                    <span>Download .{artifactExtension}</span>
                   </Button>
                 </div>
               </div>
@@ -954,7 +1028,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                   onChange={(e) => setPrompt(e.target.value)}
                   disabled={busy}
                   maxLength={4000}
-                  placeholder="Describe a change to your plugin…"
+                  placeholder={`Describe a change to your ${ARTIFACT_LABELS[project.artifactType]}…`}
                 />
                 <div>
                   <ModelPicker
@@ -984,10 +1058,18 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                 <strong>{statusLabel}</strong>
                 <span>
                   {project.status === "success"
-                    ? "Compiled by build service. Verify in-game behavior."
+                    ? project.artifactType === "resource_pack"
+                      ? "Packaged as a resource-pack ZIP. Add textures separately if your prompt requires them."
+                      : project.artifactType === "shader_pack"
+                        ? "Packaged as a shader ZIP. GLSL and GPU behavior still need in-game testing."
+                        : project.artifactType === "mod"
+                          ? "Compiled by the selected loader build service. Test on a matching client and server."
+                          : "Compiled by build service. Verify in-game behavior."
                     : project.status === "failed"
                       ? "Check the logs for details."
-                      : "Not compiled. Connect an isolated build service to create a JAR."}
+                      : project.artifactType === "mod"
+                        ? `Not compiled. Connect a build service that supports ${project.target}.`
+                        : "Not compiled. Connect an isolated build service to create a JAR."}
                 </span>
                 <button
                   className="icon-button"
@@ -1002,19 +1084,19 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                   <div className="test-workflow-heading">
                     <div>
                       <span className="eyebrow">FROM PROMPT TO PLAYTEST</span>
-                      <h2>Test your plugin</h2>
-                      <p>Follow the steps in order. ModHorizon will show when a compiled JAR is ready to install.</p>
+                      <h2>Test your {ARTIFACT_LABELS[project.artifactType]}</h2>
+                      <p>Review the output, install it in a matching Minecraft setup, and verify the behavior in game.</p>
                     </div>
                     {project.artifactAvailable && (
                       <Button size="sm" onClick={() => { window.location.href = `/api/projects/${project.id}/download`; }}>
-                        <ArrowDownToLine size={14} /> Download .jar
+                        <ArrowDownToLine size={14} /> Download .{artifactExtension}
                       </Button>
                     )}
                   </div>
                   <ol className="test-steps" aria-label="Plugin testing progress">
                     <li className={project.files.length ? "test-step-done" : "test-step-current"}><span>1</span><div><strong>Describe and generate</strong><small>{project.files.length ? "Source files are ready for review." : "Generation did not return source files. Review the conversation and try again."}</small></div>{project.files.length ? <Check size={15} /> : <span className="step-state">Review</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>Compile the plugin</strong><small>{project.artifactAvailable ? "A JAR was returned by the build service." : project.files.length ? project.status === "failed" ? "The build failed. Open Build to review the logs." : "Waiting for an isolated build service. Source preview is not a JAR." : "Available after source generation succeeds."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and playtest</strong><small>{project.artifactAvailable ? `Install the JAR on a Paper ${project.version} server you control, then check the behavior in game.` : "Available after a compiled JAR is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>{project.artifactType === "resource_pack" || project.artifactType === "shader_pack" ? "Package the files" : "Compile the project"}</strong><small>{project.artifactAvailable ? `An installable .${artifactExtension} file is ready.` : project.files.length ? project.status === "failed" ? "The build failed. Open Build to review the logs." : "Waiting for a compatible isolated build service." : "Available after source generation succeeds."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and test</strong><small>{project.artifactAvailable ? project.artifactType === "plugin" ? `Install the JAR on a Paper ${project.version} server you control.` : project.artifactType === "mod" ? `Install the JAR in the ${project.target} mods folder on the required client/server.` : project.artifactType === "resource_pack" ? "Import the ZIP using Minecraft’s Resource Packs screen." : `Install the ZIP through ${project.target} and check it in game.` : "Available after an installable artifact is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
                   </ol>
                   {!project.artifactAvailable && (
                     <div className="test-blocker" role="status">
@@ -1023,11 +1105,12 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                       <button type="button" onClick={() => setTab(project.status === "failed" && project.files.length ? "logs" : project.files.length ? "code" : "conversation")}>{project.status === "failed" && project.files.length ? "Review build output" : project.files.length ? "Review generated source" : "Review generation"}<ArrowRight size={14} /></button>
                     </div>
                   )}
-                  <div className="test-target-toggle" role="group" aria-label="Choose server setup">
-                    <button type="button" aria-pressed={testTarget === "local"} className={testTarget === "local" ? "target-active" : ""} onClick={() => setTestTarget("local")}>Local Paper server</button>
-                    <button type="button" aria-pressed={testTarget === "hosted"} className={testTarget === "hosted" ? "target-active" : ""} onClick={() => setTestTarget("hosted")}>My server host</button>
-                  </div>
-                  {testTarget === "local" ? (
+                  {project.artifactType === "plugin" ? <>
+                    <div className="test-target-toggle" role="group" aria-label="Choose server setup">
+                      <button type="button" aria-pressed={testTarget === "local"} className={testTarget === "local" ? "target-active" : ""} onClick={() => setTestTarget("local")}>Local Paper server</button>
+                      <button type="button" aria-pressed={testTarget === "hosted"} className={testTarget === "hosted" ? "target-active" : ""} onClick={() => setTestTarget("hosted")}>My server host</button>
+                    </div>
+                    {testTarget === "local" ? (
                     <div className="test-instructions">
                       <h3>Run a private test server</h3>
                       <ol>
@@ -1038,7 +1121,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                         <li><strong>Check it in game.</strong> Confirm the plugin is listed by <code>/plugins</code>, then try the behavior described in your prompt.</li>
                       </ol>
                     </div>
-                  ) : (
+                    ) : (
                     <div className="test-instructions">
                       <h3>Install on a hosted server</h3>
                       <ol>
@@ -1049,8 +1132,28 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                         <li><strong>Test the mechanic</strong> in a private world before using it on a live server.</li>
                       </ol>
                     </div>
+                    )}
+                  </> : (
+                    <div className="test-instructions">
+                      <h3>{project.artifactType === "mod" ? "Install the mod" : project.artifactType === "resource_pack" ? "Import the resource pack" : `Install with ${project.target}`}</h3>
+                      <ol>
+                        {project.artifactType === "mod" ? <>
+                          <li>Install Minecraft {project.version} with the matching {project.target} loader.</li>
+                          <li>Copy the downloaded JAR into the instance’s <code>mods</code> folder. Install it on each side required by the generated mod.</li>
+                          <li>Launch a disposable test world and review the game log if it fails to load.</li>
+                        </> : project.artifactType === "resource_pack" ? <>
+                          <li>Open Options → Resource Packs → Open Pack Folder.</li>
+                          <li>Copy the downloaded ZIP into that folder, return to Minecraft, and enable the pack.</li>
+                          <li>Check the changed resources in game. Add any missing texture files separately.</li>
+                        </> : <>
+                          <li>Install the selected shader runtime ({project.target}) for Minecraft {project.version}.</li>
+                          <li>Copy the downloaded ZIP into the runtime’s <code>shaderpacks</code> folder and select it in video settings.</li>
+                          <li>Check visual output and performance on your graphics hardware.</li>
+                        </>}
+                      </ol>
+                    </div>
                   )}
-                  <p className="test-safety"><ShieldCheck size={14} /> Generated plugins run with your server’s permissions. Review the source and test on a server you control before installing it on a live server.</p>
+                  <p className="test-safety"><ShieldCheck size={14} /> Review generated files first. Test plugins and mods in a disposable world or server; shader effects can vary by GPU.</p>
                 </div>
               ) : tab === "logs" ? (
                 <div className="build-logs">
@@ -1069,8 +1172,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                     <pre className="log-error">{project.error}</pre>
                   )}
                   <p>
-                    Compilation is not a behavior test. Always test on a local
-                    Paper server.
+                    Packaging or compilation is not a runtime test. Test this output with the matching Minecraft version and target.
                   </p>
                 </div>
               ) : (

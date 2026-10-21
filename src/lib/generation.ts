@@ -3,6 +3,7 @@ import { saveArtifact } from "./project-store";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { expertFor, selectArtifactSkills } from "./artifact-experts";
+import { packageMinecraftPack } from "./packager";
 import type {
   AIProvider,
   BuildService,
@@ -15,9 +16,11 @@ export async function generateArtifact(
   provider: AIProvider,
   builder?: BuildService,
 ): Promise<Project> {
+  const artifactType = request.artifactType || "plugin";
+  const target = request.target || "paper";
   const project: Project = {
     id: randomUUID(),
-    name: request.project?.name || `Untitled${request.artifactType}`,
+    name: request.project?.name || `Untitled${artifactType}`,
     prompt: request.prompt,
     version: request.version,
     files: [],
@@ -26,31 +29,38 @@ export async function generateArtifact(
     artifactAvailable: false,
     provider: provider.name,
     modelId: request.modelId,
-    artifactType: request.artifactType,
-    target: request.target,
+    artifactType,
+    target,
   };
   try {
     project.logs.push(
-      `Generating ${expertFor(request.artifactType).label} source for Minecraft ${request.version} (${request.target}) using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
+      `Generating ${expertFor(artifactType).label} source for Minecraft ${request.version} (${target}) using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
     );
     const skills = [
-      ...(request.artifactType === "plugin" ? selectGenerationSkills(request.prompt) : []),
+      ...(artifactType === "plugin" ? selectGenerationSkills(request.prompt) : []),
       ...selectArtifactSkills(request),
     ];
     if (skills.length) project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
-    let generated = validateProject(await provider.generate(request), request.artifactType, request.target);
+    let generated = validateProject(await provider.generate({ ...request, artifactType, target }), artifactType, target);
     project.name = generated.name;
     project.files = generated.files;
-    if (request.artifactType !== "plugin") {
-      project.status = "preview";
-      project.logs.push(`${expertFor(request.artifactType).label} source preview created. This mode has no isolated ${request.target} packager or runtime validation yet; no installable artifact is available.`);
+    if (artifactType === "resource_pack" || artifactType === "shader_pack") {
+      const packaged = packageMinecraftPack(generated, artifactType, request.version);
+      project.files = packaged.files;
+      project.status = "success";
+      project.artifactAvailable = true;
+      project.logs.push(`Created an installable ${expertFor(artifactType).label} ZIP (${packaged.artifact.length.toLocaleString()} bytes).`);
+      if (artifactType === "resource_pack") project.logs.push(`Set pack metadata for Minecraft ${request.version} from the server's compatibility table.`);
+      if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
+      if (artifactType === "shader_pack") project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      saveArtifact(project, packaged.artifact);
       return project;
     }
     if (!builder) {
       project.status = "preview";
-      project.logs.push(
-        "Source preview created. No isolated build service is configured; compilation has not run and no JAR is available.",
-      );
+      project.logs.push(artifactType === "mod"
+        ? `Mod source preview created. Configure an isolated build service that supports ${target} to compile a downloadable mod JAR.`
+        : "Source preview created. No isolated Paper build service is configured; compilation has not run and no JAR is available.");
       return project;
     }
     for (let attempt = 0; attempt <= 3; attempt++) {
@@ -59,7 +69,7 @@ export async function generateArtifact(
           ? "Submitting source to the isolated build service."
           : `Repair ${attempt}/3: compiling revised source.`,
       );
-      const result = await builder.build(generated, request.version);
+      const result = await builder.build(generated, { version: request.version, artifactType, target });
       project.logs.push(...result.logs);
       if (result.success) {
         if (!result.artifact?.length)
@@ -69,7 +79,9 @@ export async function generateArtifact(
         project.status = "success";
         project.artifactAvailable = true;
         project.logs.push(
-          "Build succeeded. Test plugin behavior on a local Paper server before use.",
+          artifactType === "plugin"
+            ? "Plugin JAR built. Test plugin behavior on a local Paper server before use."
+            : `Mod JAR built for ${target}. Test it in a disposable client/server matching the selected loader and Minecraft version.`,
         );
         saveArtifact(project, result.artifact);
         return project;
@@ -80,11 +92,11 @@ export async function generateArtifact(
         );
         generated = validateProject(
           await provider.generate(
-            { ...request, project: generated },
+            { ...request, artifactType, target, project: generated },
             result.logs,
           ),
-          request.artifactType,
-          request.target,
+          artifactType,
+          target,
         );
         project.name = generated.name;
         project.files = generated.files;

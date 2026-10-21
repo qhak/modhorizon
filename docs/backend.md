@@ -6,15 +6,15 @@ The Next server validates requests, calls a modular provider, validates its sour
 
 Each artifact type has a server-owned expert playbook and task-specific skills. These are specialized instructions, schemas, and validators supplied to the selected model; they do not fine-tune or train the model weights. Generated source must pass the selected artifact validator before it is returned. Requests are limited to 200 KB; generated source to 150 KB, 30 files, 40,000 characters per file. Traversal, absolute paths, case-insensitive collisions, arbitrary build scripts, dependencies, and binary payloads are blocked.
 
-The Paper plugin path can use the existing isolated build-service adapter and produce a JAR. Mods, resource packs, and shader packs currently return a validated source preview only: loader-specific mod builds and ZIP packagers are not connected. Resource-pack text files can be generated, but textures and other binary assets cannot. The API never labels these previews as installable. Plugin outputs permit Java plus plugin.yml/config.yml; mod outputs permit Java and loader metadata; resource packs require pack.mcmeta and namespaced text assets; shader packs require GLSL vertex and fragment stages. The runtime details and exact compatibility are not compiler-verified for these three preview modes.
+Paper plugins use the isolated build-service adapter to produce a JAR. Mods use that adapter only when it is backed by a secure worker with a server-owned template for the selected loader; this repository includes a Paper template only. Resource packs and shader packs are packaged locally as installable ZIPs after validation. Resource-pack metadata is normalized for the selected 1.21.x version, but textures and other binary assets are not generated. Shader ZIPs are not GLSL-compiled or GPU-tested. Plugin outputs permit Java plus plugin.yml/config.yml; mod outputs permit Java and loader metadata; resource packs require pack.mcmeta and namespaced text assets; shader packs require GLSL vertex and fragment stages.
 
 ## Modes
 
 - Development defaults to `AI_PROVIDER=mock`, a deterministic source example implementing exactly the zombie Speed II / ten-second prompt. Other requests and follow-up edits are rejected with a clear message. The fixture does not interpret arbitrary natural language. It has not been compiled by this app.
 - `OPENAI_API_KEY` enables the server-side OpenAI Responses API model choices. `ANTHROPIC_API_KEY` enables the Anthropic Messages API choices. `GEMINI_API_KEY` enables Gemini Interactions API choices. The server selects only IDs from `src/lib/models.ts`; credentials and provider endpoints never come from the request. `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL`, and `GEMINI_BASE_URL` are trusted HTTPS endpoints (HTTP loopback only in development).
 - `AI_PROVIDER=openai-compatible` with `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL` remains supported for earlier Chat Completions setups. In that mode the selected OpenAI catalog ID is sent to the configured compatible endpoint.
-- Without `BUILD_SERVICE_URL`, development returns an explicit source preview with no JAR. No mock compilation or fake download exists.
-- Production disables mock generation and requires a build-service URL and token for compilation. Missing configuration yields a clear failure, never success.
+- Without `BUILD_SERVICE_URL`, development returns an explicit source preview for plugin JARs and mod JARs. Resource and shader ZIPs do not need a compiler service. No mock compilation or fake JAR download exists.
+- Production disables mock generation. Plugin and mod compilation require a build-service URL and token; resource and shader ZIP packaging runs in the application process over bounded, validated text files.
 
 ## Build service protocol
 
@@ -25,6 +25,8 @@ Request JSON:
 ```json
 {"schemaVersion":1,"platform":"paper","javaVersion":21,"minecraftVersion":"1.21.4","project":{"name":"ZombieSprint","files":[{"path":"src/main/java/dev/example/Main.java","content":"..."},{"path":"src/main/resources/plugin.yml","content":"..."}]}}
 ```
+
+For mods, protocol `schemaVersion` is `2`, `artifactType` is `mod`, and `platform` is one of `fabric`, `forge`, or `neoforge`. The worker must select an immutable, server-owned template for that exact loader and Minecraft version and return a JAR. The current repository does not include those templates or an actual sandbox worker; the app deliberately returns a source preview when no loader-capable worker is connected. The worker must reject unsupported combinations before compiling. Plugin requests remain on protocol version 1 for compatibility with the existing Paper worker.
 
 Response JSON: `{ "success": false, "logs": ["Compiler diagnostic"] }` or `{ "success": true, "logs": ["BUILD SUCCESSFUL"], "artifactBase64": "UEsDB..." }`. At most 100 log lines of 2,000 characters each; decoded artifact at most 5 MB. The app checks ZIP local-header bytes as a format sanity check, not proof of trustworthy contents or runtime correctness. The service must ensure the returned artifact is the actual generated plugin, not dependencies or an arbitrary archive. Do not put credentials, environment variables or host paths in diagnostics.
 

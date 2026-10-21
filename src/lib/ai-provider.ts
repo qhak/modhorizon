@@ -85,10 +85,11 @@ const PROJECT_SCHEMA = {
 };
 
 function projectInput(request: GenerateRequest, errors?: string[]) {
-  const skills = request.artifactType === "plugin" ? selectGenerationSkills(request.prompt) : [];
+  const artifactType = request.artifactType || "plugin";
+  const skills = artifactType === "plugin" ? selectGenerationSkills(request.prompt) : [];
   return JSON.stringify({
-    artifactType: request.artifactType,
-    target: request.target,
+    artifactType,
+    target: request.target || "paper",
     minecraftVersion: request.version,
     prompt: request.prompt,
     matchedSkills: skills.map(({ label, guidance }) => ({ label, guidance })),
@@ -107,7 +108,7 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
   } catch {
     throw new Error("AI provider returned invalid project JSON.");
   }
-  return validateProject(parsed, request.artifactType, request.target);
+  return validateProject(parsed, request.artifactType || "plugin", request.target || "paper");
 }
 
 class OpenAIProvider implements AIProvider {
@@ -159,7 +160,7 @@ class OpenAIProvider implements AIProvider {
               text: {
                 format: {
                   type: "json_schema",
-                  name: `minecraft_${request.artifactType}_project`,
+                  name: `minecraft_${request.artifactType || "plugin"}_project`,
                   strict: true,
                   schema: PROJECT_SCHEMA,
                 },

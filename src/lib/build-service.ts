@@ -1,23 +1,23 @@
 import { limitedJson, trustedEndpoint } from "./ai-provider";
-import type {
-  BuildResult,
-  BuildService,
-  GeneratedProject,
-  MinecraftVersion,
-} from "./types";
+import type { BuildResult, BuildService, GeneratedProject, GenerateRequest } from "./types";
 
 export const MAX_ARTIFACT_BYTES = 5_000_000;
 
 export class RemoteBuildService implements BuildService {
   async build(
     project: GeneratedProject,
-    version: MinecraftVersion,
+    input: Pick<GenerateRequest, "version" | "artifactType" | "target"> | GenerateRequest["version"],
   ): Promise<BuildResult> {
+    const request = typeof input === "string"
+      ? { version: input, artifactType: "plugin" as const, target: "paper" as const }
+      : { version: input.version, artifactType: input.artifactType || "plugin", target: input.target || "paper" };
+    if (request.artifactType !== "plugin" && request.artifactType !== "mod")
+      throw new Error("The isolated JAR build service only accepts plugins and mods.");
     const endpoint = process.env.BUILD_SERVICE_URL;
     const token = process.env.BUILD_SERVICE_TOKEN;
     if (!endpoint || !token)
       throw new Error(
-        "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN to compile plugins in an isolated build service.",
+        "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN for an isolated build service that supports this artifact type and loader.",
       );
     const response = await fetch(
       trustedEndpoint(endpoint, "BUILD_SERVICE_URL"),
@@ -30,10 +30,11 @@ export class RemoteBuildService implements BuildService {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          schemaVersion: 1,
-          platform: "paper",
+          schemaVersion: request.artifactType === "mod" ? 2 : 1,
+          ...(request.artifactType === "mod" ? { artifactType: "mod" } : {}),
+          platform: request.target,
           javaVersion: 21,
-          minecraftVersion: version,
+          minecraftVersion: request.version,
           project,
         }),
       },
