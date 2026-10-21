@@ -24,7 +24,7 @@ export default function Home() {
     <header className="landing-header"><div className="landing-nav">
       <Link href="/" className="landing-brand" aria-label="ModHorizon home"><Blocks size={24} strokeWidth={1.7} />ModHorizon<span className="brand-beta">PREVIEW</span></Link>
       <nav className="desktop-links" aria-label="Main navigation"><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a></nav>
-      <div className="nav-actions"><a className="sign-in" href="#account">Sign in</a><Link className="landing-button compact" href="/workspace">Start building <ArrowUpRight size={14} /></Link></div>
+      <div className="nav-actions"><a className="sign-in" href="#account">Sign in</a><Link className="landing-button compact" href="/dashboard">Start building <ArrowUpRight size={14} /></Link></div>
       <details className="landing-mobile-menu"><summary>Menu <ChevronDown size={14} /></summary><nav aria-label="Mobile navigation"><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="#account">Sign in</a></nav></details>
     </div></header>
     <main id="content">
@@ -33,7 +33,7 @@ export default function Home() {
         <div className="hero-inner"><div className="hero-eyebrow"><span /> A NEW HORIZON FOR MINECRAFT CREATORS</div>
           <h1 id="hero-title">Your Minecraft ideas.<br /><span>Built with AI.</span></h1>
           <p>Go from “what if” to your next Paper plugin.<br className="desktop-break" /> Describe the idea. Explore the code. Make it yours.</p>
-          <div className="hero-actions"><Link href="/workspace" className="landing-button">Start building <ArrowRight size={16} /></Link><a className="landing-button outlined" href="#how-it-works">See how it works <span aria-hidden="true">↘</span></a></div>
+          <div className="hero-actions"><Link href="/dashboard" className="landing-button">Start building <ArrowRight size={16} /></Link><a className="landing-button outlined" href="#how-it-works">See how it works <span aria-hidden="true">↘</span></a></div>
           <div className="hero-platforms"><span>MADE FOR MINECRAFT JAVA</span><span className="platform-separator" /><span>Paper 1.21.x</span><span className="future-platform">Fabric & NeoForge planned</span></div>
         </div>
         <div className="hero-caption"><span>THE POSSIBILITIES ARE WORLD-SIZED.</span><span>Reference gameplay · inspiration, not a ModHorizon-generated mod</span></div>
@@ -62,7 +62,7 @@ export default function Home() {
 
       <section className="landing-section pricing-section" id="pricing"><div className="pricing-intro"><span className="landing-label">A FAIR START</span><h2>More creating.<br />Less commitment.</h2><p>A credit-based model is planned. Explore the prototype today; accounts, credit purchases, and rewards are not live yet.</p><Link href="/workspace" className="landing-button outlined">Explore the prototype <ArrowUpRight size={15} /></Link></div><div className="rewards-panel"><div className="rewards-header"><h3>Make room for your first idea.</h3><span>REWARDS PREVIEW</span></div><CreditFoundation /><p className="rewards-note">Proposed rewards, not an available balance. Referral bonuses require server verification. Paid pricing will be announced when available.</p></div></section>
       <section className="landing-section account-section" id="account"><span className="landing-label">ACCOUNT ACCESS</span><h3>Your workspace is open to explore.</h3><p>Sign-in and account balances are planned. The current prototype works without an account and keeps recent source projects in this browser.</p><Link href="/workspace">Open workspace <ArrowRight size={14} /></Link></section>
-      <section className="final-cta"><span className="landing-label">MAKE SOMETHING WORTH PLAYING.</span><h2>Ready to build your first<br />Minecraft project?</h2><Link className="landing-button" href="/workspace">Start building <ArrowRight size={16} /></Link><p>Paper plugins today. A bigger horizon ahead.</p></section>
+      <section className="final-cta"><span className="landing-label">MAKE SOMETHING WORTH PLAYING.</span><h2>Ready to build your first<br />Minecraft project?</h2><Link className="landing-button" href="/dashboard">Start building <ArrowRight size={16} /></Link><p>Paper plugins today. A bigger horizon ahead.</p></section>
     </main><footer className="landing-footer"><Link className="landing-brand" href="/"><Blocks size={20} />ModHorizon</Link><span>Independent project. Not affiliated with Mojang or Microsoft.</span><span>© {new Date().getFullYear()} ModHorizon</span></footer>
   </div>;
 }

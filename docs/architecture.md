@@ -2,6 +2,8 @@
 
 ## Scope and trust boundaries
 
+Batch 2 adds a separate local SQLite project library under `/dashboard`, documented in [the implementation record](batch-2.md). It persists project metadata/source and protects its APIs with a development-only local session and owner-scoped queries. It does not introduce hosted authentication, credit billing, or durable build artifacts. The original prototype and generation/download access model described below remain in place; production dashboard/database access is disabled until hosted identity and storage are integrated.
+
 The UI and Next.js API live in a separate `modhorizon` application. The initial target is Paper 1.21.x; Fabric and NeoForge are future platforms. PostgreSQL/Prisma are not required for this prototype because project storage is temporary. Restarting the application loses server-held projects and artifacts. Browser history is a convenience, not durable project storage or access control.
 
 The application accepts descriptions and displays generated text. It never runs generated Java, Gradle, shell commands, or Minecraft plugins inside the Next.js process. AI output is untrusted even when a paid provider returns it. The `AIProvider` and `BuildService` interfaces in `src/lib/types.ts` keep provider selection and compilation separate from orchestration.
