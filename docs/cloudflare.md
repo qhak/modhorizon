@@ -2,12 +2,13 @@
 
 ## Current shareable preview — 21 October 2026
 
-Deployed the Batch 1 homepage/video and Batch 2 interface to the existing Worker. Current version: `676f0f18-522a-4891-8608-efde381cf761`.
+Deployed the Batch 1 homepage/video and Batch 2 interface to the existing Worker. Current version: `23583bda-3d0c-45cf-b8a8-1ee4b158f91c`.
 
 - [Homepage](https://modhorizon.callout-ai.workers.dev/).
 - [Public dashboard preview](https://modhorizon.callout-ai.workers.dev/preview), with project-library, creation-form, credits and settings preview routes. These are explicitly read-only: no local database, account data, or browser project history is read or uploaded. Create/save/session actions stay disabled. No fake projects or credit balances are seeded.
 - The normal `/dashboard` continues to explain unavailable hosted accounts and links to the public preview. Local project features still work only through the local development dashboard.
 - Validation: typecheck and all 17 tests pass; OpenNext build/deployment succeed; all eight public page routes return HTTP 200; local session/project APIs remain HTTP 503; generation remains unavailable; the actual 4,374,963-byte video and poster serve successfully; browser preview navigation and disabled creation confirmed with no console errors. Video currently serves a full HTTP 200 response to Range requests; partial HTTP 206 delivery is not claimed.
+- Packaging explicitly excludes `.data/**/*` through Next output tracing. The initial local staging build copied SQLite into the server-function staging directory (not public assets); after adding the exclusion and rebuilding, no SQLite files remain anywhere in `.open-next`. The corrected build was deployed.
 - Public preview uses the existing dashboard component with a separate preview flag, skips library/browser-history loading and never performs project/account mutations. No new cloud database or paid-plan upgrade was provisioned. Batch 3 was not started.
 
 [Deployment screenshot](cloudflare-dashboard-preview.png). Source and deployment notes are also archived in Obsidian.
