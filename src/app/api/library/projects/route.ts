@@ -7,6 +7,6 @@ export function POST(request: Request) { return libraryResponse(async () => {
   const { db, ownerId } = await authenticatedLibrary(request);
   const body = object(await libraryBody(request)), input = validateCreation(body);
   const snapshot = body.importSnapshot === undefined ? undefined : validateSnapshot(body.importSnapshot);
-  if (snapshot && snapshot.version !== input.version) throw new InputError("Source version mismatch.");
+  if (snapshot && (snapshot.version !== input.version || snapshot.artifactType !== input.kind || snapshot.target !== input.platform)) throw new InputError("Source artifact type, target, and version must match the project.");
   return { project: db.create(ownerId, input, snapshot) };
 }); }

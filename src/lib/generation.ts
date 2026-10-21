@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { saveArtifact } from "./project-store";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
+import { expertFor, selectArtifactSkills } from "./artifact-experts";
 import type {
   AIProvider,
   BuildService,
@@ -9,14 +10,14 @@ import type {
   Project,
 } from "./types";
 
-export async function generatePlugin(
+export async function generateArtifact(
   request: GenerateRequest,
   provider: AIProvider,
   builder?: BuildService,
 ): Promise<Project> {
   const project: Project = {
     id: randomUUID(),
-    name: request.project?.name || "UntitledPlugin",
+    name: request.project?.name || `Untitled${request.artifactType}`,
     prompt: request.prompt,
     version: request.version,
     files: [],
@@ -25,17 +26,26 @@ export async function generatePlugin(
     artifactAvailable: false,
     provider: provider.name,
     modelId: request.modelId,
+    artifactType: request.artifactType,
+    target: request.target,
   };
   try {
     project.logs.push(
-      `Generating Paper ${request.version} source using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
+      `Generating ${expertFor(request.artifactType).label} source for Minecraft ${request.version} (${request.target}) using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
     );
-    const skills = selectGenerationSkills(request.prompt);
-    if (skills.length)
-      project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
-    let generated = validateProject(await provider.generate(request));
+    const skills = [
+      ...(request.artifactType === "plugin" ? selectGenerationSkills(request.prompt) : []),
+      ...selectArtifactSkills(request),
+    ];
+    if (skills.length) project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
+    let generated = validateProject(await provider.generate(request), request.artifactType, request.target);
     project.name = generated.name;
     project.files = generated.files;
+    if (request.artifactType !== "plugin") {
+      project.status = "preview";
+      project.logs.push(`${expertFor(request.artifactType).label} source preview created. This mode has no isolated ${request.target} packager or runtime validation yet; no installable artifact is available.`);
+      return project;
+    }
     if (!builder) {
       project.status = "preview";
       project.logs.push(
@@ -73,6 +83,8 @@ export async function generatePlugin(
             { ...request, project: generated },
             result.logs,
           ),
+          request.artifactType,
+          request.target,
         );
         project.name = generated.name;
         project.files = generated.files;
@@ -90,3 +102,6 @@ export async function generatePlugin(
     return project;
   }
 }
+
+/** Backwards-compatible export for callers that explicitly generate Paper plugins. */
+export const generatePlugin = generateArtifact;

@@ -20,10 +20,14 @@ export class ProjectDatabase {
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES profiles(id), expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES profiles(id), name TEXT NOT NULL,
-        description TEXT NOT NULL, version TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+        description TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'plugin', platform TEXT NOT NULL DEFAULT 'paper',
+        version TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
         starred INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 1, snapshot TEXT, legacy_id TEXT,
         UNIQUE(owner_id, legacy_id));
       CREATE INDEX IF NOT EXISTS projects_owner_updated ON projects(owner_id, updated_at DESC);`);
+    const columns = db.prepare("PRAGMA table_info(projects)").all() as { name?: string }[];
+    if (!columns.some((column) => column.name === "kind")) db.exec("ALTER TABLE projects ADD COLUMN kind TEXT NOT NULL DEFAULT 'plugin'");
+    if (!columns.some((column) => column.name === "platform")) db.exec("ALTER TABLE projects ADD COLUMN platform TEXT NOT NULL DEFAULT 'paper'");
   }
   profile(): LocalProfile {
     const row = this.db.prepare("SELECT display_name FROM profiles WHERE id = ?").get(owner) as Row;
@@ -43,7 +47,7 @@ export class ProjectDatabase {
   }
   revokeSession(token: string) { this.db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hash(token)); }
   private decode(row: Row): ManagedProject {
-    return { id: String(row.id), name: String(row.name), description: String(row.description), kind: "plugin", platform: "paper", version: row.version as ManagedProject["version"], createdAt: Number(row.created_at), updatedAt: Number(row.updated_at), starred: Boolean(row.starred), revision: Number(row.revision), snapshot: row.snapshot ? JSON.parse(String(row.snapshot)) : null, legacyId: row.legacy_id ? String(row.legacy_id) : null };
+    return { id: String(row.id), name: String(row.name), description: String(row.description), kind: String(row.kind || "plugin") as ManagedProject["kind"], platform: String(row.platform || "paper") as ManagedProject["platform"], version: row.version as ManagedProject["version"], createdAt: Number(row.created_at), updatedAt: Number(row.updated_at), starred: Boolean(row.starred), revision: Number(row.revision), snapshot: row.snapshot ? JSON.parse(String(row.snapshot)) : null, legacyId: row.legacy_id ? String(row.legacy_id) : null };
   }
   list(ownerId: string) { return (this.db.prepare("SELECT * FROM projects WHERE owner_id = ? ORDER BY updated_at DESC").all(ownerId) as Row[]).map(row => this.decode(row)); }
   get(ownerId: string, id: string): ManagedProject {
@@ -57,13 +61,13 @@ export class ProjectDatabase {
       if (row) return this.decode(row);
     }
     const id = randomUUID(), now = Date.now();
-    this.db.prepare("INSERT INTO projects (id,owner_id,name,description,version,created_at,updated_at,snapshot,legacy_id) VALUES (?,?,?,?,?,?,?,?,?)")
-      .run(id, ownerId, input.name, input.description, input.version, now, now, legacy ? JSON.stringify(legacy) : null, legacy?.id ?? null);
+    this.db.prepare("INSERT INTO projects (id,owner_id,name,description,kind,platform,version,created_at,updated_at,snapshot,legacy_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+      .run(id, ownerId, input.name, input.description, input.kind, input.platform, input.version, now, now, legacy ? JSON.stringify(legacy) : null, legacy?.id ?? null);
     return this.get(ownerId, id);
   }
   update(ownerId: string, id: string, revision: number, changes: { name?: string; starred?: boolean; snapshot?: Project }) {
     const current = this.get(ownerId, id);
-    if (changes.snapshot && changes.snapshot.version !== current.version) throw new LibraryError("Source version must match this project.", 400);
+    if (changes.snapshot && (changes.snapshot.version !== current.version || changes.snapshot.artifactType !== current.kind || changes.snapshot.target !== current.platform)) throw new LibraryError("Source artifact type, target, and version must match this project.", 400);
     const result = this.db.prepare("UPDATE projects SET name=?,starred=?,snapshot=?,updated_at=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?")
       .run(changes.name ?? current.name, Number(changes.starred ?? current.starred), changes.snapshot ? JSON.stringify(changes.snapshot) : current.snapshot ? JSON.stringify(current.snapshot) : null, Math.max(Date.now(), current.updatedAt + 1), id, ownerId, revision);
     if (result.changes !== 1) throw new LibraryError("This project changed in another tab. Reload before saving.", 409);

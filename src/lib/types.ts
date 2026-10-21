@@ -12,6 +12,8 @@ export const MINECRAFT_VERSIONS = [
   "1.21.11",
 ] as const;
 export type MinecraftVersion = (typeof MINECRAFT_VERSIONS)[number];
+export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";
+export type ArtifactTarget = "paper" | "fabric" | "forge" | "neoforge" | "vanilla" | "iris" | "optifine";
 export type GeneratedFile = { path: string; content: string };
 export type Project = {
   id: string;
@@ -24,11 +26,15 @@ export type Project = {
   artifactAvailable: boolean;
   provider: string;
   modelId?: string;
+  artifactType: ArtifactType;
+  target: ArtifactTarget;
   error?: string;
 };
 export type GenerateRequest = {
   prompt: string;
   version: MinecraftVersion;
+  artifactType: ArtifactType;
+  target: ArtifactTarget;
   modelId?: string;
   project?: { name: string; files: GeneratedFile[] };
 };
