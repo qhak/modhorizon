@@ -8,6 +8,7 @@ import {
   type PlatformId,
 } from "./platforms";
 import { DEFAULT_MODEL_ID, findModel } from "./models";
+import { DEFAULT_REASONING_EFFORT, REASONING_EFFORTS, type ReasoningEffort } from "./models";
 
 export const MAX_REQUEST_BYTES = 200_000;
 export class InputError extends Error {}
@@ -238,11 +239,15 @@ export function validateRequest(value: unknown): GenerateRequest {
   const modelId = data.modelId ?? DEFAULT_MODEL_ID;
   if (typeof modelId !== "string" || !findModel(modelId))
     throw new InputError("Choose a supported AI model.");
+  const reasoningEffort = data.reasoningEffort ?? DEFAULT_REASONING_EFFORT;
+  if (typeof reasoningEffort !== "string" || !REASONING_EFFORTS.includes(reasoningEffort as ReasoningEffort))
+    throw new InputError("Choose a supported reasoning level.");
   return {
     prompt: data.prompt.trim(),
     platform,
     version: data.version,
     modelId,
+    reasoningEffort: reasoningEffort as ReasoningEffort,
     ...(data.project === undefined
       ? {}
       : { project: validateProject(data.project, platform, data.version) }),

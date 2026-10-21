@@ -1,9 +1,9 @@
 import { MockProvider } from "./mock-provider";
-import { findModel, modelChoices } from "./models";
+import { DEFAULT_REASONING_EFFORT, findModel, modelChoices, providerReasoningEffort } from "./models";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { PLATFORMS, javaVersionFor, mappingsFor, type Mappings, type PlatformFamily } from "./platforms";
-import type { AIProvider, GenerateRequest, GeneratedProject } from "./types";
+import type { AIProvider, GenerateRequest, GeneratedProject, TokenUsage } from "./types";
 
 export function trustedEndpoint(value: string, name: string): URL {
   const url = new URL(value);
@@ -120,11 +120,25 @@ function projectInput(request: GenerateRequest, errors?: string[]) {
   });
 }
 
-function parseGeneratedProject(content: string | undefined, request: GenerateRequest): GeneratedProject {
+function normalizedUsage(value: unknown): TokenUsage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const usage = value as Record<string, unknown>;
+  const inputTokens = Number(usage.input_tokens ?? usage.prompt_tokens ?? usage.inputTokenCount ?? usage.promptTokenCount);
+  const outputTokens = Number(usage.output_tokens ?? usage.completion_tokens ?? usage.outputTokenCount ?? usage.candidatesTokenCount ?? 0)
+    + Number(usage.thoughtsTokenCount ?? usage.thinkingTokenCount ?? 0);
+  return Number.isSafeInteger(inputTokens) && inputTokens >= 0 && Number.isSafeInteger(outputTokens) && outputTokens >= 0
+    ? { inputTokens, outputTokens }
+    : undefined;
+}
+
+function parseGeneratedProject(content: string | undefined, request: GenerateRequest, usage?: TokenUsage): GeneratedProject {
   if (!content)
     throw new Error("AI provider returned no project. Try a more specific request.");
   try {
-    return validateProject(JSON.parse(content), request.platform, request.version);
+    const project = validateProject(JSON.parse(content), request.platform, request.version);
+    const outputTokens = usage?.outputTokens ?? Math.ceil(JSON.stringify(project).length / 3.5);
+    const inputTokens = usage?.inputTokens ?? Math.ceil((PROJECT_SYSTEM_PROMPT(request).length + projectInput(request, []).length) / 3.5);
+    return { ...project, usage: { inputTokens, outputTokens } };
   } catch {
     throw new Error(
       "AI provider returned invalid project JSON or unsupported source paths.",
@@ -165,6 +179,7 @@ class OpenAIProvider implements AIProvider {
         legacyCompatible
           ? {
               model: this.modelId,
+              reasoning_effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai"),
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: PROJECT_SYSTEM_PROMPT(request) },
@@ -174,6 +189,7 @@ class OpenAIProvider implements AIProvider {
           : {
               model: this.modelId,
               max_output_tokens: 16_000,
+              reasoning: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai") },
               input: [
                 { role: "system", content: PROJECT_SYSTEM_PROMPT(request) },
                 { role: "user", content: projectInput(request, errors) },
@@ -198,13 +214,14 @@ class OpenAIProvider implements AIProvider {
       output_text?: string;
       output?: { type?: string; content?: { type?: string; text?: string }[] }[];
       choices?: { message?: { content?: string } }[];
+      usage?: Record<string, unknown>;
     };
     const content = legacyCompatible
       ? data.choices?.[0]?.message?.content
       : data.output_text || data.output
           ?.flatMap((item) => item.content || [])
           .find((part) => part.type === "output_text")?.text;
-    return parseGeneratedProject(content, request);
+    return parseGeneratedProject(content, request, normalizedUsage(data.usage));
   }
 }
 
@@ -236,6 +253,8 @@ class AnthropicProvider implements AIProvider {
       body: JSON.stringify({
         model: this.modelId,
         max_tokens: 16_000,
+        thinking: { type: "adaptive" },
+        output_config: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "anthropic") },
         system: PROJECT_SYSTEM_PROMPT(request),
         messages: [{ role: "user", content: projectInput(request, errors) }],
       }),
@@ -246,12 +265,13 @@ class AnthropicProvider implements AIProvider {
       );
     const data = (await limitedJson(response, 250_000)) as {
       content?: { type?: string; text?: string }[];
+      usage?: Record<string, unknown>;
     };
     const content = data.content
       ?.filter((part) => part.type === "text")
       .map((part) => part.text || "")
       .join("\n");
-    return parseGeneratedProject(content, request);
+    return parseGeneratedProject(content, request, normalizedUsage(data.usage));
   }
 }
 
@@ -288,6 +308,10 @@ class GeminiProvider implements AIProvider {
           mime_type: "application/json",
           schema: PROJECT_SCHEMA,
         },
+        generation_config: {
+          thinking_level: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "google"),
+        },
+        store: false,
       }),
     });
     if (!response.ok)
@@ -297,6 +321,8 @@ class GeminiProvider implements AIProvider {
     const data = (await limitedJson(response, 250_000)) as {
       status?: string;
       steps?: { type?: string; content?: { type?: string; text?: string }[] }[];
+      usage?: Record<string, unknown>;
+      usageMetadata?: Record<string, unknown>;
     };
     if (data.status && data.status !== "completed")
       throw new Error(`Google Gemini generation ended with status: ${data.status}.`);
@@ -306,7 +332,7 @@ class GeminiProvider implements AIProvider {
       .filter((part) => part.type === "text")
       .map((part) => part.text || "")
       .join("\n");
-    return parseGeneratedProject(content, request);
+    return parseGeneratedProject(content, request, normalizedUsage(data.usage || data.usageMetadata));
   }
 }
 

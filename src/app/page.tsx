@@ -108,6 +108,7 @@ export default function Landing() {
             <a className="nav-link" href="#features">Features</a>
             <a className="nav-link" href="#versions">Versions</a>
             <a className="nav-link" href="#examples">Examples</a>
+            <Link className="nav-link" href="/pricing">Pricing</Link>
             <a className="nav-link" href="#faq">FAQ</a>
           </nav>
           <Link href="/create" className="nav-cta">Start building <ArrowRight size={15} aria-hidden="true" /></Link>

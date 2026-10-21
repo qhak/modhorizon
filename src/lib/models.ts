@@ -1,5 +1,15 @@
 export type ModelProvider = "openai" | "anthropic" | "google" | "demo";
 export type ModelGroup = "Economy" | "Balanced" | "Advanced" | "Frontier";
+export type ReasoningEffort = "light" | "standard" | "high" | "ultra";
+export const REASONING_EFFORTS: readonly ReasoningEffort[] = ["light", "standard", "high", "ultra"];
+export const DEFAULT_REASONING_EFFORT: ReasoningEffort = "standard";
+export function providerReasoningEffort(effort: ReasoningEffort, provider: ModelProvider) {
+  if (provider === "google") return effort === "light" ? "low" : effort === "standard" ? "medium" : "high";
+  return effort === "light" ? "low" : effort === "standard" ? "medium" : effort === "high" ? "high" : "xhigh";
+}
+export function reasoningEstimateMultiplier(effort: ReasoningEffort) {
+  return effort === "light" ? 0.75 : effort === "standard" ? 1 : effort === "high" ? 1.5 : 2.25;
+}
 
 export type ModelOption = {
   id: string;
@@ -117,6 +127,31 @@ export const DEFAULT_MODEL_ID = "gpt-6-luna";
 
 export function findModel(id: string | undefined) {
   return MODEL_OPTIONS.find((model) => model.id === id);
+}
+
+// Credits are priced against the most generous top-up rate: Studio's $0.025
+// per credit. At $0.005 of provider cost per credit, the target gross margin
+// is 80% before Stripe fees, hosting, taxes, and support.
+export const PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT = 5_000;
+export const MAX_GENERATION_OUTPUT_TOKENS = 16_000;
+
+export function creditsForUsage(modelId: string, inputTokens: number, outputTokens: number) {
+  const model = findModel(modelId);
+  if (!model || model.provider === "demo") return 0;
+  if (model.inputUsdPerMillion === undefined || model.outputUsdPerMillion === undefined) return null;
+  // USD per million tokens numerically equals micro-USD per token.
+  const providerCostMicroUsd = Math.ceil(inputTokens * model.inputUsdPerMillion + outputTokens * model.outputUsdPerMillion);
+  return Math.max(1, Math.ceil(providerCostMicroUsd / PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT));
+}
+
+export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningEffort = DEFAULT_REASONING_EFFORT) {
+  const base = creditsForUsage(modelId, estimatedInputTokens, MAX_GENERATION_OUTPUT_TOKENS);
+  return base === null ? null : Math.ceil(base * reasoningEstimateMultiplier(effort));
+}
+
+export function estimateCreditsForModel(modelId: string, inputTokens = 1_500, outputTokens = 5_000, effort: ReasoningEffort = DEFAULT_REASONING_EFFORT) {
+  const base = creditsForUsage(modelId, inputTokens, outputTokens);
+  return base === null ? null : Math.max(1, Math.ceil(base * reasoningEstimateMultiplier(effort)));
 }
 
 export function modelChoices(env: NodeJS.ProcessEnv) {

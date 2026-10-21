@@ -1,8 +1,15 @@
 import type { PlatformId } from "./platforms";
+import { MINECRAFT_RELEASES } from "./platform-versions";
 
 /** A Minecraft release, or a proxy API version for proxy platforms. */
 export type MinecraftVersion = string;
+/** Compatibility alias for the first dashboard's supported game versions. */
+export const MINECRAFT_VERSIONS: readonly string[] = MINECRAFT_RELEASES;
+export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";
+export type ArtifactTarget = "paper" | "fabric" | "forge" | "neoforge" | "vanilla" | "iris" | "optifine";
 export type GeneratedFile = { path: string; content: string };
+export type TokenUsage = { inputTokens: number; outputTokens: number };
+export type ReasoningEffort = "light" | "standard" | "high" | "ultra";
 export type Project = {
   id: string;
   name: string;
@@ -16,16 +23,23 @@ export type Project = {
   artifactAvailable: boolean;
   provider: string;
   modelId?: string;
+  artifactType?: ArtifactType;
+  reasoningEffort?: ReasoningEffort;
+  target?: ArtifactTarget;
+  creditsSpent?: number;
   error?: string;
 };
 export type GenerateRequest = {
   prompt: string;
   platform: PlatformId;
   version: MinecraftVersion;
+  artifactType?: ArtifactType;
+  target?: ArtifactTarget;
   modelId?: string;
+  reasoningEffort?: ReasoningEffort;
   project?: { name: string; files: GeneratedFile[] };
 };
-export type GeneratedProject = { name: string; files: GeneratedFile[] };
+export type GeneratedProject = { name: string; files: GeneratedFile[]; usage?: TokenUsage };
 export type BuildResult = {
   success: boolean;
   logs: string[];

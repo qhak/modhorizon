@@ -2,6 +2,10 @@
 
 A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 
+Batch 1 introduced the cinematic landing page at `/` and preserved the original prototype at `/workspace`. Accounts and credit rewards are presented as planned, with no client-side balance changes. See the [Batch 1 implementation record](docs/batch-1.md) for assets, validation and remaining scope.
+
+Batch 2 adds the [local dashboard](http://127.0.0.1:3215/dashboard) with real SQLite project persistence, creation and library management. Start Building now opens `/dashboard`; the original prototype remains at `/workspace`. Use Node 24 and `npm run dev`, then open a local session. Projects live in the ignored `.data/modhorizon.sqlite` database. Hosted authentication/storage and credits are not configured, so production dashboard access fails closed. See the [Batch 2 record](docs/batch-2.md).
+
 Cloudflare deployment and hosted-preview configuration are documented in [Cloudflare hosting](docs/cloudflare.md). Run `npm run deploy` to build and deploy the configured Worker. The initial hosted version disables generation until provider credentials are connected.
 
 ## Local setup

@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3215",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start --hostname 127.0.0.1 --port 3215",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "npm run build:cloudflare && opennextjs-cloudflare preview",
+    "db:migrate:local": "wrangler d1 migrations apply modhorizon-billing --local",
+    "db:migrate:remote": "wrangler d1 migrations apply modhorizon-billing --remote",
     "deploy": "npm run build:cloudflare && opennextjs-cloudflare deploy",
     "build:html": "next build && tsx scripts/static-index/build.ts"
   },

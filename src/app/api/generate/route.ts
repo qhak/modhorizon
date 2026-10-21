@@ -8,6 +8,7 @@ import {
   validateRequest,
 } from "@/lib/validation";
 import { hasAllowedOrigin } from "@/lib/request-origin";
+import { accountFromRequest, BillingError, refundGenerationCredits, reserveGenerationCredits, settleGenerationCredits } from "@/lib/billing-service";
 
 export const runtime = "nodejs";
 export const maxDuration = 900;
@@ -47,22 +48,43 @@ export async function POST(request: Request) {
     const input = validateRequest(body);
     if (!serviceStatus().choices[input.modelId || ""])
       throw new InputError("That model is unavailable. Connect its provider first.");
+    const { account } = await accountFromRequest(request);
+    const provider = createAIProvider(input.modelId || "");
+    let creditsSpent = 0;
+    const meteredProvider = {
+      name: provider.name,
+      async generate(modelRequest: typeof input, errors?: string[]) {
+        const reservation = await reserveGenerationCredits(account.id, modelRequest);
+        try {
+          const generated = await provider.generate(modelRequest, errors);
+          const charged = await settleGenerationCredits(account.id, modelRequest.modelId || "", reservation.reserved, generated);
+          creditsSpent += charged;
+          return generated;
+        } catch (error) {
+          await refundGenerationCredits(account.id, modelRequest.modelId || "", reservation.reserved);
+          throw error;
+        }
+      },
+    };
     const project = await generatePlugin(
       input,
-      createAIProvider(input.modelId || ""),
+      meteredProvider,
       createBuildService(),
     );
+    project.creditsSpent = creditsSpent;
+    project.reasoningEffort = input.reasoningEffort;
     return Response.json(
       { project },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    const status = error instanceof BillingError ? error.status : error instanceof InputError ? 400 : 503;
     return Response.json(
       {
         error:
           error instanceof Error ? error.message : "Generation is unavailable.",
       },
-      { status: error instanceof InputError ? 400 : 503 },
+      { status },
     );
   } finally {
     active--;

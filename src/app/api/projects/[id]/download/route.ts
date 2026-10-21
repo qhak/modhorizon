@@ -12,13 +12,16 @@ export async function GET(
   const entry = getArtifact(id);
   if (!entry)
     return Response.json(
-      { error: "Artifact unavailable or expired. Generate the plugin again." },
+      { error: "Artifact unavailable or expired. Generate the project again." },
       { status: 404 },
     );
+  const artifactType = entry.project.artifactType ?? "plugin";
+  const extension = artifactType === "plugin" || artifactType === "mod" ? "jar" : "zip";
+  const contentType = extension === "jar" ? "application/java-archive" : "application/zip";
   return new Response(new Uint8Array(entry.artifact), {
     headers: {
-      "Content-Type": "application/java-archive",
-      "Content-Disposition": `attachment; filename="${entry.project.name}.jar"`,
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="${entry.project.name}.${extension}"`,
       "Content-Length": String(entry.artifact.length),
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",

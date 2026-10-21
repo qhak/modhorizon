@@ -46,11 +46,12 @@ import {
   versionLines,
   type PlatformId,
 } from "@/lib/platforms";
-import { MODEL_OPTIONS, type ModelOption, type ModelProvider } from "@/lib/models";
+import { DEFAULT_REASONING_EFFORT, MODEL_OPTIONS, REASONING_EFFORTS, estimateCreditsForModel, type ModelOption, type ModelProvider, type ReasoningEffort } from "@/lib/models";
 
 
 type SourceFile = { path: string; content: string };
 type Message = { role: "user" | "assistant"; text: string };
+type BillingAccountView = { plan: "free" | "starter" | "pro" | "studio"; credits: number; subscriptionStatus: string };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
 const suggestions: { title: string; description: string; prompt: string; platform: PlatformId }[] = [
@@ -212,12 +213,16 @@ function ModelPicker({
   onSetup,
   choices,
   disabled,
+  paidAccess,
+  reasoningEffort,
 }: {
   value: string;
   onChange: (modelId: string) => void;
   onSetup: () => void;
   choices: Record<string, boolean>;
   disabled: boolean;
+  paidAccess: boolean;
+  reasoningEffort: ReasoningEffort;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -243,16 +248,6 @@ function ModelPicker({
     if (open) root.current?.querySelector<HTMLButtonElement>('.model-option[aria-pressed="true"]:not(:disabled), .model-option:not(:disabled)')?.focus();
   }, [open]);
 
-  const rate = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  const showRate = (input?: number, output?: number) =>
-    input === undefined || output === undefined
-      ? "No provider call"
-      : `${rate(input)} in · ${rate(output)} out / 1M`;
   const groupOrder = ["Economy", "Balanced", "Advanced", "Frontier"];
   const models = MODEL_OPTIONS.filter(
     (model): model is ModelOption & { provider: Exclude<ModelProvider, "demo"> } =>
@@ -300,7 +295,7 @@ function ModelPicker({
                 type="button"
                 aria-pressed={value === model.id}
                 title={choices[model.id] ? undefined : `Connect ${model.providerLabel} in server configuration to enable this choice.`}
-                disabled={!choices[model.id]}
+                disabled={!choices[model.id] || (model.group !== "Economy" && !paidAccess)}
                 className={`model-option ${value === model.id ? "model-option-active" : ""}`}
                 onClick={() => {
                   onChange(model.id);
@@ -314,9 +309,11 @@ function ModelPicker({
                   <small>{model.description}</small>
                 </span>
                 <span className="model-option-price">
-                  {showRate(model.inputUsdPerMillion, model.outputUsdPerMillion)}
+                  {estimateCreditsForModel(model.id, 1_500, 5_000, reasoningEffort) ?? "—"} credits / pass
                 </span>
-                {choices[model.id] ? (
+                {model.group !== "Economy" && !paidAccess ? (
+                  <span className="model-connect-label">Paid plan</span>
+                ) : choices[model.id] ? (
                   value === model.id && <Check size={14} aria-hidden="true" />
                 ) : (
                   <span className="model-connect-label">Setup</span>
@@ -348,11 +345,29 @@ function ModelPicker({
             </div>
           )}
           </div>
-          <p className="model-pricing-note">Provider rates are shown for reference. ModHorizon credit pricing is not active yet.</p>
+          <p className="model-pricing-note">Estimate at {reasoningEffort} reasoning. Longer prompts and repairs can use more.</p>
           <button type="button" className="model-setup-link" onClick={onSetup}>Provider setup</button>
         </div>
       )}
     </div>
+  );
+}
+
+function ReasoningPicker({ value, onChange, disabled, modelId }: {
+  value: ReasoningEffort;
+  onChange: (effort: ReasoningEffort) => void;
+  disabled: boolean;
+  modelId: string;
+}) {
+  const estimate = estimateCreditsForModel(modelId, 1_500, 5_000, value);
+  return (
+    <label className="reasoning-control">
+      <span>Reasoning</span>
+      <select aria-label="Reasoning effort" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as ReasoningEffort)}>
+        {REASONING_EFFORTS.map((effort) => <option key={effort} value={effort}>{effort[0].toUpperCase() + effort.slice(1)}</option>)}
+      </select>
+      {estimate !== null && <small>~{estimate} cr</small>}
+    </label>
   );
 }
 
@@ -431,6 +446,7 @@ export default function Home() {
   const [platform, setPlatform] = useState<PlatformId>(DEFAULT_PLATFORM);
   const [version, setVersion] = useState<string>(PLATFORMS[DEFAULT_PLATFORM].versions[0]);
   const [selectedModel, setSelectedModel] = useState("demo");
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(DEFAULT_REASONING_EFFORT);
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -453,6 +469,8 @@ export default function Home() {
     choices: Record<string, boolean>;
     preferred: string;
   } | null>(null);
+  const [billingAccount, setBillingAccount] = useState<BillingAccountView | null>(null);
+  const paidAccess = Boolean(billingAccount && billingAccount.plan !== "free" && ["active", "trialing"].includes(billingAccount.subscriptionStatus));
   const generationUnavailable = !services?.choices[selectedModel];
   const versionProblem = incompatibility(platform, version);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -493,6 +511,15 @@ export default function Home() {
         setSelectedModel((current) => data.choices[current] ? current : data.preferred);
       })
       .catch(() => { /* Submission still reports service errors if status cannot load. */ });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/billing/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => { if (data.account) setBillingAccount(data.account); })
+      .catch(() => { /* Billing remains unavailable until the D1 binding is configured. */ });
     return () => controller.abort();
   }, []);
 
@@ -606,6 +633,7 @@ export default function Home() {
     setVersion(p.version);
     if (p.modelId && MODEL_OPTIONS.some((model) => model.id === p.modelId))
       setSelectedModel(p.modelId);
+    setReasoningEffort(p.reasoningEffort || DEFAULT_REASONING_EFFORT);
     setMessages([
       { role: "user", text: p.prompt },
       {
@@ -639,6 +667,7 @@ export default function Home() {
           platform: current ? platformOf(current.platform).id : platform,
           version: current?.version || version,
           modelId: selectedModel,
+          reasoningEffort,
           ...(current
             ? { project: { name: current.name, files: current.files } }
             : {}),
@@ -648,6 +677,7 @@ export default function Home() {
       if (!response.ok || !data.project)
         throw new Error(data.error || "Generation failed. Please try again.");
       const next: Project = data.project;
+      fetch("/api/billing/account", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((data) => { if (data?.account) setBillingAccount(data.account); }).catch(() => undefined);
       if (current && next.status === "failed") {
         const failure =
           next.error ||
@@ -772,9 +802,13 @@ export default function Home() {
             <Settings2 size={16} />
             <span>Settings</span>
           </button>
+          <Link className="nav-item" href="/pricing">
+            <Sparkles size={16} />
+            <span>Plans & credits</span>
+          </Link>
           <button className="account" onClick={() => setModal("settings")} aria-label="Account and credits">
             <div className="avatar">D</div>
-            <div><strong>Guest developer</strong><span>Local account · credits inactive</span></div>
+            <div><strong>Guest developer</strong><span>{billingAccount ? `${billingAccount.plan[0].toUpperCase()}${billingAccount.plan.slice(1)} · ${billingAccount.credits} credits` : "Connecting account…"}</span></div>
           </button>
         </div>
       </aside>
@@ -860,7 +894,10 @@ export default function Home() {
                       onSetup={() => setModal("settings")}
                       choices={services?.choices || {}}
                       disabled={busy}
+                      paidAccess={paidAccess}
+                      reasoningEffort={reasoningEffort}
                     />
+                    <ReasoningPicker value={reasoningEffort} onChange={setReasoningEffort} disabled={busy} modelId={selectedModel} />
                   </div>
                   <Button
                     type="submit"
@@ -1078,7 +1115,10 @@ export default function Home() {
                     onSetup={() => setModal("settings")}
                     choices={services?.choices || {}}
                     disabled={busy}
+                    paidAccess={paidAccess}
+                    reasoningEffort={reasoningEffort}
                   />
+                  <ReasoningPicker value={reasoningEffort} onChange={setReasoningEffort} disabled={busy} modelId={selectedModel} />
                   <Button
                     size="icon"
                     aria-label="Send follow-up"
@@ -1381,8 +1421,7 @@ export default function Home() {
             <p className="muted">
               See <code>.env.example</code> and the README for provider setup.
               Restart the server after changing environment variables. Model
-              selection calls the provider directly; credit billing is not
-              active yet.
+              Credits are charged from estimated provider token usage. See <Link href="/pricing">plans and credit rates</Link>.
             </p>
             <div className="settings-row">
               <div>

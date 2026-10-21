@@ -15,6 +15,7 @@ export async function generatePlugin(
   provider: AIProvider,
   builder?: BuildService,
 ): Promise<Project> {
+  const artifactType = PLATFORMS[request.platform].kind === "mod" ? "mod" : "plugin";
   const project: Project = {
     id: randomUUID(),
     name: request.project?.name || "UntitledPlugin",
@@ -27,6 +28,7 @@ export async function generatePlugin(
     artifactAvailable: false,
     provider: provider.name,
     modelId: request.modelId,
+    artifactType,
   };
   try {
     project.logs.push(
@@ -89,6 +91,13 @@ export async function generatePlugin(
       "Compilation failed after three repair attempts. Review the build logs and revise your prompt.",
     );
   } catch (error) {
+    if (error instanceof Error && error.name === "BillingError") {
+      if (!project.files.length) throw error;
+      project.status = "preview";
+      project.error = error.message;
+      project.logs.push("Automatic repair stopped because the credit balance could not cover another model pass. The generated source remains available.");
+      return project;
+    }
     project.error =
       error instanceof Error
         ? error.message
