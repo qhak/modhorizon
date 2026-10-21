@@ -1,5 +1,5 @@
 import { MockProvider } from "./mock-provider";
-import { DEFAULT_REASONING_EFFORT, findModel, modelChoices, providerReasoningEffort } from "./models";
+import { DEFAULT_REASONING_EFFORT, MAX_GENERATION_OUTPUT_TOKENS, findModel, modelChoices, providerReasoningEffort } from "./models";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { PLATFORMS, javaVersionFor, mappingsFor, type Mappings, type PlatformFamily } from "./platforms";
@@ -120,12 +120,12 @@ function projectInput(request: GenerateRequest, errors?: string[]) {
   });
 }
 
-function normalizedUsage(value: unknown): TokenUsage | undefined {
+export function normalizedUsage(value: unknown): TokenUsage | undefined {
   if (!value || typeof value !== "object") return undefined;
   const usage = value as Record<string, unknown>;
-  const inputTokens = Number(usage.input_tokens ?? usage.prompt_tokens ?? usage.inputTokenCount ?? usage.promptTokenCount);
-  const outputTokens = Number(usage.output_tokens ?? usage.completion_tokens ?? usage.outputTokenCount ?? usage.candidatesTokenCount ?? 0)
-    + Number(usage.thoughtsTokenCount ?? usage.thinkingTokenCount ?? 0);
+  const inputTokens = Number(usage.input_tokens ?? usage.prompt_tokens ?? usage.total_input_tokens ?? usage.inputTokenCount ?? usage.promptTokenCount);
+  const outputTokens = Number(usage.output_tokens ?? usage.completion_tokens ?? usage.total_output_tokens ?? usage.outputTokenCount ?? usage.candidatesTokenCount)
+    + Number(usage.total_thought_tokens ?? usage.thoughtsTokenCount ?? usage.thinkingTokenCount ?? 0);
   return Number.isSafeInteger(inputTokens) && inputTokens >= 0 && Number.isSafeInteger(outputTokens) && outputTokens >= 0
     ? { inputTokens, outputTokens }
     : undefined;
@@ -179,6 +179,7 @@ class OpenAIProvider implements AIProvider {
         legacyCompatible
           ? {
               model: this.modelId,
+              max_tokens: MAX_GENERATION_OUTPUT_TOKENS,
               reasoning_effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai"),
               response_format: { type: "json_object" },
               messages: [
@@ -188,7 +189,7 @@ class OpenAIProvider implements AIProvider {
             }
           : {
               model: this.modelId,
-              max_output_tokens: 16_000,
+              max_output_tokens: MAX_GENERATION_OUTPUT_TOKENS,
               reasoning: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai") },
               input: [
                 { role: "system", content: PROJECT_SYSTEM_PROMPT(request) },
@@ -252,7 +253,7 @@ class AnthropicProvider implements AIProvider {
       },
       body: JSON.stringify({
         model: this.modelId,
-        max_tokens: 16_000,
+        max_tokens: MAX_GENERATION_OUTPUT_TOKENS,
         thinking: { type: "adaptive" },
         output_config: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "anthropic") },
         system: PROJECT_SYSTEM_PROMPT(request),
@@ -309,6 +310,7 @@ class GeminiProvider implements AIProvider {
           schema: PROJECT_SCHEMA,
         },
         generation_config: {
+          max_output_tokens: MAX_GENERATION_OUTPUT_TOKENS,
           thinking_level: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "google"),
         },
         store: false,

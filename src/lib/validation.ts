@@ -1,4 +1,4 @@
-import type { GenerateRequest, GeneratedProject } from "./types";
+import type { GenerateRequest, GeneratedProject, ReasoningEffort } from "./types";
 import {
   DEFAULT_PLATFORM,
   PLATFORMS,
@@ -7,8 +7,8 @@ import {
   isPlatformId,
   type PlatformId,
 } from "./platforms";
-import { DEFAULT_MODEL_ID, findModel } from "./models";
-import { DEFAULT_REASONING_EFFORT, REASONING_EFFORTS, type ReasoningEffort } from "./models";
+import { DEFAULT_MODEL_ID, findModel, reasoningFor } from "./models";
+import { DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
 
 export const MAX_REQUEST_BYTES = 200_000;
 export class InputError extends Error {}
@@ -162,7 +162,7 @@ export function validateProject(
   platform: PlatformId = DEFAULT_PLATFORM,
   version: string = PLATFORMS[DEFAULT_PLATFORM].versions[0],
 ): GeneratedProject {
-  if (!value || typeof value !== "object")
+  if (!value || typeof value !== "object" || Array.isArray(value))
     throw new InputError("The provider did not return a project object.");
   const project = value as Record<string, unknown>;
   if (
@@ -220,7 +220,7 @@ export function validateProject(
 }
 
 export function validateRequest(value: unknown): GenerateRequest {
-  if (!value || typeof value !== "object")
+  if (!value || typeof value !== "object" || Array.isArray(value))
     throw new InputError("Expected a JSON object.");
   const data = value as Record<string, unknown>;
   if (
@@ -239,14 +239,21 @@ export function validateRequest(value: unknown): GenerateRequest {
   const modelId = data.modelId ?? DEFAULT_MODEL_ID;
   if (typeof modelId !== "string" || !findModel(modelId))
     throw new InputError("Choose a supported AI model.");
-  const reasoningEffort = data.reasoningEffort ?? DEFAULT_REASONING_EFFORT;
+  const artifactType = PLATFORMS[platform].kind === "mod" ? "mod" : "plugin";
+  if (data.artifactType !== undefined && data.artifactType !== artifactType)
+    throw new InputError("Choose plugin or mod generation with a matching platform. Pack generation is not connected to this endpoint yet.");
+  const reasoning = reasoningFor(modelId);
+  const reasoningEffort = data.reasoningEffort ?? reasoning?.default ?? DEFAULT_REASONING_EFFORT;
   if (typeof reasoningEffort !== "string" || !REASONING_EFFORTS.includes(reasoningEffort as ReasoningEffort))
     throw new InputError("Choose a supported reasoning level.");
+  if (reasoning && !reasoning.levels.includes(reasoningEffort as ReasoningEffort))
+    throw new InputError("That reasoning level is not supported by the selected model.");
   return {
     prompt: data.prompt.trim(),
     platform,
     version: data.version,
     modelId,
+    artifactType,
     reasoningEffort: reasoningEffort as ReasoningEffort,
     ...(data.project === undefined
       ? {}

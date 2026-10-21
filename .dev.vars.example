@@ -1,5 +1,8 @@
 # Local Workers-runtime preview. Do not put credentials in wrangler.jsonc.
 AI_PROVIDER=openai-compatible
+# OPENAI_API_KEY=
+# ANTHROPIC_API_KEY=
+# GEMINI_API_KEY=
 # AI_API_KEY=
 # AI_MODEL=
 # BUILD_SERVICE_URL=

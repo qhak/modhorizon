@@ -1,22 +1,17 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { BILLING_PLANS, isPaidPlanId, type PaidPlanId, type PlanId } from "./billing-catalog";
-import { creditsForUsage, reserveCreditsForGeneration } from "./models";
-import { findModel } from "./models";
-import type { AIProvider, GenerateRequest, GeneratedProject } from "./types";
+import { creditsForUsage, findModel } from "./models";
+import type { GenerateRequest, GeneratedProject } from "./types";
+import type { D1Database, D1Statement } from "./billing-db";
+import { BillingError } from "./billing-errors";
+import { holdCredits, completeCreditReservation } from "./credit-reservations";
+import { quoteGeneration } from "./generation-quote";
+export { BillingError } from "./billing-errors";
 
 export const BILLING_SESSION_COOKIE = "mh_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-type D1Meta = { changes: number };
-type D1Result<T = Record<string, unknown>> = { results?: T[]; meta: D1Meta; success?: boolean };
-type D1Statement = {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(column?: string): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-};
-type D1Database = { prepare(query: string): D1Statement; batch<T = Record<string, unknown>>(statements: D1Statement[]): Promise<D1Result<T>[]> };
 type BillingEnv = {
   BILLING_DB?: D1Database;
   STRIPE_SECRET_KEY?: string;
@@ -32,9 +27,6 @@ type BillingAccountRow = {
 export type BillingAccount = {
   id: string; plan: PlanId; credits: number; subscriptionStatus: string;
 };
-export class BillingError extends Error {
-  constructor(message: string, public status = 503) { super(message); this.name = "BillingError"; }
-}
 
 export async function billingEnv(): Promise<BillingEnv> {
   try {
@@ -129,7 +121,7 @@ function accountIsPaid(account: BillingAccount) {
   return account.plan !== "free" && (account.subscriptionStatus === "active" || account.subscriptionStatus === "trialing");
 }
 
-export async function reserveGenerationCredits(accountId: string, request: GenerateRequest) {
+export async function reserveGenerationCredits(accountId: string, request: GenerateRequest, errors?: string[]) {
   const modelId = request.modelId || "";
   const model = findModel(modelId);
   if (!model) throw new BillingError("Choose an available AI model.", 400);
@@ -140,52 +132,27 @@ export async function reserveGenerationCredits(accountId: string, request: Gener
   const current = await findAccountById(db, accountId);
   if (!current) throw new BillingError("Account not found.", 401);
   const account = serializeAccount(current);
-  if (model.provider !== "demo" && model.group !== "Economy" && !accountIsPaid(account))
-    throw new BillingError("Upgrade to a paid plan to use this model. Economy models are available on Free.", 402);
-  if (account.plan !== "free" && !accountIsPaid(account))
-    throw new BillingError("Your subscription needs attention before you can generate.", 402);
-  if (model.provider === "demo") return { model, reserved: 0, account };
-  const estimate = Math.ceil((JSON.stringify(request).length + 8_000) / 3);
-  const reserved = reserveCreditsForGeneration(modelId, estimate, request.reasoningEffort);
-  if (reserved === null) throw new BillingError("Credit estimate is unavailable for this model.", 503);
-  const now = Date.now();
-  const results = await db.batch([
-    db.prepare("UPDATE billing_accounts SET credit_balance=credit_balance-?,updated_at=? WHERE id=? AND credit_balance>=?")
-      .bind(reserved, now, accountId, reserved),
-    db.prepare(`INSERT INTO credit_ledger(id,account_id,delta,reason,model_id,created_at)
-      SELECT ?,id,?,'generation_reserve',?,? FROM billing_accounts
-      WHERE id=? AND changes()=1`).bind(randomUUID(), -reserved, modelId, now, accountId),
-  ]);
-  if (!results[0]?.meta?.changes) throw new BillingError(`This generation may use up to ${reserved} credits, but your balance is ${account.credits}.`, 402);
-  return { model, reserved, account };
+  const { reservedCredits: reserved } = quoteGeneration(account, request, errors);
+  if (model.provider === "demo") return { model, reserved: 0, reservationId: null, account };
+  const reservationId = await holdCredits(db, accountId, modelId, reserved);
+  if (!reservationId) throw new BillingError(`This generation may use up to ${reserved} credits, but your balance cannot cover it.`, 402);
+  return { model, reserved, reservationId, account };
 }
 async function accountFromId(id: string) {
   const env = await billingEnv();
   return { env, db: dbFor(env), id };
 }
-export async function settleGenerationCredits(accountId: string, modelId: string, reserved: number, result: GeneratedProject) {
-  if (reserved <= 0) return 0;
+export async function settleGenerationCredits(accountId: string, modelId: string, reservationId: string | null, result: GeneratedProject) {
+  if (!reservationId) return 0;
   const { db } = await accountFromId(accountId);
   const actual = creditsForUsage(modelId, result.usage?.inputTokens ?? Math.ceil(JSON.stringify(result).length / 3), result.usage?.outputTokens ?? Math.ceil(JSON.stringify(result).length / 3));
-  if (actual === null) return reserved;
-  const refund = Math.max(0, reserved - actual), now = Date.now();
-  if (refund) {
-    await db.batch([
-      db.prepare("UPDATE billing_accounts SET credit_balance=credit_balance+?,updated_at=? WHERE id=?").bind(refund, now, accountId),
-      db.prepare("INSERT INTO credit_ledger(id,account_id,delta,reason,model_id,created_at) VALUES(?,?,?,'generation_settlement',?,?)")
-        .bind(randomUUID(), accountId, refund, modelId, now),
-    ]);
-  }
-  return Math.min(actual, reserved);
+  if (actual === null) throw new BillingError("Usage pricing is unavailable; your credit reservation is retained for reconciliation.");
+  return completeCreditReservation(db, accountId, reservationId, "settled", actual);
 }
-export async function refundGenerationCredits(accountId: string, modelId: string, amount: number) {
-  if (amount <= 0) return;
-  const { db } = await accountFromId(accountId), now = Date.now();
-  await db.batch([
-    db.prepare("UPDATE billing_accounts SET credit_balance=credit_balance+?,updated_at=? WHERE id=?").bind(amount, now, accountId),
-    db.prepare("INSERT INTO credit_ledger(id,account_id,delta,reason,model_id,created_at) VALUES(?,?,?,'generation_refund',?,?)")
-      .bind(randomUUID(), accountId, amount, modelId, now),
-  ]);
+export async function refundGenerationCredits(accountId: string, reservationId: string | null) {
+  if (!reservationId) return;
+  const { db } = await accountFromId(accountId);
+  await completeCreditReservation(db, accountId, reservationId, "refunded");
 }
 
 export function publicBillingConfig(env: BillingEnv) {

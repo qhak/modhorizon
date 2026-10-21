@@ -54,16 +54,18 @@ export async function POST(request: Request) {
     const meteredProvider = {
       name: provider.name,
       async generate(modelRequest: typeof input, errors?: string[]) {
-        const reservation = await reserveGenerationCredits(account.id, modelRequest);
+        const reservation = await reserveGenerationCredits(account.id, modelRequest, errors);
+        let generated;
         try {
-          const generated = await provider.generate(modelRequest, errors);
-          const charged = await settleGenerationCredits(account.id, modelRequest.modelId || "", reservation.reserved, generated);
-          creditsSpent += charged;
-          return generated;
+          generated = await provider.generate(modelRequest, errors);
         } catch (error) {
-          await refundGenerationCredits(account.id, modelRequest.modelId || "", reservation.reserved);
+          await refundGenerationCredits(account.id, reservation.reservationId);
           throw error;
         }
+        // A settlement failure must not refund a provider call that already succeeded.
+        const charged = await settleGenerationCredits(account.id, modelRequest.modelId || "", reservation.reservationId, generated);
+        creditsSpent += charged;
+        return generated;
       },
     };
     const project = await generatePlugin(

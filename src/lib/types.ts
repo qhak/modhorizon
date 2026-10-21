@@ -9,7 +9,8 @@ export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";
 export type ArtifactTarget = "paper" | "fabric" | "forge" | "neoforge" | "vanilla" | "iris" | "optifine";
 export type GeneratedFile = { path: string; content: string };
 export type TokenUsage = { inputTokens: number; outputTokens: number };
-export type ReasoningEffort = "light" | "standard" | "high" | "ultra";
+export type ReasoningLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+export type ReasoningEffort = ReasoningLevel;
 export type Project = {
   id: string;
   name: string;

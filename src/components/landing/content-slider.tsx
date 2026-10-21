@@ -1,21 +1,22 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Blocks, Database, FileCode2, Layers, Palette, Puzzle, Sun, type LucideIcon } from "lucide-react";
 import { PLATFORMS, PLATFORM_GROUPS, compareVersions } from "@/lib/platforms";
+import { SITE_MEDIA, type SiteImage } from "@/lib/site-media";
 
 type Loader = { label: string; note?: string };
 type ContentType = {
   id: string;
   title: string;
   icon: LucideIcon;
+  image: SiteImage;
   summary: string;
   available: boolean;
   loaders: Loader[];
   versions: string;
   files: string;
-  visual: ReactNode;
   href?: string;
 };
 
@@ -28,50 +29,36 @@ function rangeOf(kind: "plugin" | "mod") {
 const loadersOf = (kind: "plugin" | "proxy" | "mod", note?: string): Loader[] =>
   PLATFORM_GROUPS.find((group) => group.kind === kind)!.ids.map((id) => ({ label: PLATFORMS[id].label, note }));
 
-// Pixel colours for a 6×6 grass-block texture in the resource-pack card.
-const GRASS = "001011010010110110101001100110010100".split("").map(Number);
-
 const contentTypes: ContentType[] = [
   {
     id: "plugins",
     title: "Plugins",
     icon: Puzzle,
+    image: SITE_MEDIA.types.plugins,
     summary: "Commands, events, menus and gameplay rules for servers and networks.",
     available: true,
     loaders: [...loadersOf("plugin"), ...loadersOf("proxy", "proxy")],
     versions: rangeOf("plugin"),
     files: "Java · plugin.yml, bungee.yml or velocity-plugin.json",
     href: "/create?platform=paper",
-    visual: (
-      <div className="slide-art art-terminal">
-        <code><span>&gt;</span> /heal Steve</code>
-        <code className="ok">Healed Steve to full health.</code>
-        <code><span>&gt;</span> /warps</code>
-      </div>
-    ),
   },
   {
     id: "mods",
     title: "Mods",
     icon: Blocks,
+    image: SITE_MEDIA.types.mods,
     summary: "New items, blocks, mobs and mechanics for clients and servers.",
     available: true,
     loaders: loadersOf("mod"),
     versions: rangeOf("mod"),
     files: "Java · fabric.mod.json, quilt.mod.json or mods.toml",
     href: "/create?platform=fabric",
-    visual: (
-      <div className="slide-art art-inventory">
-        {["ruby", "ingot", "", "sword", "", "ore", "", "", "gem"].map((item, index) => (
-          <span key={index} className={item ? `slot slot-${item}` : "slot"} />
-        ))}
-      </div>
-    ),
   },
   {
     id: "shaders",
     title: "Shaders",
     icon: Sun,
+    image: SITE_MEDIA.types.shaders,
     summary: "Lighting, shadows, water and sky effects as a shader pack.",
     available: false,
     loaders: [
@@ -81,12 +68,12 @@ const contentTypes: ContentType[] = [
     ],
     versions: "Depends on the shader loader",
     files: "GLSL · shaders.properties",
-    visual: <div className="slide-art art-sky"><span className="sun" /></div>,
   },
   {
     id: "resource-packs",
     title: "Texture packs",
     icon: Palette,
+    image: SITE_MEDIA.types.texturePacks,
     summary: "Block and item textures, models, sounds and fonts as a resource pack.",
     available: false,
     loaders: [
@@ -96,16 +83,12 @@ const contentTypes: ContentType[] = [
     ],
     versions: "1.6.1 – 26.3 as resource packs",
     files: "pack.mcmeta · PNG textures · JSON models",
-    visual: (
-      <div className="slide-art art-texture">
-        {GRASS.map((shade, index) => <span key={index} className={shade ? "px-light" : "px-dark"} />)}
-      </div>
-    ),
   },
   {
     id: "datapacks",
     title: "Datapacks",
     icon: Database,
+    image: SITE_MEDIA.types.datapacks,
     summary: "Recipes, advancements, loot tables and functions without any mods.",
     available: false,
     loaders: [
@@ -117,13 +100,6 @@ const contentTypes: ContentType[] = [
     ],
     versions: "1.13 – 26.3",
     files: "pack.mcmeta · .mcfunction · JSON",
-    visual: (
-      <div className="slide-art art-terminal">
-        <code><span>#</span> tick.mcfunction</code>
-        <code>execute as @a at @s</code>
-        <code>  run particle flame ~ ~ ~</code>
-      </div>
-    ),
   },
 ];
 
@@ -164,7 +140,15 @@ export function ContentSlider() {
             aria-roledescription="slide"
             aria-label={`${index + 1} of ${contentTypes.length}: ${type.title}`}
           >
-            {type.visual}
+            <figure className="slide-art">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={type.image.src} alt={type.image.alt} width={760} height={400} loading="lazy" />
+              <figcaption>
+                <a href={type.image.source} target="_blank" rel="noreferrer">
+                  {type.image.author} · {type.image.license}
+                </a>
+              </figcaption>
+            </figure>
             <div className="slide-body">
               <div className="slide-head">
                 <span className="slide-icon" aria-hidden="true"><type.icon size={18} /></span>

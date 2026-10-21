@@ -8,6 +8,10 @@ Batch 2 adds the [local dashboard](http://127.0.0.1:3215/dashboard) with real SQ
 
 Cloudflare deployment and hosted-preview configuration are documented in [Cloudflare hosting](docs/cloudflare.md). Run `npm run deploy` to build and deploy the configured Worker. The initial hosted version disables generation until provider credentials are connected.
 
+The current create workspace's generation endpoints, credit quotes, durable reservations,
+and remaining launch requirements are documented in [Generation and credit backend](docs/backend-generation.md).
+Stripe configuration is documented in [Stripe test mode setup](docs/stripe-setup.md).
+
 ## Local setup
 
 Install Node.js 22 LTS or newer, then:

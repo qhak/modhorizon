@@ -7,6 +7,7 @@ export function serviceStatus(env: NodeJS.ProcessEnv = process.env) {
   const demoAvailable = choices.demo === true;
   return {
     generationAvailable,
+    artifactTypes: ["plugin", "mod"],
     buildConfigured: Boolean(env.BUILD_SERVICE_URL && env.BUILD_SERVICE_TOKEN),
     choices,
     preferred: preferredModelId(choices, env),

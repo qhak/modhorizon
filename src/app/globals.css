@@ -147,6 +147,18 @@ textarea::placeholder { color: var(--secondary); opacity: 1; }
 .model-setup-link { margin: 3px; padding: 6px; border: 0; border-radius: 4px; background: transparent; color: var(--primary); font-size: 12px; }
 .composer-meta { display: flex; justify-content: space-between; padding: 13px 2px 0; color: var(--secondary); font-size: 11px; }
 .platform-picker select { font-weight: 500; }
+.reasoning-picker > svg:first-child { position: static; margin: 0 -2px 0 7px; color: var(--secondary); }
+.reasoning-picker select { padding-left: 6px; }
+.model-option-reasoning { display: flex !important; align-items: center; gap: 4px; color: #79b8ff !important; }
+.followup-pickers { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.type-slider { display: flex; gap: 8px; margin: 0 0 14px; padding-bottom: 2px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
+.type-slider::-webkit-scrollbar { display: none; }
+.type-chip { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 5px 14px 5px 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--card); color: var(--secondary); font-size: 13px; font-weight: 500; scroll-snap-align: start; }
+.type-chip:hover:not(:disabled) { border-color: rgb(255 255 255 / .22); color: var(--foreground); }
+.type-chip.active { border-color: #fff; background: #fff; color: #000; }
+.type-thumb { width: 30px; height: 30px; flex-shrink: 0; border-radius: 999px; background: center / cover no-repeat var(--elevated); }
+.type-chip small { padding: 1px 6px; border-radius: 999px; background: rgb(255 255 255 / .08); color: var(--muted); font-size: 10px; font-weight: 500; }
+.type-chip.active small { background: rgb(0 0 0 / .08); color: rgb(0 0 0 / .55); }
 .compat-notice { margin-top: 12px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--warning) 6%, var(--card)); font-size: 13px; }
 .compat-head { display: flex; align-items: center; gap: 9px; }
 .compat-head > svg { color: var(--warning); }

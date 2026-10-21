@@ -1,14 +1,12 @@
 export type ModelProvider = "openai" | "anthropic" | "google" | "demo";
 export type ModelGroup = "Economy" | "Balanced" | "Advanced" | "Frontier";
-export type ReasoningEffort = "light" | "standard" | "high" | "ultra";
-export const REASONING_EFFORTS: readonly ReasoningEffort[] = ["light", "standard", "high", "ultra"];
-export const DEFAULT_REASONING_EFFORT: ReasoningEffort = "standard";
-export function providerReasoningEffort(effort: ReasoningEffort, provider: ModelProvider) {
-  if (provider === "google") return effort === "light" ? "low" : effort === "standard" ? "medium" : "high";
-  return effort === "light" ? "low" : effort === "standard" ? "medium" : effort === "high" ? "high" : "xhigh";
-}
-export function reasoningEstimateMultiplier(effort: ReasoningEffort) {
-  return effort === "light" ? 0.75 : effort === "standard" ? 1 : effort === "high" ? 1.5 : 2.25;
+import type { ReasoningLevel } from "./types";
+export type { ReasoningLevel } from "./types";
+export const REASONING_EFFORTS: readonly ReasoningLevel[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
+export const DEFAULT_REASONING_EFFORT: ReasoningLevel = "medium";
+export function providerReasoningEffort(effort: ReasoningLevel, _provider: ModelProvider): ReasoningLevel { return effort; }
+export function reasoningEstimateMultiplier(effort: ReasoningLevel) {
+  return effort === "minimal" ? 0.6 : effort === "low" ? 0.75 : effort === "medium" ? 1 : effort === "high" ? 1.5 : effort === "xhigh" ? 2 : 2.5;
 }
 
 export type ModelOption = {
@@ -136,6 +134,8 @@ export const PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT = 5_000;
 export const MAX_GENERATION_OUTPUT_TOKENS = 16_000;
 
 export function creditsForUsage(modelId: string, inputTokens: number, outputTokens: number) {
+  if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 || !Number.isSafeInteger(outputTokens) || outputTokens < 0)
+    throw new Error("Token usage must contain nonnegative safe integers.");
   const model = findModel(modelId);
   if (!model || model.provider === "demo") return 0;
   if (model.inputUsdPerMillion === undefined || model.outputUsdPerMillion === undefined) return null;
@@ -144,12 +144,14 @@ export function creditsForUsage(modelId: string, inputTokens: number, outputToke
   return Math.max(1, Math.ceil(providerCostMicroUsd / PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT));
 }
 
-export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningEffort = DEFAULT_REASONING_EFFORT) {
+export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT) {
   const base = creditsForUsage(modelId, estimatedInputTokens, MAX_GENERATION_OUTPUT_TOKENS);
-  return base === null ? null : Math.ceil(base * reasoningEstimateMultiplier(effort));
+  // Low effort is an estimate, not a provider output limit. Never discount the hold
+  // below the configured output ceiling; settlement refunds unused credits.
+  return base === null ? null : Math.ceil(base * Math.max(1, reasoningEstimateMultiplier(effort)));
 }
 
-export function estimateCreditsForModel(modelId: string, inputTokens = 1_500, outputTokens = 5_000, effort: ReasoningEffort = DEFAULT_REASONING_EFFORT) {
+export function estimateCreditsForModel(modelId: string, inputTokens = 1_500, outputTokens = 5_000, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT) {
   const base = creditsForUsage(modelId, inputTokens, outputTokens);
   return base === null ? null : Math.max(1, Math.ceil(base * reasoningEstimateMultiplier(effort)));
 }
@@ -189,4 +191,38 @@ export function preferredModelId(
   if (connectedModel) return connectedModel.id;
   if (choices.demo) return "demo";
   return DEFAULT_MODEL_ID;
+}
+
+export const REASONING_LABELS: Record<ReasoningLevel, string> = {
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max",
+};
+
+// The effort levels each provider's API accepts, lowest first.
+const PROVIDER_REASONING: Record<Exclude<ModelProvider, "demo">, ReasoningLevel[]> = {
+  openai: ["low", "medium", "high", "xhigh"],
+  anthropic: ["low", "medium", "high", "xhigh", "max"],
+  google: ["minimal", "low", "medium", "high"],
+};
+
+// Each provider's own default; Claude Opus 5.5 defaults lower than other Claude models.
+const PROVIDER_DEFAULT: Record<Exclude<ModelProvider, "demo">, ReasoningLevel> = {
+  openai: "medium",
+  anthropic: "high",
+  google: "high",
+};
+const MODEL_DEFAULT: Record<string, ReasoningLevel> = { "claude-opus-5-5": "medium" };
+
+/** Reasoning levels a model offers, or null for the local preview, which makes no AI call. */
+export function reasoningFor(modelId: string): { levels: ReasoningLevel[]; default: ReasoningLevel } | null {
+  const model = findModel(modelId);
+  if (!model || model.provider === "demo") return null;
+  return {
+    levels: PROVIDER_REASONING[model.provider],
+    default: MODEL_DEFAULT[model.id] ?? PROVIDER_DEFAULT[model.provider],
+  };
 }
