@@ -1,5 +1,7 @@
 # ModHorizon
 
+Current release: **v0.2.0**. See [change notes](CHANGELOG.md) for version history.
+
 A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 
 Batch 1 introduced the cinematic landing page at `/` and preserved the original prototype at `/workspace`. Accounts and credit rewards are presented as planned, with no client-side balance changes. See the [Batch 1 implementation record](docs/batch-1.md) for assets, validation and remaining scope.
@@ -10,7 +12,7 @@ Cloudflare deployment and hosted-preview configuration are documented in [Cloudf
 
 The current create workspace's generation endpoints, credit quotes, durable reservations,
 and remaining launch requirements are documented in [Generation and credit backend](docs/backend-generation.md).
-Stripe configuration is documented in [Stripe test mode setup](docs/stripe-setup.md).
+Stripe configuration is documented in [Stripe billing setup](docs/stripe-setup.md).
 
 ## Local setup
 

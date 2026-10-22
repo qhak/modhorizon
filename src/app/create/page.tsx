@@ -61,11 +61,12 @@ import {
   type ReasoningLevel,
 } from "@/lib/models";
 import { SITE_MEDIA } from "@/lib/site-media";
+import { TESTING_MODEL_IDS } from "@/lib/model-access";
 
 
 type SourceFile = { path: string; content: string };
 type Message = { role: "user" | "assistant"; text: string };
-type BillingAccountView = { plan: "free" | "starter" | "pro" | "studio"; credits: number; subscriptionStatus: string };
+type BillingAccountView = { plan: "free" | "starter" | "pro" | "studio"; credits: number; subscriptionStatus: string; email?: string | null };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
 const suggestions: { title: string; description: string; prompt: string; platform: PlatformId }[] = [
@@ -283,6 +284,7 @@ function ModelPicker({
   disabled,
   paidAccess,
   reasoningEffort,
+  testingRestricted = true,
 }: {
   value: string;
   onChange: (modelId: string) => void;
@@ -291,6 +293,7 @@ function ModelPicker({
   disabled: boolean;
   paidAccess: boolean;
   reasoningEffort: ReasoningLevel;
+  testingRestricted?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -319,7 +322,7 @@ function ModelPicker({
   const groupOrder = ["Economy", "Balanced", "Advanced", "Frontier"];
   const models = MODEL_OPTIONS.filter(
     (model): model is ModelOption & { provider: Exclude<ModelProvider, "demo"> } =>
-      model.provider !== "demo",
+      model.provider !== "demo" && (!testingRestricted || (TESTING_MODEL_IDS as readonly string[]).includes(model.id)),
   ).sort((left, right) => groupOrder.indexOf(left.group) - groupOrder.indexOf(right.group));
   const provider = selected.provider === "demo" ? null : selected.provider;
 
@@ -351,7 +354,7 @@ function ModelPicker({
         <div id="ai-model-menu" className="model-options" role="dialog" aria-label="Choose an AI model">
           <div className="model-options-heading">
             <strong>Choose a model</strong>
-            <span>Provider rates · USD per 1M tokens</span>
+            <span>{testingRestricted ? "Testing · Luna and free-tier models only" : "Provider rates · USD per 1M tokens"}</span>
           </div>
           <div>
           {models.map((model, index) => (
@@ -528,6 +531,7 @@ export default function Home() {
     message: string;
     choices: Record<string, boolean>;
     preferred: string;
+    testingRestricted?: boolean;
     /** Content types the generation API can build; plugins and mods when it doesn't say. */
     artifactTypes?: string[];
   } | null>(null);
@@ -884,10 +888,10 @@ export default function Home() {
             <Sparkles size={16} />
             <span>Plans & credits</span>
           </Link>
-          <button className="account" onClick={() => setModal("settings")} aria-label="Account and credits">
+          <Link className="account" href="/account" aria-label="Account and credits">
             <div className="avatar">D</div>
-            <div><strong>Guest developer</strong><span>{billingAccount ? `${billingAccount.plan[0].toUpperCase()}${billingAccount.plan.slice(1)} · ${billingAccount.credits} credits` : "Connecting account…"}</span></div>
-          </button>
+            <div><strong>{billingAccount?.email || "Sign in / Account"}</strong><span>{billingAccount ? `${billingAccount.plan[0].toUpperCase()}${billingAccount.plan.slice(1)} · ${billingAccount.credits} credits` : "Connecting account…"}</span></div>
+          </Link>
         </div>
       </aside>
 
@@ -990,6 +994,7 @@ export default function Home() {
                       onChange={setSelectedModel}
                       onSetup={() => setModal("settings")}
                       choices={services?.choices || {}}
+                      testingRestricted={services?.testingRestricted ?? true}
                       disabled={busy}
                       paidAccess={paidAccess}
                       reasoningEffort={reasoning}
@@ -1226,6 +1231,7 @@ export default function Home() {
                       onChange={setSelectedModel}
                       onSetup={() => setModal("settings")}
                       choices={services?.choices || {}}
+                      testingRestricted={services?.testingRestricted ?? true}
                       disabled={busy}
                       paidAccess={paidAccess}
                       reasoningEffort={reasoning}
@@ -1553,8 +1559,7 @@ export default function Home() {
               <span className="tag">{Object.keys(PLATFORMS).length} LOADERS</span>
             </div>
             <p className="settings-local">
-              <ShieldCheck size={15} /> Local account placeholder ·
-              authentication is not enabled.
+              <ShieldCheck size={15} /> <Link href="/account">Manage your account and sign-in options</Link>.
             </p>
           </>
         )}

@@ -1,6 +1,7 @@
 export type ModelProvider = "openai" | "anthropic" | "google" | "demo";
 export type ModelGroup = "Economy" | "Balanced" | "Advanced" | "Frontier";
 import type { ReasoningLevel } from "./types";
+import { testingModelAllowed } from "./model-access";
 export type { ReasoningLevel } from "./types";
 export const REASONING_EFFORTS: readonly ReasoningLevel[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
 export const DEFAULT_REASONING_EFFORT: ReasoningLevel = "medium";
@@ -21,6 +22,16 @@ export type ModelOption = {
 };
 
 export const MODEL_OPTIONS: ModelOption[] = [
+  {
+    id: "gemini-3-flash-preview",
+    label: "Gemini 3 Flash Preview",
+    provider: "google",
+    providerLabel: "Google Gemini",
+    group: "Economy",
+    description: "Free-tier testing project · limited quota",
+    inputUsdPerMillion: 0.5,
+    outputUsdPerMillion: 3,
+  },
   {
     id: "gpt-6-luna",
     label: "GPT-6 Luna",
@@ -163,18 +174,20 @@ export function modelChoices(env: NodeJS.ProcessEnv) {
   const anthropicReady = Boolean(env.ANTHROPIC_API_KEY);
   const googleReady = Boolean(env.GEMINI_API_KEY);
   const development = env.NODE_ENV !== "production";
-  const demoReady = development && !openAIReady && !anthropicReady && !googleReady;
+  const demoReady = development && !openAIReady && !anthropicReady && !googleReady && !env.GEMINI_FREE_API_KEY;
 
   return Object.fromEntries(
     MODEL_OPTIONS.map((model) => [
       model.id,
-      model.provider === "openai"
+      testingModelAllowed(model.id, env) && (model.id === "gemini-3-flash-preview"
+        ? Boolean(env.GEMINI_FREE_API_KEY)
+        : model.provider === "openai"
         ? openAIReady
         : model.provider === "anthropic"
           ? anthropicReady
           : model.provider === "google"
             ? googleReady
-          : demoReady,
+          : demoReady),
     ]),
   ) as Record<string, boolean>;
 }

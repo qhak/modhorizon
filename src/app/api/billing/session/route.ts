@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { BILLING_SESSION_COOKIE, openBillingSession, revokeBillingSession } from "@/lib/billing-service";
+import { BILLING_SESSION_COOKIE, openBillingSession, publicBillingConfig, revokeBillingSession } from "@/lib/billing-service";
 import { hasAllowedOrigin } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   if (!hasAllowedOrigin(request)) return Response.json({ error: "A same-origin request is required." }, { status: 403 });
   try {
     const { token, account, env } = await openBillingSession(request);
-    const response = NextResponse.json({ account, checkoutConfigured: Boolean(env.STRIPE_SECRET_KEY?.startsWith("sk_test_") && env.STRIPE_PRICE_STARTER && env.STRIPE_PRICE_PRO && env.STRIPE_PRICE_STUDIO) }, { headers: { "Cache-Control": "no-store" } });
+    const response = NextResponse.json({ account, checkoutConfigured: publicBillingConfig(env).checkoutConfigured }, { headers: { "Cache-Control": "no-store" } });
     response.cookies.set(BILLING_SESSION_COOKIE, token, { httpOnly: true, sameSite: "strict", path: "/", maxAge: 30 * 86400, secure: new URL(request.url).protocol === "https:" });
     return response;
   } catch (error) {

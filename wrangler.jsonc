@@ -23,7 +23,8 @@
     }
   ],
   "vars": {
-    "AI_PROVIDER": "openai-compatible"
+    "AI_PROVIDER": "openai-compatible",
+    "AI_TESTING_MODE": "true"
   },
   "observability": {
     "enabled": true,

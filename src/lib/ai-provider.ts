@@ -285,7 +285,8 @@ class GeminiProvider implements AIProvider {
     request: GenerateRequest,
     errors?: string[],
   ): Promise<GeneratedProject> {
-    const key = process.env.GEMINI_API_KEY;
+    // A separate non-billing project key prevents silently falling back to paid Gemini.
+    const key = this.modelId === "gemini-3-flash-preview" ? process.env.GEMINI_FREE_API_KEY : process.env.GEMINI_API_KEY;
     if (!key) throw new Error("Configure GEMINI_API_KEY to enable this model.");
     const endpoint = trustedEndpoint(
       process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/",
