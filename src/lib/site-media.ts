@@ -3,7 +3,6 @@
 export const SITE_MEDIA = {
   heroVideo: "/media/hero.mp4",
   heroPoster: "/media/hero-poster.jpg",
-  demo: "/media/demo.mp4",
   cta: "/media/hero.mp4",
   // Openly licensed images from Wikimedia Commons; credits are shown on each card
   // and listed in public/media/types/CREDITS.md.

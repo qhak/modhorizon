@@ -31,7 +31,6 @@ import {
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   SquareTerminal,
   TriangleAlert,
   X,
@@ -317,9 +316,7 @@ function ModelPicker({
       maximumFractionDigits: 2,
     }).format(amount);
   const showRate = (input?: number, output?: number) =>
-    input === undefined || output === undefined
-      ? "No provider call"
-      : `${rate(input)} in · ${rate(output)} out / 1M`;
+    input === undefined || output === undefined ? "—" : `${rate(input)} / ${rate(output)}`;
   const groupOrder = ["Economy", "Balanced", "Advanced", "Frontier"];
   const models = MODEL_OPTIONS.filter(
     (model): model is ModelOption & { provider: Exclude<ModelProvider, "demo"> } =>
@@ -354,8 +351,8 @@ function ModelPicker({
       {open && (
         <div id="ai-model-menu" className="model-options" role="dialog" aria-label="Choose an AI model">
           <div className="model-options-heading">
-            <strong>Choose a model</strong>
-            <span>Provider rates · USD per 1M tokens</span>
+            <strong>Model</strong>
+            <span>In / out per 1M tokens</span>
           </div>
           <div>
           {models.map((model, index) => (
@@ -366,7 +363,7 @@ function ModelPicker({
               <button
                 type="button"
                 aria-pressed={value === model.id}
-                title={choices[model.id] ? undefined : `Connect ${model.providerLabel} in server configuration to enable this choice.`}
+                title={choices[model.id] ? undefined : `Add a ${model.providerLabel} API key on the server to use this model.`}
                 disabled={!choices[model.id]}
                 className={`model-option ${value === model.id ? "model-option-active" : ""}`}
                 onClick={() => {
@@ -378,7 +375,6 @@ function ModelPicker({
                 <ProviderLogo provider={model.provider} />
                 <span className="model-option-main">
                   <strong>{model.label}</strong>
-                  <small>{model.description}</small>
                   {(() => {
                     const reasoning = reasoningFor(model.id);
                     return reasoning && (
@@ -416,7 +412,6 @@ function ModelPicker({
                 <span className="provider-logo provider-logo-demo" aria-hidden="true"><Cpu size={13} /></span>
                 <span className="model-option-main">
                   <strong>Local example preview</strong>
-                  <small>Fixed example; no AI call</small>
                 </span>
                 <span className="model-option-price">Free</span>
                 {value === "demo" && <Check size={14} aria-hidden="true" />}
@@ -424,7 +419,6 @@ function ModelPicker({
             </div>
           )}
           </div>
-          <p className="model-pricing-note">Provider rates are shown for reference. ModHorizon credit pricing is not active yet.</p>
           <button type="button" className="model-setup-link" onClick={onSetup}>Provider setup</button>
         </div>
       )}
@@ -502,6 +496,85 @@ function TestGuide({ project, target, onTarget }: {
   );
 }
 
+type Attachment = { id: string; name: string; type: string; data: string; image: boolean; size: number };
+const MAX_ATTACHMENTS = 6;
+// Generation requests are capped at 200 KB, so attachments share a smaller budget.
+const ATTACHMENT_BUDGET = 180_000;
+const ATTACHMENT_TYPES = "image/*,.txt,.md,.json,.yml,.yaml,.toml,.properties,.java,.kt,.mcmeta,.mcfunction,.log";
+
+/** Scales an image down to fit the request budget and returns it as a JPEG data URL. */
+function downscaleImage(file: File, maxSide = 768, quality = 0.72): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`Couldn't read ${file.name}.`));
+    };
+    image.src = url;
+  });
+}
+
+async function readAttachment(file: File): Promise<Attachment> {
+  const id = crypto.randomUUID();
+  if (file.type.startsWith("image/")) {
+    const data = await downscaleImage(file);
+    return { id, name: file.name, type: "image/jpeg", data, image: true, size: data.length };
+  }
+  const text = (await file.text()).slice(0, 40_000);
+  if (text.includes("\0")) throw new Error(`${file.name} isn't an image or a text file.`);
+  return { id, name: file.name, type: file.type || "text/plain", data: text, image: false, size: text.length };
+}
+
+const WIDE_LAYOUT = "(min-width: 1200px)";
+
+/** True when chat and code fit side by side; narrower screens switch between them with tabs. */
+function useWideLayout() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia(WIDE_LAYOUT);
+    const update = () => setWide(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return wide;
+}
+
+const lineCount = (content: string) => content.split("\n").length;
+
+function ProjectSummary({ project, statusLabel }: { project: Project; statusLabel: string }) {
+  const platform = platformOf(project.platform);
+  const lines = project.files.reduce((total, file) => total + lineCount(file.content), 0);
+  const model = MODEL_OPTIONS.find((option) => option.id === project.modelId)?.label || project.provider;
+  return (
+    <div className="project-card">
+      <div className="project-card-head">
+        <span className="project-card-icon" aria-hidden="true"><Blocks size={18} /></span>
+        <div>
+          <strong>{project.name}</strong>
+          <span>{describeTarget(platform.id, project.version)} · Java {javaVersionFor(platform.id, project.version)}</span>
+        </div>
+        <span className={`status-pill ${project.status}`}>{statusLabel}</span>
+      </div>
+      <dl className="project-stats">
+        <div><dt>Files</dt><dd>{project.files.length}</dd></div>
+        <div><dt>Lines</dt><dd>{lines.toLocaleString()}</dd></div>
+        <div><dt>Model</dt><dd title={model}>{model}</dd></div>
+      </dl>
+    </div>
+  );
+}
+
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [platform, setPlatform] = useState<PlatformId>(DEFAULT_PLATFORM);
@@ -534,11 +607,16 @@ export default function Home() {
     artifactTypes?: string[];
   } | null>(null);
   const generationUnavailable = !services?.choices[selectedModel];
+  const wide = useWideLayout();
+  // Wide screens always show the conversation, so the right pane falls back to Files.
+  const pane = wide && tab === "conversation" ? "code" : tab;
   const versionProblem = incompatibility(platform, version);
   const supportedTypes = services?.artifactTypes ?? CODE_TYPES;
   const typeUnavailable = !supportedTypes.includes(contentType);
   const contentLabel = CONTENT_TYPES.find((type) => type.id === contentType)!.label;
   const input = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
@@ -686,7 +764,28 @@ export default function Home() {
     else if (next === "mod" && PLATFORMS[platform].kind !== "mod") choosePlatform("fabric");
     setContentType(next);
   }
+  async function addAttachments(files: FileList | null) {
+    if (!files?.length) return;
+    setError("");
+    const added: Attachment[] = [];
+    let used = attachments.reduce((total, item) => total + item.size, 0);
+    for (const file of Array.from(files).slice(0, MAX_ATTACHMENTS - attachments.length)) {
+      try {
+        const attachment = await readAttachment(file);
+        if (used + attachment.size > ATTACHMENT_BUDGET) {
+          setError(`${file.name} is too large to attach.`);
+          continue;
+        }
+        used += attachment.size;
+        added.push(attachment);
+      } catch (problem) {
+        setError(problem instanceof Error ? problem.message : `Couldn't read ${file.name}.`);
+      }
+    }
+    setAttachments((current) => [...current, ...added]);
+  }
   function newProject() {
+    setAttachments([]);
     setProject(null);
     setPrompt("");
     setMessages([]);
@@ -707,8 +806,8 @@ export default function Home() {
         text:
           p.error ||
           (p.status === "success"
-            ? `The build service compiled this project. Download it and verify its behavior on ${describeTarget(platformOf(p.platform).id, p.version)}.`
-            : "Source preview ready. This has not been compiled. Connect an isolated build service to build a JAR."),
+            ? "Compiled. Download the JAR and test it in game."
+            : "Source ready. Not compiled yet."),
       },
     ]);
     setSelectedFile(p.files[0]?.path || "");
@@ -736,6 +835,9 @@ export default function Home() {
           // Read by the generation API; this build's server ignores fields it doesn't use.
           artifactType: current ? (platformOf(current.platform).kind === "mod" ? "mod" : "plugin") : contentType,
           ...(reasoningFor(selectedModel) ? { reasoning } : {}),
+          ...(!current && attachments.length
+            ? { attachments: attachments.map(({ name, type, data }) => ({ name, type, data })) }
+            : {}),
           ...(current
             ? { project: { name: current.name, files: current.files } }
             : {}),
@@ -762,6 +864,7 @@ export default function Home() {
         return;
       }
       setProject(next);
+      setAttachments([]);
       setSelectedFile(next.files[0]?.path || "");
       setTab("conversation");
       setProjects((previous) =>
@@ -778,10 +881,10 @@ export default function Home() {
           text:
             next.error ||
             (next.status === "success"
-              ? `Your project compiled successfully. Review the source and test it on ${describeTarget(platformOf(next.platform).id, next.version)} before use.`
+              ? "Compiled. Download the JAR and test it in game."
               : next.provider === "mock"
-                ? "Your source preview is ready. The development provider generated a zombie speed-boost example. No compilation has run and no JAR is available."
-                : "Your AI-generated source is ready. No build service is configured, so compilation has not run and no JAR is available."),
+                ? "Example source ready. This is a fixed preview and isn't compiled."
+                : "Source ready. Not compiled yet."),
         },
       ]);
       setPrompt("");
@@ -909,17 +1012,8 @@ export default function Home() {
           <div className="welcome-scroll">
             <div className="welcome">
               <div className="workspace-home-heading">
-                <div>
-                  <h1>What will you create?</h1>
-                  <p>Describe your idea. Pick a loader and any Minecraft version.</p>
-                </div>
+                <h1>What will you create?</h1>
               </div>
-              <ContentTypeSlider
-                value={contentType}
-                onChange={chooseContentType}
-                supported={supportedTypes}
-                disabled={busy}
-              />
               <form
                 className="composer"
                 onSubmit={(e) => {
@@ -927,6 +1021,32 @@ export default function Home() {
                   void generate();
                 }}
               >
+                <ContentTypeSlider
+                  value={contentType}
+                  onChange={chooseContentType}
+                  supported={supportedTypes}
+                  disabled={busy}
+                />
+                {attachments.length > 0 && (
+                  <ul className="attachment-list" aria-label="Attachments">
+                    {attachments.map((file) => (
+                      <li key={file.id}>
+                        {file.image
+                          ? <span className="attachment-thumb" style={{ backgroundImage: `url(${file.data})` }} aria-hidden="true" />
+                          : <FileText size={15} aria-hidden="true" />}
+                        <span className="attachment-name" title={file.name}>{file.name}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${file.name}`}
+                          disabled={busy}
+                          onClick={() => setAttachments((current) => current.filter((item) => item.id !== file.id))}
+                        >
+                          <X size={13} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <textarea
                   ref={input}
                   aria-label={`Describe your Minecraft ${contentLabel.toLowerCase()}`}
@@ -951,6 +1071,27 @@ export default function Home() {
                 />
                 <div className="composer-footer">
                   <div className="selectors">
+                    <input
+                      ref={fileInput}
+                      type="file"
+                      multiple
+                      hidden
+                      accept={ATTACHMENT_TYPES}
+                      onChange={(event) => {
+                        void addAttachments(event.target.files);
+                        event.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="composer-attach"
+                      aria-label="Add files or images"
+                      title="Add files or images"
+                      disabled={busy || attachments.length >= MAX_ATTACHMENTS}
+                      onClick={() => fileInput.current?.click()}
+                    >
+                      <Plus size={18} />
+                    </button>
                     {CODE_TYPES.includes(contentType) ? (
                       <PlatformPicker
                         value={platform}
@@ -961,7 +1102,6 @@ export default function Home() {
                     ) : (
                       <span className="platform-pill">{CONTENT_TYPES.find((type) => type.id === contentType)!.loaders}</span>
                     )}
-                    <span className="select-separator" />
                     <VersionPicker
                       platform={platform}
                       value={version}
@@ -969,7 +1109,6 @@ export default function Home() {
                       disabled={busy}
                       anyRelease={!CODE_TYPES.includes(contentType)}
                     />
-                    <span className="select-separator" />
                     <ModelPicker
                       value={selectedModel}
                       onChange={setSelectedModel}
@@ -979,26 +1118,23 @@ export default function Home() {
                     />
                     <ReasoningPicker modelId={selectedModel} value={reasoning} onChange={setReasoning} disabled={busy} />
                   </div>
-                  <Button
+                  <button
                     type="submit"
+                    className="composer-send"
+                    aria-label={busy ? "Generating" : "Generate"}
                     disabled={busy || generationUnavailable || typeUnavailable || Boolean(versionProblem && !typeUnavailable) || prompt.trim().length < 12}
-                    title={typeUnavailable ? `${contentLabel} generation isn't available in this build yet.` : versionProblem ? versionProblem.title : generationUnavailable ? "Connect an AI provider in the server configuration to enable generation." : undefined}
+                    title={typeUnavailable ? `${contentLabel} generation isn't available yet.` : versionProblem ? versionProblem.title : generationUnavailable ? "Add an AI provider key on the server to generate." : "Generate"}
                   >
-                    {busy ? (
-                      <LoaderCircle size={16} className="spin" />
-                    ) : null}
-                    <span>{busy ? "Generating…" : "Generate"}</span>
-                    {!busy && <ArrowUp size={15} />}
-                  </Button>
+                    {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowUp size={18} />}
+                  </button>
                 </div>
               </form>
               {typeUnavailable ? (
                 <div className="compat-notice" role="status">
                   <div className="compat-head">
                     <TriangleAlert size={15} aria-hidden="true" />
-                    <strong>{contentLabel} generation isn&apos;t connected in this build yet.</strong>
+                    <strong>{contentLabel} generation isn&apos;t available yet.</strong>
                   </div>
-                  <p>It runs on the new generation API. Plugins and mods work here today.</p>
                   <div className="compat-actions">
                     <button type="button" onClick={() => chooseContentType("plugin")}>Make a plugin</button>
                     <button type="button" onClick={() => chooseContentType("mod")}>Make a mod</button>
@@ -1065,30 +1201,31 @@ export default function Home() {
           <div className={`project-workspace view-${tab}`}>
               <div className="code-toolbar">
                 <div className="workspace-tabs" role="tablist" aria-label="Project views" onKeyDown={(event) => {
-                  const views = ["conversation", "code", "logs", "test"] as const;
+                  const views = wide ? (["code", "logs", "test"] as const) : (["conversation", "code", "logs", "test"] as const);
                   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
                   event.preventDefault();
-                  const index = event.key === "Home" ? 0 : event.key === "End" ? views.length - 1 : (views.indexOf(tab) + (event.key === "ArrowRight" ? 1 : views.length - 1)) % views.length;
+                  const current = (views as readonly string[]).indexOf(pane);
+                  const index = event.key === "Home" ? 0 : event.key === "End" ? views.length - 1 : (current + (event.key === "ArrowRight" ? 1 : views.length - 1)) % views.length;
                   setTab(views[index]);
                   document.getElementById(`tab-${views[index]}`)?.focus();
                 }}>
-                  <button role="tab" id="tab-conversation" aria-controls="panel-conversation" aria-selected={tab === "conversation"} tabIndex={tab === "conversation" ? 0 : -1} className={tab === "conversation" ? "tab-active" : ""} onClick={() => setTab("conversation")}>Conversation</button>
+                  {!wide && <button role="tab" id="tab-conversation" aria-controls="panel-conversation" aria-selected={tab === "conversation"} tabIndex={tab === "conversation" ? 0 : -1} className={tab === "conversation" ? "tab-active" : ""} onClick={() => setTab("conversation")}>Conversation</button>}
                   <button
-                    role="tab" id="tab-code" aria-controls="panel-code" aria-selected={tab === "code"} tabIndex={tab === "code" ? 0 : -1} className={tab === "code" ? "tab-active" : ""}
+                    role="tab" id="tab-code" aria-controls="panel-code" aria-selected={pane === "code"} tabIndex={pane === "code" ? 0 : -1} className={pane === "code" ? "tab-active" : ""}
                     onClick={() => setTab("code")}
                   >
                     <Code2 size={15} />
                     Files
                   </button>
                   <button
-                    role="tab" id="tab-logs" aria-controls="panel-logs" aria-selected={tab === "logs"} tabIndex={tab === "logs" ? 0 : -1} className={tab === "logs" ? "tab-active" : ""}
+                    role="tab" id="tab-logs" aria-controls="panel-logs" aria-selected={pane === "logs"} tabIndex={pane === "logs" ? 0 : -1} className={pane === "logs" ? "tab-active" : ""}
                     onClick={() => setTab("logs")}
                   >
                     <SquareTerminal size={15} />
                     Build
                   </button>
                 <button
-                  role="tab" id="tab-test" aria-controls="panel-test" aria-selected={tab === "test"} tabIndex={tab === "test" ? 0 : -1} className={tab === "test" ? "tab-active" : ""}
+                  role="tab" id="tab-test" aria-controls="panel-test" aria-selected={pane === "test"} tabIndex={pane === "test" ? 0 : -1} className={pane === "test" ? "tab-active" : ""}
                   onClick={() => setTab("test")}
                 >
                   Test
@@ -1122,13 +1259,8 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-            <section className="chat-panel" id="panel-conversation" role="tabpanel" aria-labelledby="tab-conversation" hidden={tab !== "conversation"}>
-              <div className="panel-heading">
-                <span>
-                  <Sparkles size={15} /> Build with ModHorizon
-                </span>
-                <span className="tag">{platformOf(project.platform).label} {project.version}</span>
-              </div>
+            <section className="chat-panel" id="panel-conversation" {...(wide ? { "aria-label": "Conversation" } : { role: "tabpanel", "aria-labelledby": "tab-conversation" })} hidden={!wide && tab !== "conversation"}>
+              <ProjectSummary project={project} statusLabel={statusLabel} />
               <div className="chat-messages">
                 {messages.map((message, i) => (
                   <div key={i} className={`message message-${message.role}`}>
@@ -1227,16 +1359,16 @@ export default function Home() {
                 </div>
               </form>
             </section>
-            <section className="code-panel" id={`panel-${tab === "test" ? "test" : tab === "logs" ? "logs" : "code"}`} role="tabpanel" aria-labelledby={`tab-${tab === "test" ? "test" : tab === "logs" ? "logs" : "code"}`} hidden={tab === "conversation"}>
+            <section className="code-panel" id={`panel-${pane === "test" ? "test" : pane === "logs" ? "logs" : "code"}`} role="tabpanel" aria-labelledby={`tab-${pane === "test" ? "test" : pane === "logs" ? "logs" : "code"}`} hidden={!wide && tab === "conversation"}>
               <div className={`build-banner ${project.status}`}>
                 <span className="live-dot" />
                 <strong>{statusLabel}</strong>
                 <span>
                   {project.status === "success"
-                    ? "Compiled by build service. Verify in-game behavior."
+                    ? "JAR ready to download."
                     : project.status === "failed"
-                      ? "Check the logs for details."
-                      : "Not compiled. Connect an isolated build service to create a JAR."}
+                      ? "See the build log."
+                      : "No JAR yet."}
                 </span>
                 <button
                   className="icon-button"
@@ -1246,13 +1378,11 @@ export default function Home() {
                   <SlidersHorizontal size={14} />
                 </button>
               </div>
-              {tab === "test" ? (
+              {pane === "test" ? (
                 <div className="test-workflow">
                   <div className="test-workflow-heading">
                     <div>
-                      <span className="eyebrow">FROM PROMPT TO PLAYTEST</span>
-                      <h2>Test your plugin</h2>
-                      <p>Follow the steps in order. ModHorizon will show when a compiled JAR is ready to install.</p>
+                      <h2>Test it</h2>
                     </div>
                     {project.artifactAvailable && (
                       <Button size="sm" onClick={() => { window.location.href = `/api/projects/${project.id}/download`; }}>
@@ -1261,21 +1391,21 @@ export default function Home() {
                     )}
                   </div>
                   <ol className="test-steps" aria-label="Plugin testing progress">
-                    <li className={project.files.length ? "test-step-done" : "test-step-current"}><span>1</span><div><strong>Describe and generate</strong><small>{project.files.length ? "Source files are ready for review." : "Generation did not return source files. Review the conversation and try again."}</small></div>{project.files.length ? <Check size={15} /> : <span className="step-state">Review</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>Compile the plugin</strong><small>{project.artifactAvailable ? "A JAR was returned by the build service." : project.files.length ? project.status === "failed" ? "The build failed. Open Build to review the logs." : "Waiting for an isolated build service. Source preview is not a JAR." : "Available after source generation succeeds."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and playtest</strong><small>{project.artifactAvailable ? `Install the JAR on ${describeTarget(platformOf(project.platform).id, project.version)} that you control, then check the behavior in game.` : "Available after a compiled JAR is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
+                    <li className={project.files.length ? "test-step-done" : "test-step-current"}><span>1</span><div><strong>Describe and generate</strong><small>{project.files.length ? "Source files are ready." : "No source files came back. Try again."}</small></div>{project.files.length ? <Check size={15} /> : <span className="step-state">Review</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>Compile</strong><small>{project.artifactAvailable ? "JAR ready." : project.files.length ? project.status === "failed" ? "The build failed. See the build log." : "Needs a build service." : "After generation."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and play</strong><small>{project.artifactAvailable ? `Install it on ${describeTarget(platformOf(project.platform).id, project.version)}.` : "After the JAR is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
                   </ol>
                   {!project.artifactAvailable && (
                     <div className="test-blocker" role="status">
-                      <strong>{project.status === "failed" ? project.files.length ? "This build needs attention" : "Generation needs attention" : "A compiled JAR is not available yet"}</strong>
-                      <p>{project.status === "failed" ? project.files.length ? "Review the build output for compiler errors. Once a build service is connected, ModHorizon can send those errors back for a repair." : project.error || "Review the conversation and try generating the plugin again." : "This starter build can generate and display source code, but it has no isolated compiler connected. A Minecraft server cannot load source files directly."}</p>
-                      <button type="button" onClick={() => setTab(project.status === "failed" && project.files.length ? "logs" : project.files.length ? "code" : "conversation")}>{project.status === "failed" && project.files.length ? "Review build output" : project.files.length ? "Review generated source" : "Review generation"}<ArrowRight size={14} /></button>
+                      <strong>{project.status === "failed" ? project.files.length ? "The build failed" : "Generation failed" : "No JAR yet"}</strong>
+                      <p>{project.status === "failed" ? project.files.length ? "See the build log for the errors." : project.error || "Try generating it again." : "No build service is connected, so there's nothing to install yet."}</p>
+                      <button type="button" onClick={() => setTab(project.status === "failed" && project.files.length ? "logs" : project.files.length ? "code" : "conversation")}>{project.status === "failed" && project.files.length ? "Build log" : project.files.length ? "Source" : "Conversation"}<ArrowRight size={14} /></button>
                     </div>
                   )}
                   <TestGuide project={project} target={testTarget} onTarget={setTestTarget} />
-                  <p className="test-safety"><ShieldCheck size={14} /> Generated code runs with full access to your {platformOf(project.platform).kind === "mod" ? "game and server" : "server"}. Review the source and test it somewhere you control before installing it on a live server.</p>
+                  <p className="test-safety"><ShieldCheck size={14} /> Test on a private {platformOf(project.platform).kind === "mod" ? "world" : "server"} before going live.</p>
                 </div>
-              ) : tab === "logs" ? (
+              ) : pane === "logs" ? (
                 <div className="build-logs">
                   <div className="logs-title">
                     <SquareTerminal size={17} />
@@ -1292,8 +1422,7 @@ export default function Home() {
                     <pre className="log-error">{project.error}</pre>
                   )}
                   <p>
-                    Compilation is not a behavior test. Always test on a local
-                    {platformOf(project.platform).kind === "mod" ? " instance" : " server"} first.
+                    A passing build doesn&apos;t mean it works in game. Test it first.
                   </p>
                 </div>
               ) : (
@@ -1428,37 +1557,24 @@ export default function Home() {
         </div>
         <h2 id="dialog-title">
           {modal === "guide"
-            ? "From idea to your server."
-            : "Your development workspace."}
+            ? "How it works"
+            : "Settings"}
         </h2>
         {modal === "guide" ? (
           <>
-            <p>
-              Start with one clear mechanic. Specify what triggers it, what
-              happens, and how long it lasts.
-            </p>
+            <p>Describe one mechanic at a time: what triggers it, what happens and for how long.</p>
             <ol className="guide-steps">
               <li>
-                <strong>Describe your idea</strong>
-                <span>
-                  Choose a loader and a Minecraft version. If the pair is not
-                  compatible, ModHorizon tells you why. The built-in preview
-                  supports the Paper zombie speed example.
-                </span>
+                <strong>Describe it</strong>
+                <span>Pick a loader and a Minecraft version.</span>
               </li>
               <li>
-                <strong>Inspect the source</strong>
-                <span>
-                  Review the Java, the plugin or mod descriptor, configuration, and build logs.
-                  Source previews have not been compiled.
-                </span>
+                <strong>Read the source</strong>
+                <span>Check the files and the build log.</span>
               </li>
               <li>
-                <strong>Build, then playtest</strong>
-                <span>
-                  Connect a secure build service for JARs. Test on a matching
-                  local server or game instance first.
-                </span>
+                <strong>Build and test</strong>
+                <span>Download the JAR and try it on a test server or world.</span>
               </li>
             </ol>
             <Button
@@ -1485,21 +1601,11 @@ export default function Home() {
           </>
         ) : (
           <>
-            <div className="settings-row">
-              <div><strong>Appearance</strong><span>Graphite · a neutral, monochrome workspace.</span></div>
-              <span className="tag">Graphite</span>
-            </div>
-            <p>
-              Provider settings live on the server. API keys are never entered
-              or stored in this browser.
-            </p>
+            <p>API keys are set on the server, never in the browser.</p>
             <div className="settings-row">
               <div>
-                <strong>AI generation</strong>
-                <span>
-                  Choose a connected model in the prompt bar. Provider keys are
-                  configured on the server and never entered in this browser.
-                </span>
+                <strong>Models</strong>
+                <span>Pick a model in the prompt bar.</span>
               </div>
               <Code2 size={18} />
             </div>
@@ -1513,17 +1619,12 @@ export default function Home() {
               BUILD_SERVICE_URL=https://your-builder
             </div>
             <p className="muted">
-              See <code>.env.example</code> and the README for provider setup.
-              Restart the server after changing environment variables. Model
-              selection calls the provider directly; credit billing is not
-              active yet.
+              See <code>.env.example</code> and the README. Restart the server after changing them.
             </p>
             <div className="settings-row">
               <div>
                 <strong>Project history</strong>
-                <span>
-                  Stored in this browser. Server build artifacts expire.
-                </span>
+                <span>Saved in this browser.</span>
               </div>
               <History size={18} />
             </div>
@@ -1535,8 +1636,7 @@ export default function Home() {
               <span className="tag">{Object.keys(PLATFORMS).length} LOADERS</span>
             </div>
             <p className="settings-local">
-              <ShieldCheck size={15} /> Local account placeholder ·
-              authentication is not enabled.
+              <ShieldCheck size={15} /> Sign-in isn&apos;t set up yet.
             </p>
           </>
         )}

@@ -91,7 +91,7 @@ export function Hero({ stats }: { stats: { value: string; label: string; icon: k
           </h1>
 
           <p className="hero-tagline">
-            Describe it in plain English and get readable Java for any loader, on any supported version.
+            Write what you want in plain English. ModHorizon writes the Java.
           </p>
 
           <div className="hero-cta">
