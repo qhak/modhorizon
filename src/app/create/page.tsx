@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowDownToLine,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
+  AlignLeft,
   Blocks,
   Brain,
+  FlaskConical,
+  Gamepad2,
+  House,
+  Layers,
+  MessageSquare,
+  Network,
+  Server,
   Database,
   Palette,
   Puzzle,
@@ -27,10 +36,10 @@ import {
   LoaderCircle,
   Menu,
   PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings2,
   ShieldCheck,
-  SlidersHorizontal,
   SquareTerminal,
   TriangleAlert,
   X,
@@ -42,6 +51,7 @@ import {
   MINECRAFT_RELEASES,
   PLATFORMS,
   PLATFORM_GROUPS,
+  compareVersions,
   describeTarget,
   incompatibility,
   isPlatformId,
@@ -58,25 +68,20 @@ import {
   type ModelProvider,
   type ReasoningLevel,
 } from "@/lib/models";
-import { SITE_MEDIA } from "@/lib/site-media";
+import { DiscordIcon, GitHubIcon, GoogleIcon } from "@/components/brand-icons";
+import { VoidBackdrop } from "@/components/void-backdrop";
+import { BrandMark } from "@/components/brand-mark";
 
 
 type SourceFile = { path: string; content: string };
 type Message = { role: "user" | "assistant"; text: string };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
-const suggestions: { title: string; description: string; prompt: string; platform: PlatformId }[] = [
-  { title: "Zombie rewards", description: "Paper · Reward zombie kills with a speed boost", prompt: milestone, platform: "paper" },
-  { title: "Ruby gear", description: "Fabric · A ruby ore, ingot and sword", prompt: "Create a Fabric mod that adds ruby ore, a ruby ingot smelted from it, and a ruby sword slightly stronger than iron.", platform: "fabric" },
-  { title: "Lobby command", description: "Velocity · A /lobby command that sends players to the hub", prompt: "Create a Velocity plugin with a /lobby command that sends the player to a server named lobby, with a configurable message.", platform: "velocity" },
-];
 
 function Logo() {
   return (
     <Link href="/" className="brand" aria-label="ModHorizon home">
-      <span className="brand-icon">
-        <Blocks size={20} strokeWidth={1.8} />
-      </span>
+      <BrandMark size={26} />
       <span>ModHorizon</span>
     </Link>
   );
@@ -146,39 +151,133 @@ function Highlight({ code, path }: { code: string; path: string }) {
 
 // Field values match the generation API's artifactType contract.
 const CONTENT_TYPES = [
-  { id: "plugin", label: "Plugin", icon: Puzzle, image: SITE_MEDIA.types.plugins.src, loaders: "" },
-  { id: "mod", label: "Mod", icon: Blocks, image: SITE_MEDIA.types.mods.src, loaders: "" },
-  { id: "shader_pack", label: "Shader", icon: Sun, image: SITE_MEDIA.types.shaders.src, loaders: "Iris · Oculus · OptiFine" },
-  { id: "resource_pack", label: "Texture pack", icon: Palette, image: SITE_MEDIA.types.texturePacks.src, loaders: "Vanilla resource pack" },
-  { id: "datapack", label: "Datapack", icon: Database, image: SITE_MEDIA.types.datapacks.src, loaders: "Vanilla datapack" },
+  { id: "plugin", label: "Plugin", icon: Puzzle, loaders: "" },
+  { id: "mod", label: "Mod", icon: Blocks, loaders: "" },
+  { id: "shader_pack", label: "Shader", icon: Sun, loaders: "Iris · Oculus · OptiFine" },
+  { id: "resource_pack", label: "Texture pack", icon: Palette, loaders: "Vanilla resource pack" },
+  { id: "datapack", label: "Datapack", icon: Database, loaders: "Vanilla datapack" },
 ] as const;
 type ContentType = (typeof CONTENT_TYPES)[number]["id"];
 const CODE_TYPES: readonly ContentType[] = ["plugin", "mod"];
 
-function ContentTypeSlider({ value, onChange, supported, disabled }: {
+type MenuOption = { value: string; label: string; detail?: string; meta?: string; icon?: ReactNode; muted?: boolean };
+type MenuGroup = { label?: string; options: MenuOption[] };
+
+/** A chip that opens the same custom panel as the model picker. */
+function ChipMenu({ label, heading, icon, display, value, groups, onChange, disabled, title, compact = false }: {
+  label: string;
+  heading: string;
+  icon?: ReactNode;
+  display: string;
+  value: string;
+  groups: MenuGroup[];
+  onChange: (value: string) => void;
+  disabled: boolean;
+  title?: string;
+  /** Single-line rows for long lists such as versions. */
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const focusTrigger = () => root.current?.querySelector<HTMLButtonElement>(".chip-select")?.focus();
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); focusTrigger(); }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    const active = root.current?.querySelector<HTMLButtonElement>('.model-option[aria-pressed="true"]') ?? root.current?.querySelector<HTMLButtonElement>(".model-option");
+    active?.focus();
+    active?.scrollIntoView({ block: "nearest" });
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div
+      className="chip-menu"
+      ref={root}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false); }}
+      onKeyDown={(event) => {
+        if (!open || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const options = Array.from(root.current?.querySelectorAll<HTMLButtonElement>(".model-option") || []);
+        const index = options.indexOf(document.activeElement as HTMLButtonElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        options[next]?.focus();
+      }}
+    >
+      <button
+        type="button"
+        className="chip-select"
+        aria-label={`${label}: ${display}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={menuId}
+        disabled={disabled}
+        title={title}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {icon && <span className="chip-select-icon">{icon}</span>}
+        <span>{display}</span>
+        <ChevronDown size={13} className="chip-chevron" aria-hidden="true" />
+      </button>
+      {open && (
+        <div id={menuId} className={`model-options chip-menu-options ${compact ? "is-compact" : ""}`} role="dialog" aria-label={label}>
+          <div className="model-options-heading"><strong>{heading}</strong></div>
+          {groups.map((group, groupIndex) => (
+            <div key={group.label ?? groupIndex}>
+              {group.label && <span className="model-group-label">{group.label}</span>}
+              {group.options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={value === option.value}
+                  className={`model-option ${value === option.value ? "model-option-active" : ""} ${option.muted ? "is-muted" : ""}`}
+                  onClick={() => { onChange(option.value); setOpen(false); focusTrigger(); }}
+                >
+                  {option.icon && <span className="chip-menu-icon" aria-hidden="true">{option.icon}</span>}
+                  <span className="model-option-main">
+                    <strong>{option.label}</strong>
+                    {option.detail && <small>{option.detail}</small>}
+                  </span>
+                  {option.meta && <span className="model-option-price">{option.meta}</span>}
+                  {value === option.value && <Check size={14} aria-hidden="true" />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContentTypePicker({ value, onChange, disabled }: {
   value: ContentType;
   onChange: (type: ContentType) => void;
-  supported: readonly string[];
   disabled: boolean;
 }) {
+  const current = CONTENT_TYPES.find((type) => type.id === value)!;
   return (
-    <div className="type-slider" role="group" aria-label="What are you making?">
-      {CONTENT_TYPES.map((type) => (
-        <button
-          key={type.id}
-          type="button"
-          aria-pressed={value === type.id}
-          className={`type-chip ${value === type.id ? "active" : ""}`}
-          disabled={disabled}
-          onClick={() => onChange(type.id)}
-        >
-          <span className="type-thumb" style={{ backgroundImage: `url(${type.image})` }} aria-hidden="true" />
-          <type.icon size={15} aria-hidden="true" />
-          <span>{type.label}</span>
-          {!supported.includes(type.id) && <small>Soon</small>}
-        </button>
-      ))}
-    </div>
+    <ChipMenu
+      label="What are you making?"
+      heading="Type"
+      icon={<current.icon size={14} aria-hidden="true" />}
+      display={current.label}
+      value={value}
+      onChange={(next) => onChange(next as ContentType)}
+      disabled={disabled}
+      groups={[{ options: CONTENT_TYPES.map((type) => ({ value: type.id, label: type.label, detail: type.loaders || undefined, icon: <type.icon size={15} /> })) }]}
+    />
   );
 }
 
@@ -187,30 +286,56 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
 }) {
   const reasoning = reasoningFor(modelId);
   if (!reasoning) return null;
-  return <label className="version-picker reasoning-picker" title="How much the model thinks before it answers">
-    <Brain size={13} aria-hidden="true" />
-    <span className="sr-only">Reasoning effort</span>
-    <select value={reasoning.levels.includes(value) ? value : reasoning.default} onChange={(event) => onChange(event.target.value as ReasoningLevel)} disabled={disabled}>
-      {reasoning.levels.map((level) => <option key={level} value={level}>{REASONING_LABELS[level]} reasoning</option>)}
-    </select>
-    <ChevronDown size={13} aria-hidden="true" />
-  </label>;
+  const current = reasoning.levels.includes(value) ? value : reasoning.default;
+  return (
+    <ChipMenu
+      label="Reasoning effort"
+      heading="Reasoning"
+      title="How much the model thinks before it answers"
+      icon={<Brain size={14} aria-hidden="true" />}
+      display={REASONING_LABELS[current]}
+      value={current}
+      onChange={(next) => onChange(next as ReasoningLevel)}
+      disabled={disabled}
+      compact
+      groups={[{ options: reasoning.levels.map((level) => ({ value: level, label: REASONING_LABELS[level], meta: level === reasoning.default ? "Default" : undefined })) }]}
+    />
+  );
 }
+
+const KIND_ICONS = { plugin: Server, proxy: Network, mod: Blocks } as const;
 
 function PlatformPicker({ value, onChange, disabled, kinds }: {
   value: PlatformId; onChange: (platform: PlatformId) => void; disabled: boolean; kinds: readonly string[];
 }) {
-  return <label className="version-picker platform-picker">
-    <span className="sr-only">Platform</span>
-    <select value={value} onChange={(event) => { if (isPlatformId(event.target.value)) onChange(event.target.value); }} disabled={disabled}>
-      {PLATFORM_GROUPS.filter((group) => kinds.includes(group.kind)).map((group) => (
-        <optgroup key={group.kind} label={group.label}>
-          {group.ids.map((id) => <option key={id} value={id}>{PLATFORMS[id].label}</option>)}
-        </optgroup>
-      ))}
-    </select>
-    <ChevronDown size={13} aria-hidden="true" />
-  </label>;
+  const CurrentIcon = KIND_ICONS[PLATFORMS[value].kind];
+  return (
+    <ChipMenu
+      label="Loader"
+      heading="Loader"
+      icon={<CurrentIcon size={14} aria-hidden="true" />}
+      display={PLATFORMS[value].label}
+      value={value}
+      onChange={(next) => { if (isPlatformId(next)) onChange(next); }}
+      disabled={disabled}
+      groups={PLATFORM_GROUPS.filter((group) => kinds.includes(group.kind)).map((group) => {
+        const Icon = KIND_ICONS[group.kind];
+        return {
+          label: group.label,
+          options: group.ids.map((id) => {
+            const { label, summary, versions, kind } = PLATFORMS[id];
+            return {
+              value: id,
+              label,
+              detail: summary,
+              meta: kind === "proxy" ? `API ${versions.at(-1)}–${versions[0]}` : `${versions.at(-1)}–${versions[0]}`,
+              icon: <Icon size={15} />,
+            };
+          }),
+        };
+      })}
+    />
+  );
 }
 
 /** Lists every Minecraft release so unsupported picks can be explained, not hidden. */
@@ -219,22 +344,32 @@ function VersionPicker({ platform, value, onChange, disabled, anyRelease = false
 }) {
   const { kind, label } = PLATFORMS[platform];
   const versions: readonly string[] = anyRelease ? MINECRAFT_RELEASES : PLATFORMS[platform].versions;
-  const choices = kind === "proxy" && !anyRelease ? versions : MINECRAFT_RELEASES;
-  return <label className="version-picker">
-    <span className="sr-only">{kind === "proxy" ? `${label} API version` : "Minecraft version"}</span>
-    <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
-      {versionLines(choices).map(({ line, versions: group }) => (
-        <optgroup key={line} label={kind === "proxy" ? `${label} ${line}` : `Minecraft ${line}`}>
-          {group.map((version) => (
-            <option key={version} value={version}>
-              {versions.includes(version) ? version : `${version} · not on ${label}`}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-    <ChevronDown size={13} aria-hidden="true" />
-  </label>;
+  const proxy = kind === "proxy" && !anyRelease;
+  const choices = proxy ? versions : MINECRAFT_RELEASES;
+  return (
+    <ChipMenu
+      label={proxy ? `${label} API version` : "Minecraft version"}
+      heading={proxy ? `${label} API` : "Minecraft version"}
+      icon={<Gamepad2 size={14} aria-hidden="true" />}
+      display={value}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      compact
+      groups={versionLines(choices).map(({ line, versions: group }) => ({
+        label: proxy ? `${label} ${line}` : `Minecraft ${line}`,
+        options: group.map((version) => {
+          const supported = versions.includes(version);
+          return {
+            value: version,
+            label: version,
+            muted: !supported,
+            meta: !supported ? `Not on ${label}` : anyRelease ? undefined : `Java ${javaVersionFor(platform, version)}`,
+          };
+        }),
+      }))}
+    />
+  );
 }
 
 function CompatibilityNotice({ platform, version, onVersion, onPlatform }: {
@@ -398,7 +533,7 @@ function ModelPicker({
           ))}
           {choices.demo && (
             <div className="model-demo-wrap">
-              <span className="model-group-label">LOCAL PREVIEW</span>
+              <span className="model-group-label">Local preview</span>
               <button
                 type="button"
                 aria-pressed={value === "demo"}
@@ -469,11 +604,11 @@ function TestGuide({ project, target, onTarget }: {
           <ol>
             <li><strong>Install Java {java}.</strong> {describeTarget(platform.id, project.version)} needs Java {java}. {javaLink}</li>
             {platform.kind === "mod" ? (
-              <li><strong>Install {platform.label} for Minecraft {project.version}.</strong> Use the official installer to create a {platform.label} profile in your launcher. {setupLink}</li>
+              <li><strong>Install {platform.label} for Minecraft {project.version}.</strong> {setupLink}</li>
             ) : platform.kind === "proxy" ? (
               <li><strong>Download {platform.label} {project.version}</strong> and run it in front of at least one backend server with forwarding configured. {setupLink}</li>
             ) : (
-              <li><strong>Download {platform.label} {project.version}.</strong> Use the official setup guide and select the same Minecraft version as this project. {setupLink}</li>
+              <li><strong>Download {platform.label} {project.version}.</strong> {setupLink}</li>
             )}
             {platform.kind !== "mod" && <li><strong>Start it once, then stop it.</strong> {platform.kind === "plugin" && <>If you agree to Mojang’s EULA, set <code>eula=true</code> in <code>eula.txt</code>.</>}</li>}
             <li><strong>Install the {platform.kind === "mod" ? "mod" : "plugin"}.</strong> Place the downloaded JAR in the <code>{folder}</code> folder{platform.kind === "mod" ? " of your game directory (and of a server, if it adds server-side features)" : ""}, then start {platform.kind === "mod" ? "the game with the " + platform.label + " profile" : "it again"}.</li>
@@ -535,6 +670,110 @@ async function readAttachment(file: File): Promise<Attachment> {
   return { id, name: file.name, type: file.type || "text/plain", data: text, image: false, size: text.length };
 }
 
+const SIGN_IN_PROVIDERS = [
+  { id: "discord", label: "Discord", icon: DiscordIcon },
+  { id: "github", label: "GitHub", icon: GitHubIcon },
+  { id: "google", label: "Google", icon: GoogleIcon },
+] as const;
+
+function SignInScreen({ providers, onClose, onGuest }: {
+  /** Sign-in providers the account API reports as connected. */
+  providers: readonly string[];
+  onClose: () => void;
+  /** Development servers can continue without an account until sign-in is connected. */
+  onGuest?: () => void;
+}) {
+  const back = useRef<HTMLButtonElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    back.current?.focus();
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close.current(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return (
+    <div className="signin-screen" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <VoidBackdrop />
+      <button ref={back} type="button" className="signin-back" onClick={onClose}>
+        <ArrowLeft size={16} aria-hidden="true" /> Back
+      </button>
+      <div className="signin-card">
+        <span className="signin-logo" aria-hidden="true"><BrandMark size={64} /></span>
+        <h2 id="signin-title">Welcome to ModHorizon</h2>
+        <p>Sign in to start building.</p>
+        <div className="signin-providers">
+          {SIGN_IN_PROVIDERS.map(({ id, label, icon: Icon }) =>
+            providers.includes(id) ? (
+              <a key={id} className={`signin-provider signin-${id}`} href={`/api/auth/${id}?returnTo=/create`}>
+                <Icon size={19} /> Continue with {label}
+              </a>
+            ) : (
+              <button key={id} type="button" className={`signin-provider signin-${id}`} disabled>
+                <Icon size={19} /> Continue with {label}
+              </button>
+            ),
+          )}
+        </div>
+        {providers.length === 0 && <p className="signin-note">Sign-in isn&apos;t connected on this server yet.</p>}
+        {onGuest && <button type="button" className="signin-guest" onClick={onGuest}>Continue without an account</button>}
+      </div>
+    </div>
+  );
+}
+
+const PROMPT_IDEAS: Record<ContentType | "proxy", readonly string[]> = {
+  plugin: [
+    "A plugin that gives players a speed boost when they defeat a zombie…",
+    "A /heal command with a 60 second cooldown and a heal permission…",
+    "A /warps menu that lists every warp as a clickable item…",
+  ],
+  proxy: ["A proxy plugin with a /lobby command that sends players to the hub…"],
+  mod: [
+    "A mod that adds a sword which sets mobs on fire…",
+    "Add ruby ore, a ruby ingot and a ruby sword stronger than iron…",
+    "A backpack item that opens a 27-slot inventory…",
+  ],
+  shader_pack: ["A shader pack with warm sunsets, soft shadows and waving leaves…"],
+  resource_pack: ["A texture pack that makes ores glow and gives tools a clean, flat look…"],
+  datapack: ["A datapack that adds a crafting recipe for saddles and a daily login reward…"],
+};
+
+/** Types and deletes example prompts in the textarea placeholder while it is empty. */
+function useTypedPlaceholder(field: React.RefObject<HTMLTextAreaElement | null>, phrases: readonly string[], active: boolean) {
+  useEffect(() => {
+    const element = field.current;
+    if (!element) return;
+    if (!active || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      element.placeholder = phrases[0];
+      return;
+    }
+    let phrase = 0;
+    let length = 0;
+    let deleting = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const current = phrases[phrase];
+      if (!deleting && length === current.length) {
+        if (phrases.length === 1) return;
+        deleting = true;
+        timer = setTimeout(tick, 2600);
+        return;
+      }
+      if (deleting && length === 0) {
+        deleting = false;
+        phrase = (phrase + 1) % phrases.length;
+      }
+      length += deleting ? -1 : 1;
+      element.placeholder = phrases[phrase].slice(0, length);
+      timer = setTimeout(tick, deleting ? 16 : 34);
+    };
+    element.placeholder = "";
+    timer = setTimeout(tick, 500);
+    return () => clearTimeout(timer);
+  }, [field, phrases, active]);
+}
+
 const WIDE_LAYOUT = "(min-width: 1200px)";
 
 /** True when chat and code fit side by side; narrower screens switch between them with tabs. */
@@ -567,9 +806,9 @@ function ProjectSummary({ project, statusLabel }: { project: Project; statusLabe
         <span className={`status-pill ${project.status}`}>{statusLabel}</span>
       </div>
       <dl className="project-stats">
-        <div><dt>Files</dt><dd>{project.files.length}</dd></div>
-        <div><dt>Lines</dt><dd>{lines.toLocaleString()}</dd></div>
-        <div><dt>Model</dt><dd title={model}>{model}</dd></div>
+        <div><dt><FileCode2 size={12} aria-hidden="true" /> Files</dt><dd>{project.files.length}</dd></div>
+        <div><dt><AlignLeft size={12} aria-hidden="true" /> Lines</dt><dd>{lines.toLocaleString()}</dd></div>
+        <div><dt><Cpu size={12} aria-hidden="true" /> Model</dt><dd title={model}>{model}</dd></div>
       </dl>
     </div>
   );
@@ -592,6 +831,9 @@ export default function Home() {
   const [testTarget, setTestTarget] = useState<"local" | "hosted">("local");
   const [modal, setModal] = useState<"settings" | "guide" | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [guest, setGuest] = useState(false);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -605,13 +847,19 @@ export default function Home() {
     preferred: string;
     /** Content types the generation API can build; plugins and mods when it doesn't say. */
     artifactTypes?: string[];
+    /** Sign-in providers the account API has connected. */
+    auth?: { providers?: string[] };
   } | null>(null);
   const generationUnavailable = !services?.choices[selectedModel];
   const wide = useWideLayout();
   // Wide screens always show the conversation, so the right pane falls back to Files.
   const pane = wide && tab === "conversation" ? "code" : tab;
-  const versionProblem = incompatibility(platform, version);
-  const supportedTypes = services?.artifactTypes ?? CODE_TYPES;
+  const versionProblem = CODE_TYPES.includes(contentType) ? incompatibility(platform, version) : null;
+  // Datapacks were added in Minecraft 1.13, so earlier releases can't load one.
+  const packProblem = contentType === "datapack" && compareVersions(version, "1.13") < 0
+    ? { title: `Datapacks can't be used with Minecraft ${version}.`, reason: "Datapacks were added in Minecraft 1.13." }
+    : null;
+  const supportedTypes = services?.artifactTypes ?? CONTENT_TYPES.map((type) => type.id);
   const typeUnavailable = !supportedTypes.includes(contentType);
   const contentLabel = CONTENT_TYPES.find((type) => type.id === contentType)!.label;
   const input = useRef<HTMLTextAreaElement>(null);
@@ -641,13 +889,23 @@ export default function Home() {
     const shared = query.get("prompt");
     const sharedPlatform = query.get("platform");
     const sharedVersion = query.get("version");
+    const sharedType = query.get("type");
     if (shared) setPrompt(shared.slice(0, 4000));
     if (isPlatformId(sharedPlatform)) {
       choosePlatform(sharedPlatform);
       if (sharedVersion && PLATFORMS[sharedPlatform].versions.includes(sharedVersion)) setVersion(sharedVersion);
     }
-    if (shared || sharedPlatform) window.history.replaceState(null, "", window.location.pathname);
+    const type = CONTENT_TYPES.find((entry) => entry.id === sharedType);
+    if (type) chooseContentType(type.id);
+    if (shared || sharedPlatform || type) window.history.replaceState(null, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // The account API returns a profile for a signed-in session and an error otherwise.
+    fetch("/api/library/session", { cache: "no-store" })
+      .then((response) => setSignedIn(response.ok))
+      .catch(() => setSignedIn(false));
   }, []);
 
   useEffect(() => {
@@ -764,6 +1022,9 @@ export default function Home() {
     else if (next === "mod" && PLATFORMS[platform].kind !== "mod") choosePlatform("fabric");
     setContentType(next);
   }
+  const ideaKey: ContentType | "proxy" = contentType === "plugin" && PLATFORMS[platform].kind === "proxy" ? "proxy" : contentType;
+  useTypedPlaceholder(input, PROMPT_IDEAS[ideaKey], !project && !prompt && !busy);
+
   async function addAttachments(files: FileList | null) {
     if (!files?.length) return;
     setError("");
@@ -806,8 +1067,8 @@ export default function Home() {
         text:
           p.error ||
           (p.status === "success"
-            ? "Compiled. Download the JAR and test it in game."
-            : "Source ready. Not compiled yet."),
+            ? "Done. The JAR is ready to download."
+            : "Done. It isn't compiled yet."),
       },
     ]);
     setSelectedFile(p.files[0]?.path || "");
@@ -816,9 +1077,13 @@ export default function Home() {
     setTab("conversation");
     setMobileNav(false);
   }
-  async function generate() {
+  async function generate({ skipSignIn = false } = {}) {
     const current = project;
-    if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || typeUnavailable))) return;
+    if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || packProblem || typeUnavailable))) return;
+    if (!signedIn && !guest && !skipSignIn) {
+      setSignInOpen(true);
+      return;
+    }
     const text = prompt.trim();
     if (current) setTab("conversation");
     setBusy(true);
@@ -845,18 +1110,18 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok || !data.project)
-        throw new Error(data.error || "Generation failed. Please try again.");
+        throw new Error(data.error || "Something went wrong. Try again.");
       const next: Project = data.project;
       if (current && next.status === "failed") {
         const failure =
           next.error ||
-          "The edit failed. Your previous source is still available.";
+          "That change didn't work.";
         setMessages((previous) => [
           ...previous,
           { role: "user", text },
           {
             role: "assistant",
-            text: `${failure} Your previous source has been kept.`,
+            text: `${failure} Your last version is unchanged.`,
           },
         ]);
         setError(failure);
@@ -881,10 +1146,10 @@ export default function Home() {
           text:
             next.error ||
             (next.status === "success"
-              ? "Compiled. Download the JAR and test it in game."
+              ? "Done. The JAR is ready to download."
               : next.provider === "mock"
-                ? "Example source ready. This is a fixed preview and isn't compiled."
-                : "Source ready. Not compiled yet."),
+                ? "Done. This is the built-in example, so it isn't compiled."
+                : "Done. It isn't compiled yet."),
         },
       ]);
       setPrompt("");
@@ -903,7 +1168,7 @@ export default function Home() {
         : "Source preview";
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${project ? "" : "is-home"}`}>
       {mobileNav && (
         <button
           className="mobile-overlay"
@@ -961,9 +1226,7 @@ export default function Home() {
             ))}
           {projects.length === 0 && (
             <div className="empty-projects">
-              <FolderOpen size={24} strokeWidth={1.3} />
-              <p>A home for your ideas.</p>
-              <span>Your projects will appear here.</span>
+              <span>No projects yet.</span>
             </div>
           )}
         </div>
@@ -974,13 +1237,44 @@ export default function Home() {
           </button>
           <button className="account" onClick={() => setModal("settings")} aria-label="Account and credits">
             <div className="avatar">D</div>
-            <div><strong>Guest developer</strong><span>Local account · credits inactive</span></div>
+            <div><strong>Guest</strong><span>Not signed in</span></div>
           </button>
         </div>
       </aside>
 
       <main className="main">
+        <VoidBackdrop planet={!project} />
         <header className="topbar">
+          {!project ? (
+            <>
+              <div className="home-brand">
+                <button
+                  type="button"
+                  className="sidebar-toggle"
+                  aria-label="Show projects"
+                  title="Projects"
+                  aria-controls="workspace-sidebar"
+                  aria-expanded={mobileNav}
+                  onClick={() => setMobileNav(true)}
+                >
+                  <PanelLeftOpen size={17} />
+                </button>
+                <Logo />
+              </div>
+              <nav className="home-nav" aria-label="Primary">
+                <Link href="/" className="home-nav-link"><House size={15} aria-hidden="true" /> Home</Link>
+                <button type="button" className="home-nav-link" onClick={() => setModal("guide")}><CircleHelp size={15} aria-hidden="true" /> Help</button>
+              </nav>
+              <div className="topbar-right">
+                {!signedIn && (
+                  <button type="button" className="signin-button" onClick={() => setSignInOpen(true)}>
+                    Sign in <ArrowRight size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+          <>
           <div className="breadcrumbs">
             <button
               className="icon-button mobile-menu"
@@ -991,8 +1285,6 @@ export default function Home() {
             >
               <Menu size={19} />
             </button>
-            <span className="workspace-label">Workspace</span>
-            <span className="crumb-slash">/</span>
             <span>{project?.name || "New project"}</span>
             {project && <span className="tag paper-tag">{platformOf(project.platform).label}</span>}
           </div>
@@ -1006,6 +1298,8 @@ export default function Home() {
             </button>
 
           </div>
+          </>
+          )}
         </header>
 
         {!project ? (
@@ -1021,12 +1315,6 @@ export default function Home() {
                   void generate();
                 }}
               >
-                <ContentTypeSlider
-                  value={contentType}
-                  onChange={chooseContentType}
-                  supported={supportedTypes}
-                  disabled={busy}
-                />
                 {attachments.length > 0 && (
                   <ul className="attachment-list" aria-label="Attachments">
                     {attachments.map((file) => (
@@ -1053,14 +1341,7 @@ export default function Home() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   maxLength={4000}
-                  placeholder={
-                    contentType === "shader_pack" ? "A shader pack with warm sunsets, soft shadows and waving leaves…"
-                      : contentType === "resource_pack" ? "A texture pack that makes ores glow and gives tools a clean, flat look…"
-                        : contentType === "datapack" ? "A datapack that adds a crafting recipe for saddles and a daily login reward…"
-                          : PLATFORMS[platform].kind === "mod" ? "A mod that adds a sword which sets mobs on fire…"
-                            : PLATFORMS[platform].kind === "proxy" ? "A proxy plugin with a /lobby command that sends players to the hub…"
-                              : "A plugin that gives players a speed boost when they defeat a zombie…"
-                  }
+                  placeholder={PROMPT_IDEAS[ideaKey][0]}
                   disabled={busy}
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -1092,6 +1373,7 @@ export default function Home() {
                     >
                       <Plus size={18} />
                     </button>
+                    <ContentTypePicker value={contentType} onChange={chooseContentType} disabled={busy} />
                     {CODE_TYPES.includes(contentType) ? (
                       <PlatformPicker
                         value={platform}
@@ -1100,7 +1382,7 @@ export default function Home() {
                         kinds={contentType === "mod" ? ["mod"] : ["plugin", "proxy"]}
                       />
                     ) : (
-                      <span className="platform-pill">{CONTENT_TYPES.find((type) => type.id === contentType)!.loaders}</span>
+                      <span className="chip-static"><Layers size={14} aria-hidden="true" /> {CONTENT_TYPES.find((type) => type.id === contentType)!.loaders}</span>
                     )}
                     <VersionPicker
                       platform={platform}
@@ -1122,8 +1404,8 @@ export default function Home() {
                     type="submit"
                     className="composer-send"
                     aria-label={busy ? "Generating" : "Generate"}
-                    disabled={busy || generationUnavailable || typeUnavailable || Boolean(versionProblem && !typeUnavailable) || prompt.trim().length < 12}
-                    title={typeUnavailable ? `${contentLabel} generation isn't available yet.` : versionProblem ? versionProblem.title : generationUnavailable ? "Add an AI provider key on the server to generate." : "Generate"}
+                    disabled={busy || generationUnavailable || typeUnavailable || Boolean(versionProblem || packProblem) || prompt.trim().length < 12}
+                    title={typeUnavailable ? `${contentLabel} generation isn't available yet.` : versionProblem ? versionProblem.title : packProblem ? packProblem.title : generationUnavailable ? "Add an AI provider key on the server to generate." : "Generate"}
                   >
                     {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowUp size={18} />}
                   </button>
@@ -1140,7 +1422,7 @@ export default function Home() {
                     <button type="button" onClick={() => chooseContentType("mod")}>Make a mod</button>
                   </div>
                 </div>
-              ) : (
+              ) : CODE_TYPES.includes(contentType) ? (
                 <CompatibilityNotice
                   key={`${platform}-${version}`}
                   platform={platform}
@@ -1148,21 +1430,26 @@ export default function Home() {
                   onVersion={setVersion}
                   onPlatform={choosePlatform}
                 />
-              )}
-              <div className="composer-meta">
-                <span className="composer-meta-right">
-                  <span className="provider-note">{services?.message || "Checking provider…"}</span>
-                  <span className="keyboard-hint"><span>Ctrl / ⌘ + Enter</span></span>
-                </span>
-              </div>
+              ) : packProblem ? (
+                <div className="compat-notice" role="alert">
+                  <div className="compat-head">
+                    <TriangleAlert size={15} aria-hidden="true" />
+                    <strong>{packProblem.title}</strong>
+                  </div>
+                  <p>{packProblem.reason}</p>
+                  <div className="compat-actions">
+                    <button type="button" onClick={() => setVersion("1.13")}>Use 1.13</button>
+                  </div>
+                </div>
+              ) : null}
               {busy && (
                 <div className="generation-progress" role="status">
                   <LoaderCircle size={14} className="spin" />
                   {
                     [
-                      "Validating your request…",
-                      "Waiting for generation service…",
-                      "Generation is still in progress…",
+                      "Reading your prompt…",
+                      "Writing the code…",
+                      "Still working…",
                     ][phase]
                   }
                   <span>Keep this tab open</span>
@@ -1173,28 +1460,6 @@ export default function Home() {
                   {error}
                 </div>
               )}
-              <section id="starter-prompts" className="starter-section">
-                <div className="starter-section-heading">
-                  <h2>A few ideas to start with</h2>
-                </div>
-                <div className="starter-list">
-                {suggestions.slice(0, 3).map((s) => (
-                  <button
-                    key={s.title}
-                    className="starter-prompt"
-                    disabled={busy}
-                    onClick={() => {
-                      setPrompt(s.prompt);
-                      choosePlatform(s.platform);
-                      input.current?.focus();
-                    }}
-                  >
-                    <span className="starter-copy"><strong>{s.description}</strong></span>
-                    <ArrowRight size={15} className="starter-arrow" />
-                  </button>
-                ))}
-                </div>
-              </section>
             </div>
           </div>
         ) : (
@@ -1209,7 +1474,7 @@ export default function Home() {
                   setTab(views[index]);
                   document.getElementById(`tab-${views[index]}`)?.focus();
                 }}>
-                  {!wide && <button role="tab" id="tab-conversation" aria-controls="panel-conversation" aria-selected={tab === "conversation"} tabIndex={tab === "conversation" ? 0 : -1} className={tab === "conversation" ? "tab-active" : ""} onClick={() => setTab("conversation")}>Conversation</button>}
+                  {!wide && <button role="tab" id="tab-conversation" aria-controls="panel-conversation" aria-selected={tab === "conversation"} tabIndex={tab === "conversation" ? 0 : -1} className={tab === "conversation" ? "tab-active" : ""} onClick={() => setTab("conversation")}><MessageSquare size={15} /> Conversation</button>}
                   <button
                     role="tab" id="tab-code" aria-controls="panel-code" aria-selected={pane === "code"} tabIndex={pane === "code" ? 0 : -1} className={pane === "code" ? "tab-active" : ""}
                     onClick={() => setTab("code")}
@@ -1228,6 +1493,7 @@ export default function Home() {
                   role="tab" id="tab-test" aria-controls="panel-test" aria-selected={pane === "test"} tabIndex={pane === "test" ? 0 : -1} className={pane === "test" ? "tab-active" : ""}
                   onClick={() => setTab("test")}
                 >
+                  <FlaskConical size={15} />
                   Test
                 </button>
                 </div>
@@ -1276,24 +1542,6 @@ export default function Home() {
                         {message.role === "assistant" ? "ModHorizon" : "You"}
                       </strong>
                       <p>{message.text}</p>
-                      {message.role === "assistant" &&
-                        i === messages.length - 1 && (
-                          <div className={`result-summary ${project.status}`}>
-                            <span>
-                              {project.status === "success" ? (
-                                <Check size={15} />
-                              ) : project.status === "failed" ? (
-                                <X size={15} />
-                              ) : (
-                                <FileCode2 size={15} />
-                              )}{" "}
-                              {statusLabel}
-                            </span>
-                            <small>
-                              {project.files.length} files · {MODEL_OPTIONS.find((model) => model.id === project.modelId)?.label || project.provider}
-                            </small>
-                          </div>
-                        )}
                     </div>
                   </div>
                 ))}
@@ -1302,9 +1550,9 @@ export default function Home() {
                     <LoaderCircle size={15} className="spin" />
                     {
                       [
-                        "Validating follow-up…",
-                        "Waiting for generation service…",
-                        "Still generating…",
+                        "Reading your change…",
+                        "Writing the code…",
+                        "Still working…",
                       ][phase]
                     }
                   </div>
@@ -1322,7 +1570,6 @@ export default function Home() {
                     {error}
                   </div>
                 )}
-                <label htmlFor="followup">Keep building</label>
                 <textarea
                   onKeyDown={(event) => {
                     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void generate(); }
@@ -1333,6 +1580,7 @@ export default function Home() {
                   disabled={busy}
                   maxLength={4000}
                   placeholder="Describe a change…"
+                  aria-label="Describe a change"
                 />
                 <div>
                   <div className="followup-pickers">
@@ -1360,24 +1608,6 @@ export default function Home() {
               </form>
             </section>
             <section className="code-panel" id={`panel-${pane === "test" ? "test" : pane === "logs" ? "logs" : "code"}`} role="tabpanel" aria-labelledby={`tab-${pane === "test" ? "test" : pane === "logs" ? "logs" : "code"}`} hidden={!wide && tab === "conversation"}>
-              <div className={`build-banner ${project.status}`}>
-                <span className="live-dot" />
-                <strong>{statusLabel}</strong>
-                <span>
-                  {project.status === "success"
-                    ? "JAR ready to download."
-                    : project.status === "failed"
-                      ? "See the build log."
-                      : "No JAR yet."}
-                </span>
-                <button
-                  className="icon-button"
-                  aria-label="View build setup"
-                  onClick={() => setModal("settings")}
-                >
-                  <SlidersHorizontal size={14} />
-                </button>
-              </div>
               {pane === "test" ? (
                 <div className="test-workflow">
                   <div className="test-workflow-heading">
@@ -1409,7 +1639,7 @@ export default function Home() {
                 <div className="build-logs">
                   <div className="logs-title">
                     <SquareTerminal size={17} />
-                    <span>Build output</span>
+                    <span>Build log</span>
                     <span className="tag">{project.status}</span>
                   </div>
                   {project.logs.map((log, i) => (
@@ -1421,9 +1651,6 @@ export default function Home() {
                   {project.error && (
                     <pre className="log-error">{project.error}</pre>
                   )}
-                  <p>
-                    A passing build doesn&apos;t mean it works in game. Test it first.
-                  </p>
                 </div>
               ) : (
                 <div className="source-workspace">
@@ -1467,7 +1694,6 @@ export default function Home() {
                           : "No file selected"}
                       </span>
                       <div>
-                        <span className="readonly">READ ONLY</span>
                         <button
                           className="icon-button"
                           aria-label="Copy source code"
@@ -1499,20 +1725,13 @@ export default function Home() {
                       ) : (
                         <div className="editor-empty">
                           <FileCode2 size={30} />
-                          <p>Select a file to inspect its source.</p>
+                          <p>Pick a file.</p>
                         </div>
                       )}
                     </div>
                     <div className="editor-status">
-                      <span>{currentFile?.path || "No generated files"}</span>
-                      <span>
-                        UTF-8{" "}
-                        <span>
-                          {currentFile?.path.endsWith(".java")
-                            ? "Java"
-                            : "Text"}
-                        </span>
-                      </span>
+                      <span>{currentFile?.path || "No files"}</span>
+                      <span>{currentFile?.path.endsWith(".java") ? "Java" : "Text"}</span>
                     </div>
                   </div>
                 </div>
@@ -1522,8 +1741,7 @@ export default function Home() {
         )}
         {storageError && (
           <div className="storage-notice" role="status">
-            Browser storage is unavailable. Projects will only remain in this
-            tab.
+            Projects can&apos;t be saved in this browser, so they&apos;ll be gone when you close the tab.
             <button
               className="icon-button"
               aria-label="Dismiss storage notice"
@@ -1534,6 +1752,17 @@ export default function Home() {
           </div>
         )}
       </main>
+      {signInOpen && (
+        <SignInScreen
+          providers={services?.auth?.providers ?? []}
+          onClose={() => setSignInOpen(false)}
+          onGuest={process.env.NODE_ENV === "development" ? () => {
+            setGuest(true);
+            setSignInOpen(false);
+            void generate({ skipSignIn: true });
+          } : undefined}
+        />
+      )}
       <dialog
         ref={dialog}
         onCancel={() => setModal(null)}
@@ -1602,13 +1831,6 @@ export default function Home() {
         ) : (
           <>
             <p>API keys are set on the server, never in the browser.</p>
-            <div className="settings-row">
-              <div>
-                <strong>Models</strong>
-                <span>Pick a model in the prompt bar.</span>
-              </div>
-              <Code2 size={18} />
-            </div>
             <div className="settings-code">
               OPENAI_API_KEY=••••••••
               <br />

@@ -8,3 +8,4 @@ coverage/
 .wrangler/
 .dev.vars*
 !.dev.vars.example
+.claude/settings.local.json

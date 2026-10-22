@@ -2,6 +2,9 @@ import Link from "next/link";
 import {
   ArrowRight,
   Blocks,
+  CircleHelp,
+  Lightbulb,
+  Zap,
   Code2,
   Coffee,
   FileCode2,
@@ -28,6 +31,9 @@ import { Hero } from "@/components/landing/hero";
 import { VideoSlot } from "@/components/landing/media-slot";
 import { UseCaseTabs } from "@/components/landing/use-case-tabs";
 import { ContentSlider } from "@/components/landing/content-slider";
+import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
+import { VoidBackdrop } from "@/components/void-backdrop";
+import { BrandMark } from "@/components/brand-mark";
 import "./landing.css";
 
 const coveredReleases = MINECRAFT_RELEASES.filter((release) =>
@@ -80,15 +86,16 @@ const javaSnippet = [
 function Logo() {
   return (
     <Link href="/" className="lp-brand" aria-label="ModHorizon home">
-      <Blocks size={20} strokeWidth={1.8} aria-hidden="true" />
+      <BrandMark size={26} />
       <span>ModHorizon</span>
     </Link>
   );
 }
 
-function SectionHeading({ title }: { title: string }) {
+function SectionHeading({ title, icon: Icon }: { title: string; icon: typeof Sparkles }) {
   return (
     <div className="section-head">
+      <span className="section-icon" aria-hidden="true"><Icon size={18} /></span>
       <h2 className="section-heading">{title}</h2>
     </div>
   );
@@ -97,6 +104,8 @@ function SectionHeading({ title }: { title: string }) {
 export default function Landing() {
   return (
     <div className="lp">
+      <VoidBackdrop planet={false} />
+      <RevealOnScroll />
       <header className="lp-nav">
         <div className="lp-nav-inner">
           <Logo />
@@ -113,13 +122,13 @@ export default function Landing() {
       <main>
         <Hero stats={stats} />
 
-        <section id="create" className="lp-section">
-          <SectionHeading title="What you can make" />
+        <section id="create" className="lp-section" data-reveal>
+          <SectionHeading title="What you can make" icon={Sparkles} />
           <ContentSlider />
         </section>
 
-        <section id="features" className="lp-section">
-          <SectionHeading title="Features" />
+        <section id="features" className="lp-section" data-reveal>
+          <SectionHeading title="Features" icon={Zap} />
           <div className="bento-grid">
             <article className="bento-card bento-large">
               <span className="bento-badge">Core</span>
@@ -212,8 +221,8 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="versions" className="lp-section">
-          <SectionHeading title="Supported versions" />
+        <section id="versions" className="lp-section" data-reveal>
+          <SectionHeading title="Supported versions" icon={Layers} />
           <div className="loader-table">
             {PLATFORM_GROUPS.map((group) => {
               const GroupIcon = GROUP_ICONS[group.kind];
@@ -243,13 +252,13 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="examples" className="lp-section">
-          <SectionHeading title="Examples" />
+        <section id="examples" className="lp-section" data-reveal>
+          <SectionHeading title="Examples" icon={Lightbulb} />
           <UseCaseTabs />
         </section>
 
-        <section id="faq" className="lp-section faq-section">
-          <SectionHeading title="FAQ" />
+        <section id="faq" className="lp-section faq-section" data-reveal>
+          <SectionHeading title="FAQ" icon={CircleHelp} />
           <div className="faq-list">
             {faqs.map((item) => (
               <details key={item.q} className="faq-item">

@@ -120,8 +120,6 @@
 .slide-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .slide-icon { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border: 1px solid #27272a; border-radius: 10px; background: #111114; color: #4dabf7; }
 .slide-head h3 { flex: 1; font-size: 20px; font-weight: 300; letter-spacing: -.02em; }
-.slide-status { padding: 3px 10px; border: 1px solid rgb(255 255 255 / .1); border-radius: 999px; color: rgb(255 255 255 / .45); font-size: 11px; font-weight: 500; white-space: nowrap; }
-.slide-status.is-available { border-color: rgb(57 211 83 / .25); background: rgb(0 199 88 / .1); color: #69db7c; }
 .lp .slide-body p { color: rgb(255 255 255 / .45); font-size: 14px; line-height: 1.55; }
 .slide-loaders { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
 .slide-loaders span { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border: 1px solid #27272a; border-radius: 8px; background: #111114; color: rgb(255 255 255 / .85); font-size: 13px; }
@@ -249,3 +247,15 @@
   .cta-actions { flex-direction: column; }
   .footer-top { flex-direction: column; align-items: flex-start; }
 }
+
+/* The void behind the whole homepage: translucent panels, glowing icons and scroll reveals. */
+.lp { background: transparent; }
+.lp > main, .lp > header { position: relative; z-index: 1; }
+.lp > header { position: fixed; z-index: 50; }
+.section-icon { display: inline-grid; place-items: center; width: 42px; height: 42px; margin-bottom: 18px; border: 1px solid rgb(80 144 255 / .28); border-radius: 12px; background: radial-gradient(circle at 50% 0%, rgb(80 144 255 / .28), rgb(80 144 255 / .05)); color: #a8c6ff; box-shadow: 0 0 34px -6px rgb(80 144 255 / .55); animation: void-float 6s ease-in-out infinite; }
+.bento-card, .bento-small, .slide, .loader-group, .usecase-panel, .faq-item { background: rgb(9 9 11 / .72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: border-color .25s, transform .25s, box-shadow .35s; }
+.bento-card:hover, .bento-small:hover, .slide:hover, .loader-group:hover, .usecase-panel:hover, .faq-item:hover { border-color: rgb(80 144 255 / .28); box-shadow: 0 0 0 1px rgb(80 144 255 / .1), 0 26px 80px -40px rgb(80 144 255 / .7); }
+.bento-small:hover svg, .bento-card:hover .bento-icon { filter: drop-shadow(0 0 10px rgb(80 144 255 / .8)); }
+.reveal-ready [data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity 1s cubic-bezier(.2, .7, .2, 1), transform 1s cubic-bezier(.2, .7, .2, 1); }
+.reveal-ready [data-reveal].is-revealed { opacity: 1; transform: none; }
+.cta-section::before { background: radial-gradient(ellipse 55% 45% at 50% 40%, rgb(80 144 255 / .2), transparent 70%); }
