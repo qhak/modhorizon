@@ -586,3 +586,5 @@ button.reply-chip:hover { border-color: rgb(80 144 255 / .45); color: #fff; }
 .reply-next { display: inline-flex; gap: 8px; align-items: center; max-width: 100%; padding: 7px 12px; border: 1px dashed rgb(255 255 255 / .18); border-radius: 10px; background: transparent; color: var(--foreground); font-size: 13px; text-align: left; }
 .reply-next:hover { border-color: rgb(80 144 255 / .55); background: rgb(80 144 255 / .08); }
 .message p.message-status { margin-top: 12px; color: var(--secondary); font-size: 13px; }
+
+.model-pricing-note { padding: 8px 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }

@@ -30,6 +30,7 @@ import { SITE_MEDIA } from "@/lib/site-media";
 import { Hero } from "@/components/landing/hero";
 import { VideoSlot } from "@/components/landing/media-slot";
 import { UseCaseTabs } from "@/components/landing/use-case-tabs";
+import { VersionChecker } from "@/components/landing/version-checker";
 import { ContentSlider } from "@/components/landing/content-slider";
 import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
 import { VoidBackdrop } from "@/components/void-backdrop";
@@ -225,6 +226,7 @@ export default function Landing() {
 
         <section id="versions" className="lp-section" data-reveal>
           <SectionHeading title="Supported versions" icon={Layers} />
+          <VersionChecker />
           <div className="loader-table">
             {PLATFORM_GROUPS.map((group) => {
               const GroupIcon = GROUP_ICONS[group.kind];

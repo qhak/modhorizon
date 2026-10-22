@@ -583,6 +583,7 @@ function ModelPicker({
             </div>
           )}
           </div>
+          <p className="model-pricing-note">Estimate at {reasoningEffort} reasoning. Longer prompts and repairs can use more.</p>
           <button type="button" className="model-setup-link" onClick={onSetup}>Provider setup</button>
         </div>
       )}

@@ -1,19 +1,9 @@
 import type { PlatformId } from "./platforms";
 
-/** The 1.21.x releases the dashboard offers. Generation accepts every release listed in platforms.ts. */
-export const MINECRAFT_VERSIONS: readonly MinecraftVersion[] = [
-  "1.21.1",
-  "1.21.2",
-  "1.21.3",
-  "1.21.4",
-  "1.21.5",
-  "1.21.6",
-  "1.21.7",
-  "1.21.8",
-  "1.21.9",
-  "1.21.10",
-  "1.21.11",
-];
+import { MINECRAFT_RELEASES } from "./platform-versions";
+
+/** Compatibility alias for the dashboard's supported game versions. */
+export const MINECRAFT_VERSIONS: readonly MinecraftVersion[] = MINECRAFT_RELEASES;
 /** A Minecraft release, or a proxy API version for proxy platforms. */
 export type MinecraftVersion = string;
 export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";

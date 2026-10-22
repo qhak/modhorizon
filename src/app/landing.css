@@ -242,3 +242,31 @@
 .reveal-ready [data-reveal].is-revealed { opacity: 1; transform: none; }
 .cta-section::before { background: radial-gradient(ellipse 55% 45% at 50% 40%, rgb(80 144 255 / .2), transparent 70%); }
 
+
+/* Preserve the teammate version checker inside the redesigned page. */
+.checker { max-width: 48rem; margin: 0 auto 40px; padding: 20px; border: 1px solid #18181b; border-radius: 16px; background: #09090b; }
+.checker-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.checker-controls label { position: relative; display: grid; gap: 6px; }
+.checker-controls label > span { color: rgb(255 255 255 / .4); font-size: 12px; }
+.checker-controls select { width: 100%; padding: 12px 36px 12px 14px; border: 1px solid #27272a; border-radius: 10px; appearance: none; background: var(--background); font-size: 15px; cursor: pointer; }
+.checker-controls label > svg { position: absolute; right: 14px; bottom: 15px; color: rgb(255 255 255 / .4); pointer-events: none; }
+.checker-result { margin-top: 14px; padding: 14px 16px; border-radius: 12px; font-size: 14px; }
+.checker-result.is-ok { border: 1px solid rgb(57 211 83 / .25); background: rgb(57 211 83 / .06); }
+.checker-result.is-ok svg { color: #69db7c; }
+.checker-result.is-blocked { border: 1px solid rgb(251 191 36 / .28); background: rgb(251 191 36 / .06); }
+.checker-result.is-blocked svg { color: #fbbf24; }
+.checker-head { display: flex; align-items: center; gap: 10px; }
+.checker-head strong { flex: 1; font-weight: 500; line-height: 1.45; }
+.checker-head button, .checker-head a { padding: 5px 14px; border: 1px solid rgb(255 255 255 / .15); border-radius: 999px; background: transparent; font-size: 13px; font-weight: 500; }
+.is-blocked .checker-head button { border-color: rgb(251 191 36 / .4); color: #fbbf24; }
+.checker-head button:hover, .checker-head a:hover { background: rgb(255 255 255 / .06); }
+.checker-result p { margin: 10px 0 0 26px; color: rgb(255 255 255 / .6); line-height: 1.6; }
+.checker-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0 26px; }
+.checker-options button { padding: 6px 12px; border: 1px solid #27272a; border-radius: 999px; background: #18181b; font-size: 12px; }
+.checker-options button:hover { border-color: rgb(255 255 255 / .2); }
+@media (max-width: 640px) {
+  .checker { padding: 16px; }
+  .checker-controls { grid-template-columns: 1fr; }
+  .checker-head { flex-wrap: wrap; }
+  .checker-result p, .checker-options { margin-left: 0; }
+}
