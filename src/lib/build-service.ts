@@ -1,3 +1,4 @@
+import { serviceFetch } from "./service-fetch";
 import { limitedJson, trustedEndpoint } from "./ai-provider";
 import { PLATFORMS, isPlatformId, javaVersionFor, mappingsFor } from "./platforms";
 import type { BuildResult, BuildService, GeneratedProject, GenerateRequest } from "./types";
@@ -24,11 +25,11 @@ export class RemoteBuildService implements BuildService {
       throw new Error(
         "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN for an isolated build service that supports this artifact type and loader.",
       );
-    const response = await fetch(
+    const response = await serviceFetch(
       trustedEndpoint(endpoint, "BUILD_SERVICE_URL"),
       {
         method: "POST",
-        redirect: "error",
+        redirect: "manual",
         signal: AbortSignal.timeout(120_000),
         headers: {
           "Content-Type": "application/json",

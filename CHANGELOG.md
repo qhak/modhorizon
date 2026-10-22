@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.2.3 — 2026-10-22
+
+- Fixed generation failing on Cloudflare before reaching the AI provider because Workers rejects the Fetch API's error redirect mode.
+- AI and isolated-build requests now use manual redirects and reject redirect responses before credentials can be forwarded.
+- Added regression coverage for all three AI providers, build requests, redirect rejection and successful service responses.
+
+Validation: all 69 automated tests and the production Cloudflare build passed. Deployed Worker fac03373-d001-4e29-bfb6-198c583cb849. Confirmed the failed attempt refunded its 2-credit reservation; no paid generation was replayed during this fix. This fix does not configure the Java build service; compiled plugin/mod JAR acceptance remains outstanding.
+
 ## v0.2.2 — 2026-10-22
 
 - Preserved the teammate release as the functional baseline while keeping the redesign: restored the interactive homepage version checker, the expanded dashboard release list and reasoning credit-estimate guidance.

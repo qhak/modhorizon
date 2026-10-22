@@ -1,3 +1,4 @@
+import { serviceFetch } from "./service-fetch";
 import { MockProvider } from "./mock-provider";
 import { DEFAULT_REASONING_EFFORT, MAX_GENERATION_OUTPUT_TOKENS, findModel, modelChoices, providerReasoningEffort } from "./models";
 import { validateProject } from "./validation";
@@ -182,11 +183,11 @@ class OpenAIProvider implements AIProvider {
       legacyCompatible ? "AI_BASE_URL" : "OPENAI_BASE_URL",
     );
     if (!endpoint.pathname.endsWith("/")) endpoint.pathname += "/";
-    const response = await fetch(
+    const response = await serviceFetch(
       new URL(legacyCompatible ? "chat/completions" : "responses", endpoint),
       {
       method: "POST",
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(90_000),
       headers: {
         "Content-Type": "application/json",
@@ -259,9 +260,9 @@ class AnthropicProvider implements AIProvider {
       "ANTHROPIC_BASE_URL",
     );
     if (!endpoint.pathname.endsWith("/")) endpoint.pathname += "/";
-    const response = await fetch(new URL("messages", endpoint), {
+    const response = await serviceFetch(new URL("messages", endpoint), {
       method: "POST",
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(90_000),
       headers: {
         "Content-Type": "application/json",
@@ -310,9 +311,9 @@ class GeminiProvider implements AIProvider {
       "GEMINI_BASE_URL",
     );
     if (!endpoint.pathname.endsWith("/")) endpoint.pathname += "/";
-    const response = await fetch(new URL("interactions", endpoint), {
+    const response = await serviceFetch(new URL("interactions", endpoint), {
       method: "POST",
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(180_000),
       headers: {
         "Content-Type": "application/json",

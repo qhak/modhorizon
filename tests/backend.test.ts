@@ -273,7 +273,7 @@ test("remote build verifies returned artifact and authenticates server-side", as
         (init?.headers as Record<string, string>).Authorization,
         "Bearer test-secret",
       );
-      assert.equal(init?.redirect, "error");
+      assert.equal(init?.redirect, "manual");
       const body = JSON.parse(init!.body as string);
       // Paper plugins keep protocol 1 for the existing Paper worker.
       assert.equal(body.schemaVersion, 1);
