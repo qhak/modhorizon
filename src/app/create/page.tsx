@@ -56,6 +56,7 @@ import {
   PackageOpen,
   PanelRightClose,
   PanelRightOpen,
+  Sparkles,
   Sword,
   Terminal,
   Zap,
@@ -1387,6 +1388,10 @@ export default function Home() {
             <Settings2 size={16} />
             <span>Settings</span>
           </button>
+          <Link className="nav-item" href="/pricing">
+            <Sparkles size={16} />
+            <span>Plans &amp; credits</span>
+          </Link>
           <button className="account" onClick={() => setModal("settings")} aria-label="Account and credits">
             <div className="avatar">{signedIn ? (displayName || "Y").slice(0, 1).toUpperCase() : "D"}</div>
             <div>{signedIn ? <><strong>{displayName || "Your account"}</strong><span>Signed in</span></> : <><strong>Guest</strong><span>Not signed in</span></>}</div>

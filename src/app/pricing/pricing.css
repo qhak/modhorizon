@@ -1,0 +1,39 @@
+/* Plans & credits, matching the team's hosted pricing page. */
+.pricing-page { min-height: 100vh; padding: 28px clamp(18px, 5vw, 72px) 72px; color: #f4f4f5; background: #090a0c; }
+.pricing-nav { display: flex; align-items: center; justify-content: space-between; max-width: 1160px; margin: 0 auto; }
+.pricing-nav-actions { display: flex; align-items: center; gap: 24px; }
+.pricing-back, .pricing-workspace { display: inline-flex; align-items: center; gap: 9px; color: #dedee2; text-decoration: none; font-size: 13px; }
+.pricing-workspace { padding: 10px 14px; border: 1px solid #292a30; border-radius: 999px; background: #101115; }
+.pricing-intro { max-width: 1160px; margin: 76px auto 36px; text-align: center; }
+.pricing-intro .eyebrow { display: inline-flex; align-items: center; gap: 7px; color: #a9a7ff; font-size: 11px; letter-spacing: .15em; }
+.pricing-intro h1 { margin: 16px 0 10px; font-size: clamp(38px, 6vw, 60px); font-weight: 400; letter-spacing: -.05em; }
+.pricing-intro > p { max-width: 570px; margin: 0 auto; color: #9899a3; font-size: 15px; line-height: 1.6; }
+.pricing-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: stretch; gap: 14px; max-width: 1160px; margin: 0 auto; }
+.pricing-card { position: relative; display: flex; flex-direction: column; min-height: 380px; padding: 22px; border: 1px solid #282a31; border-radius: 18px; background: linear-gradient(155deg, #14151a, #0f1014 72%); }
+.pricing-card-featured { border-color: #716af4; box-shadow: 0 0 0 1px rgb(113 106 244 / .18), 0 16px 48px rgb(50 45 140 / .14); }
+.pricing-badge { position: absolute; top: -10px; right: 18px; padding: 5px 9px; border-radius: 999px; background: #766fff; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
+.pricing-card-head { display: flex; justify-content: space-between; gap: 8px; }
+.pricing-card h2 { margin: 0; font-size: 17px; font-weight: 500; }
+.pricing-card-head p { min-height: 38px; margin: 7px 0 0; color: #9899a3; font-size: 11px; line-height: 1.5; }
+.pricing-price { margin-top: 22px; font-size: 31px; font-weight: 650; letter-spacing: -.04em; }
+.pricing-price span { margin-left: 5px; color: #8d8f99; font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.pricing-credit-count { margin-top: 7px; color: #a8a4ff; font-size: 12px; }
+.pricing-card ul { display: grid; gap: 12px; margin: 24px 0 18px; padding: 0; list-style: none; color: #d8d8de; font-size: 12px; }
+.pricing-card li { display: flex; align-items: center; gap: 9px; }
+.pricing-card li svg { flex-shrink: 0; color: #84d1ac; }
+.pricing-extra { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 8px; margin-top: auto; padding: 12px 0; border-top: 1px solid #282a31; color: #a0a1aa; font-size: 11px; }
+.pricing-extra strong { color: #f4f4f5; font-size: 13px; }
+.pricing-extra span { grid-column: 1 / -1; color: #73757e; font-size: 10px; }
+.pricing-cta { width: 100%; padding: 12px 14px; border: 1px solid #7771fa; border-radius: 11px; background: #6e68ef; color: #fff; font-size: 12px; font-weight: 650; cursor: pointer; transition: transform .16s ease, background .16s ease, border-color .16s ease; }
+.pricing-cta:hover:not(:disabled) { background: #817aff; transform: translateY(-1px); }
+.pricing-cta:disabled { border-color: #303138; background: #202127; color: #858690; cursor: not-allowed; }
+.pricing-credit-policy { max-width: 1160px; margin: 20px auto; color: #b1b2bc; font-size: 12px; line-height: 1.7; text-align: center; }
+.pricing-footnote { max-width: 1160px; margin: 20px auto; color: #70717a; font-size: 11px; line-height: 1.6; }
+@media (max-width: 1024px) { .pricing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; } }
+@media (max-width: 700px) {
+  .pricing-page { padding: 20px 16px 48px; }
+  .pricing-nav { flex-wrap: wrap; gap: 16px; }
+  .pricing-intro { margin: 54px auto 28px; }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 440px; }
+  .pricing-card { min-height: 0; }
+}

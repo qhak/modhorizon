@@ -3,7 +3,6 @@ import {
   ArrowRight,
   Blocks,
   CircleHelp,
-  Coins,
   Lightbulb,
   Zap,
   Code2,
@@ -33,7 +32,6 @@ import { VideoSlot } from "@/components/landing/media-slot";
 import { UseCaseTabs } from "@/components/landing/use-case-tabs";
 import { ContentSlider } from "@/components/landing/content-slider";
 import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
-import { CreditFoundation } from "@/components/credit-foundation";
 import { VoidBackdrop } from "@/components/void-backdrop";
 import { BrandMark } from "@/components/brand-mark";
 import "./landing.css";
@@ -43,15 +41,15 @@ const coveredReleases = MINECRAFT_RELEASES.filter((release) =>
 );
 const stats = [
   { value: `${coveredReleases.length}`, label: "Minecraft releases", icon: "releases" as const },
-  { value: `${PLATFORM_IDS.length}`, label: "Loaders & platforms", icon: "loaders" as const },
-  { value: `${coveredReleases.at(-1)}–${coveredReleases[0]}`, label: "Version range", icon: "range" as const },
+  { value: `${PLATFORM_IDS.length}`, label: "loaders and platforms", icon: "loaders" as const },
+  { value: `${coveredReleases.at(-1)} – ${coveredReleases[0]}`, label: "versions", icon: "range" as const },
 ];
 const GROUP_ICONS = { plugin: Server, proxy: Network, mod: Blocks };
 
 const faqs = [
   {
     q: "Do I need to know how to code?",
-    a: "No. Describe what you want and ModHorizon writes the code.",
+    a: "No. Pick a loader and a version, say what the project should do, and check every file before you use it.",
   },
   {
     q: "Which loaders and versions are supported?",
@@ -115,10 +113,10 @@ export default function Landing() {
             <a className="nav-link" href="#features">Features</a>
             <a className="nav-link" href="#versions">Versions</a>
             <a className="nav-link" href="#examples">Examples</a>
-            <a className="nav-link" href="#pricing">Pricing</a>
+            <Link className="nav-link" href="/pricing">Pricing</Link>
             <a className="nav-link" href="#faq">FAQ</a>
           </nav>
-          <Link href="/create" className="nav-cta">Start building <ArrowRight size={15} aria-hidden="true" /></Link>
+          <Link href="/create" className="nav-cta">Open workspace <ArrowRight size={15} aria-hidden="true" /></Link>
         </div>
       </header>
 
@@ -136,7 +134,7 @@ export default function Landing() {
             <article className="bento-card bento-large">
               <span className="bento-badge">Core</span>
               <Sparkles className="bento-icon" aria-hidden="true" />
-              <h3 className="bento-title">Describe it in plain English</h3>
+              <h3 className="bento-title">One prompt, a full project</h3>
               <p className="bento-description">ModHorizon writes the full project for your loader: the main class, listeners and the plugin or mod file.</p>
               <div className="mock mock-composer" aria-hidden="true">
                 <p>Add ruby ore, a ruby ingot and a ruby sword stronger than iron<span className="mock-caret" /></p>
@@ -260,25 +258,6 @@ export default function Landing() {
           <UseCaseTabs />
         </section>
 
-        <section id="pricing" className="lp-section" data-reveal>
-          <SectionHeading title="Pricing" icon={Coins} />
-          <div className="pricing-grid">
-            <div className="pricing-intro">
-              <h3>More creating. Less commitment.</h3>
-              <p>A credit-based model is planned. Explore the workspace today; accounts, credit purchases and rewards aren&apos;t live yet.</p>
-              <Link href="/create" className="btn-cta-secondary">Open the workspace <ArrowRight size={16} aria-hidden="true" /></Link>
-            </div>
-            <div className="rewards-panel">
-              <div className="rewards-header">
-                <h3>Make room for your first idea.</h3>
-                <span>Rewards preview</span>
-              </div>
-              <CreditFoundation />
-              <p className="rewards-note">Proposed rewards, not an available balance. Referral bonuses require server verification. Paid pricing will be announced when available.</p>
-            </div>
-          </div>
-        </section>
-
         <section id="faq" className="lp-section faq-section" data-reveal>
           <SectionHeading title="FAQ" icon={CircleHelp} />
           <div className="faq-list">
@@ -299,7 +278,7 @@ export default function Landing() {
           <div className="cta-overlay" aria-hidden="true" />
           <div className="cta-container">
             <div className="cta-content">
-              <h2 className="cta-heading">Start building</h2>
+              <h2 className="cta-heading">Make your first project</h2>
               <div className="cta-actions">
                 <Link href="/create" className="btn-cta-primary">
                   Open the workspace <ArrowRight size={18} aria-hidden="true" />
@@ -315,7 +294,7 @@ export default function Landing() {
                   <span className="footer-separator">·</span>
                   <a className="footer-link" href="#versions">Versions</a>
                   <span className="footer-separator">·</span>
-                  <a className="footer-link" href="#pricing">Pricing</a>
+                  <Link className="footer-link" href="/pricing">Pricing</Link>
                   <span className="footer-separator">·</span>
                   <a className="footer-link" href="#faq">FAQ</a>
                 </div>
