@@ -11,6 +11,8 @@ This is a loopback-only testing service for **Paper 1.21.4 / Java 21**. It does 
 5. Run `npm run local:builder` in one terminal.
 6. Run `npm run local:preview` in another terminal and open http://127.0.0.1:3215/create. Select Plugin, Paper, 1.21.4 and Luna. The preview uses local billing data, so its balance is separate from your live account.
 
+For sign-in, add `http://127.0.0.1:3215/auth/callback` and `http://127.0.0.1:3215/auth/callback?next=reset` to the Supabase project's Authentication > URL Configuration > Redirect URLs. Keep the production Site URL and production redirects. The preview launcher sets a development-only local origin; requests must match that loopback host and port. No Google OAuth client callback change is needed: Google still returns to Supabase, which then returns to the local app. If sign-in lands on the hosted site, check both the local launcher and this allow list.
+
 Use the application's Files/Build/Test tabs and download button to inspect the JAR and installation guide. A successful compile is not proof that gameplay works or that a plugin is safe. Test on a disposable local Minecraft server.
 
 ## Isolation

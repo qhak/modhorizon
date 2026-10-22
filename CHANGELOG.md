@@ -1,5 +1,12 @@
 # Change notes
 
+## v0.3.2 — 2026-10-22
+
+- Fixed private-preview sign-in using the hosted return address from Cloudflare development bindings. The local launcher now provides a separate development-only origin, checked against the actual loopback Host and port even when Next normalizes the request URL.
+- Documented the exact Supabase local sign-in and reset redirect URLs. Hosted redirect behavior is preserved.
+
+Validation: 76 automated tests and TypeScript checks passed. The running local Google sign-in endpoint now requests `http://127.0.0.1:3215/auth/callback`. Supabase dashboard sign-in and local redirect allow-list setup remain owner steps; end-to-end Google login has not yet been verified. No paid generation was replayed and the live deployment is unchanged.
+
 ## v0.3.1 — 2026-10-22
 
 - Verified the private Paper 1.21.4 compiler on Docker Desktop: prepared the pinned toolchain image, compiled a real Java21 JAR offline, rejected broken Java and confirmed forced-deadline container removal.

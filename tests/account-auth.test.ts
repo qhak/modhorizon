@@ -2,9 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { readFileSync } from "node:fs";
-import { confirmedAccountUser, safeAccountReturn, validPassword } from "../src/lib/account-auth-policy";
+import { confirmedAccountUser, resolveAccountAppOrigin, safeAccountReturn, validPassword } from "../src/lib/account-auth-policy";
 import { resolveAccountIdentity, authorizedBillingAccountId } from "../src/lib/account-identity";
 import type { D1Database, D1Statement } from "../src/lib/billing-db";
+
+test("private preview sign-in stays local despite hosted Cloudflare bindings", () => {
+  const live = "https://modhorizon.callout-ai.workers.dev";
+  const local = "http://127.0.0.1:3215";
+  assert.equal(resolveAccountAppOrigin(`${local}/api/auth/action`, live, local, true), local);
+  assert.equal(resolveAccountAppOrigin(`${local}/auth/callback`, live, local, true), local);
+  assert.equal(resolveAccountAppOrigin("http://localhost:3215/auth/callback", live, local, true, "127.0.0.1:3215"), local);
+  assert.equal(resolveAccountAppOrigin("http://localhost:3215/auth/callback", live, local, true, "evil.example"), live);
+  assert.equal(resolveAccountAppOrigin(`${local}/auth/callback`, live, "https://evil.example", true, "evil.example"), live);
+  assert.equal(resolveAccountAppOrigin(`${local}/auth/callback`, live, local, false), live);
+  assert.equal(resolveAccountAppOrigin("https://evil.example/auth/callback", live, local, true), live);
+  assert.equal(resolveAccountAppOrigin("http://127.0.0.1:9999/auth/callback", live, local, true), live);
+  assert.equal(resolveAccountAppOrigin(`${live}/auth/callback`, live, local, true), live);
+});
 
 test("authorization requires a confirmed, non-anonymous identity",()=>{
   assert.equal(confirmedAccountUser(null),null);
