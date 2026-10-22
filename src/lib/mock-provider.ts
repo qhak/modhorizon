@@ -1,8 +1,11 @@
+import { javaVersionFor } from "./platforms";
 import type { AIProvider, GenerateRequest, GeneratedProject } from "./types";
 
 export class MockProvider implements AIProvider {
   name = "mock";
   async generate(request: GenerateRequest): Promise<GeneratedProject> {
+    if (request.artifactType && request.artifactType !== "plugin")
+      throw new Error("The deterministic demo provider only supports its Paper plugin example. Configure a real AI provider for mods, resource packs, and shader packs.");
     const normalized = request.prompt
       .toLowerCase()
       .replace(/[.!]/g, "")
@@ -10,13 +13,25 @@ export class MockProvider implements AIProvider {
       .trim();
     const supported =
       "create a paper plugin where players receive speed ii for 10 seconds whenever they kill a zombie";
-    if (request.project || request.platform !== "paper" || normalized !== supported) {
+    if (request.project || (request.target ?? "paper") !== "paper" || normalized !== supported) {
       throw new Error(
         "Development preview supports only the Paper example: Speed II for 10 seconds after killing a zombie. Configure an AI provider for other platforms, prompts and follow-up edits.",
       );
     }
     return {
       name: "ZombieSprint",
+      message: [
+        "Players who kill a zombie get Speed II for 10 seconds. The chat message they see is set in config.yml.",
+        "/reference src/main/java/dev/modhorizon/zombiesprint/ZombieSprint.java",
+        "/reference src/main/resources/plugin.yml",
+        "/config activation-message",
+        "/event EntityDeathEvent",
+        `/version ${request.version}`,
+        `/java ${javaVersionFor("paper", request.version)}`,
+        "/test",
+        "/tip Leave activation-message empty in config.yml to turn the chat message off.",
+        "/next Add a 30 second cooldown between speed boosts",
+      ].join("\n"),
       files: [
         {
           path: "src/main/java/dev/modhorizon/zombiesprint/ZombieSprint.java",

@@ -1,24 +1,28 @@
 import { limitedJson, trustedEndpoint } from "./ai-provider";
-import { PLATFORMS, javaVersionFor, mappingsFor } from "./platforms";
-import type {
-  BuildResult,
-  BuildService,
-  BuildTarget,
-  GeneratedProject,
-} from "./types";
+import { PLATFORMS, isPlatformId, javaVersionFor, mappingsFor } from "./platforms";
+import type { BuildResult, BuildService, GeneratedProject, GenerateRequest } from "./types";
 
 export const MAX_ARTIFACT_BYTES = 5_000_000;
 
 export class RemoteBuildService implements BuildService {
   async build(
     project: GeneratedProject,
-    { platform, version }: BuildTarget,
+    input: Pick<GenerateRequest, "version" | "artifactType" | "target"> | GenerateRequest["version"],
   ): Promise<BuildResult> {
+    const request = typeof input === "string"
+      ? { version: input, artifactType: "plugin" as const, target: "paper" as const }
+      : { version: input.version, artifactType: input.artifactType || "plugin", target: input.target || "paper" };
+    const { version, artifactType, target: platform } = request;
+    const sources = { name: project.name, files: project.files };
+    if (artifactType !== "plugin" && artifactType !== "mod")
+      throw new Error("The isolated JAR build service only accepts plugins and mods.");
+    if (!isPlatformId(platform))
+      throw new Error("The isolated JAR build service only accepts plugin and mod platforms.");
     const endpoint = process.env.BUILD_SERVICE_URL;
     const token = process.env.BUILD_SERVICE_TOKEN;
     if (!endpoint || !token)
       throw new Error(
-        "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN to compile projects in an isolated build service.",
+        "Configure BUILD_SERVICE_URL and BUILD_SERVICE_TOKEN for an isolated build service that supports this artifact type and loader.",
       );
     const response = await fetch(
       trustedEndpoint(endpoint, "BUILD_SERVICE_URL"),
@@ -30,18 +34,30 @@ export class RemoteBuildService implements BuildService {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          schemaVersion: 2,
-          platform,
-          family: PLATFORMS[platform].family,
-          javaVersion: javaVersionFor(platform, version),
-          mappings: mappingsFor(platform, version),
-          // Proxy platforms are versioned by API rather than Minecraft release.
-          ...(PLATFORMS[platform].kind === "proxy"
-            ? { apiVersion: version }
-            : { minecraftVersion: version }),
-          project,
-        }),
+        body: JSON.stringify(
+          // Paper plugins stay on protocol 1 for the existing Paper worker.
+          artifactType === "plugin" && platform === "paper"
+            ? {
+                schemaVersion: 1,
+                platform,
+                javaVersion: javaVersionFor(platform, version),
+                minecraftVersion: version,
+                project: sources,
+              }
+            : {
+                schemaVersion: 2,
+                artifactType,
+                platform,
+                family: PLATFORMS[platform].family,
+                javaVersion: javaVersionFor(platform, version),
+                mappings: mappingsFor(platform, version),
+                // Proxy platforms are versioned by API rather than Minecraft release.
+                ...(PLATFORMS[platform].kind === "proxy"
+                  ? { apiVersion: version }
+                  : { minecraftVersion: version }),
+                project: sources,
+              },
+        ),
       },
     );
     if (!response.ok)

@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { saveArtifact } from "./project-store";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
-import { PLATFORMS, describeTarget } from "./platforms";
+import { expertFor, selectArtifactSkills, usesBukkitApi } from "./artifact-experts";
+import { packageMinecraftPack, resourcePackFormat } from "./packager";
+import { PLATFORMS, describeTarget, isPlatformId } from "./platforms";
 import type {
   AIProvider,
   BuildService,
@@ -10,16 +12,17 @@ import type {
   Project,
 } from "./types";
 
-export async function generatePlugin(
+export async function generateArtifact(
   request: GenerateRequest,
   provider: AIProvider,
   builder?: BuildService,
 ): Promise<Project> {
+  const artifactType = request.artifactType || "plugin";
+  const target = request.target || "paper";
   const project: Project = {
     id: randomUUID(),
-    name: request.project?.name || "UntitledPlugin",
+    name: request.project?.name || `Untitled${artifactType}`,
     prompt: request.prompt,
-    platform: request.platform,
     version: request.version,
     files: [],
     status: "failed",
@@ -27,22 +30,45 @@ export async function generatePlugin(
     artifactAvailable: false,
     provider: provider.name,
     modelId: request.modelId,
+    artifactType,
+    target,
   };
   try {
+    const model = `${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}`;
     project.logs.push(
-      `Generating ${describeTarget(request.platform, request.version)} source using ${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}.`,
+      isPlatformId(target)
+        ? `Generating ${describeTarget(target, request.version)} source using ${model}.`
+        : `Generating ${expertFor(artifactType).label} source for Minecraft ${request.version} (${target}) using ${model}.`,
     );
-    const skills = selectGenerationSkills(request.prompt);
-    if (skills.length)
-      project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
-    let generated = validateProject(await provider.generate(request), request.platform, request.version);
+    const skills = [
+      ...(usesBukkitApi({ artifactType, target }) ? selectGenerationSkills(request.prompt) : []),
+      ...selectArtifactSkills({ ...request, artifactType, target }),
+    ];
+    if (skills.length) project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
+    let generated = validateProject(await provider.generate({ ...request, artifactType, target }), artifactType, target, request.version);
     project.name = generated.name;
     project.files = generated.files;
+    project.message = generated.message;
+    if (artifactType === "resource_pack" || artifactType === "shader_pack") {
+      const packaged = packageMinecraftPack(generated, artifactType, request.version);
+      project.files = packaged.files;
+      project.status = "success";
+      project.artifactAvailable = true;
+      project.logs.push(`Created an installable ${expertFor(artifactType).label} ZIP (${packaged.artifact.length.toLocaleString()} bytes).`);
+      if (artifactType === "resource_pack")
+        project.logs.push(resourcePackFormat(request.version) === undefined
+          ? `Kept the pack_format from the generated pack.mcmeta. The server's compatibility table doesn't list Minecraft ${request.version}.`
+          : `Set pack metadata for Minecraft ${request.version} from the server's compatibility table.`);
+      if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
+      if (artifactType === "shader_pack") project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      saveArtifact(project, packaged.artifact);
+      return project;
+    }
     if (!builder) {
       project.status = "preview";
-      project.logs.push(
-        "Source preview created. No isolated build service is configured; compilation has not run and no JAR is available.",
-      );
+      project.logs.push(artifactType === "mod"
+        ? `Mod source preview created. Configure an isolated build service that supports ${isPlatformId(target) ? PLATFORMS[target].label : target} to compile a downloadable mod JAR.`
+        : "Source preview created. No isolated build service is configured; compilation has not run and no JAR is available.");
       return project;
     }
     for (let attempt = 0; attempt <= 3; attempt++) {
@@ -51,7 +77,7 @@ export async function generatePlugin(
           ? "Submitting source to the isolated build service."
           : `Repair ${attempt}/3: compiling revised source.`,
       );
-      const result = await builder.build(generated, { platform: request.platform, version: request.version });
+      const result = await builder.build(generated, { version: request.version, artifactType, target });
       project.logs.push(...result.logs);
       if (result.success) {
         if (!result.artifact?.length)
@@ -60,7 +86,7 @@ export async function generatePlugin(
           );
         project.status = "success";
         project.artifactAvailable = true;
-        const { kind, label } = PLATFORMS[request.platform];
+        const { kind, label } = isPlatformId(target) ? PLATFORMS[target] : PLATFORMS.paper;
         project.logs.push(
           kind === "mod"
             ? `Build succeeded. Test the mod in a ${label} ${request.version} instance before use.`
@@ -75,14 +101,16 @@ export async function generatePlugin(
         );
         generated = validateProject(
           await provider.generate(
-            { ...request, project: generated },
+            { ...request, artifactType, target, project: generated },
             result.logs,
           ),
-          request.platform,
+          artifactType,
+          target,
           request.version,
         );
         project.name = generated.name;
         project.files = generated.files;
+        project.message = generated.message;
       }
     }
     throw new Error(
@@ -97,3 +125,6 @@ export async function generatePlugin(
     return project;
   }
 }
+
+/** Backwards-compatible export for callers that explicitly generate Paper plugins. */
+export const generatePlugin = generateArtifact;

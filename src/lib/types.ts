@@ -1,14 +1,29 @@
 import type { PlatformId } from "./platforms";
 
+/** The 1.21.x releases the dashboard offers. Generation accepts every release listed in platforms.ts. */
+export const MINECRAFT_VERSIONS: readonly MinecraftVersion[] = [
+  "1.21.1",
+  "1.21.2",
+  "1.21.3",
+  "1.21.4",
+  "1.21.5",
+  "1.21.6",
+  "1.21.7",
+  "1.21.8",
+  "1.21.9",
+  "1.21.10",
+  "1.21.11",
+];
 /** A Minecraft release, or a proxy API version for proxy platforms. */
 export type MinecraftVersion = string;
+export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";
+/** Plugins and mods target a platform from platforms.ts; packs target a game runtime. */
+export type ArtifactTarget = PlatformId | "vanilla" | "iris" | "optifine";
 export type GeneratedFile = { path: string; content: string };
 export type Project = {
   id: string;
   name: string;
   prompt: string;
-  /** Absent on projects saved before multi-platform support; treat as Paper. */
-  platform?: PlatformId;
   version: MinecraftVersion;
   files: GeneratedFile[];
   status: "preview" | "success" | "failed";
@@ -16,16 +31,22 @@ export type Project = {
   artifactAvailable: boolean;
   provider: string;
   modelId?: string;
+  artifactType: ArtifactType;
+  target: ArtifactTarget;
+  /** The model's note about what it built; may contain workspace commands from chat-commands.ts. */
+  message?: string;
   error?: string;
 };
 export type GenerateRequest = {
   prompt: string;
-  platform: PlatformId;
   version: MinecraftVersion;
+  /** Omitted by legacy callers; validated API requests always provide both fields. */
+  artifactType?: ArtifactType;
+  target?: ArtifactTarget;
   modelId?: string;
   project?: { name: string; files: GeneratedFile[] };
 };
-export type GeneratedProject = { name: string; files: GeneratedFile[] };
+export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string };
 export type BuildResult = {
   success: boolean;
   logs: string[];
@@ -38,10 +59,9 @@ export interface AIProvider {
     errors?: string[],
   ): Promise<GeneratedProject>;
 }
-export type BuildTarget = { platform: PlatformId; version: MinecraftVersion };
 export interface BuildService {
   build(
     project: GeneratedProject,
-    target: BuildTarget,
+    request: Pick<GenerateRequest, "version" | "artifactType" | "target"> | MinecraftVersion,
   ): Promise<BuildResult>;
 }

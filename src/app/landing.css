@@ -259,3 +259,30 @@
 .reveal-ready [data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity 1s cubic-bezier(.2, .7, .2, 1), transform 1s cubic-bezier(.2, .7, .2, 1); }
 .reveal-ready [data-reveal].is-revealed { opacity: 1; transform: none; }
 .cta-section::before { background: radial-gradient(ellipse 55% 45% at 50% 40%, rgb(80 144 255 / .2), transparent 70%); }
+
+/* Pricing: the planned credit model and rewards preview. */
+.pricing-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); gap: 48px; align-items: start; }
+.pricing-intro { padding-top: 8px; }
+.pricing-intro h3 { font-size: 30px; font-weight: 400; line-height: 1.2; letter-spacing: -.02em; }
+.lp .pricing-intro p { max-width: 380px; margin: 16px 0 28px; color: rgb(255 255 255 / .45); font-size: 15px; line-height: 1.6; }
+.pricing-intro .btn-cta-secondary { display: inline-flex; padding: 12px 24px; font-size: 15px; }
+.rewards-panel { overflow: hidden; border: 1px solid #18181b; border-radius: 16px; background: #09090b; }
+.rewards-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #18181b; }
+.rewards-header h3 { font-size: 16px; font-weight: 500; }
+.rewards-header span { padding: 3px 10px; border-radius: 999px; background: rgb(48 128 255 / .1); color: #79b8ff; font-size: 11px; font-weight: 500; }
+.credit-foundation { display: grid; grid-template-columns: 1fr 1fr; }
+.credit-foundation > article { min-width: 0; padding: 24px; }
+.credit-foundation > article + article { border-left: 1px solid #18181b; }
+.credit-foundation article > svg { display: block; margin-bottom: 16px; color: #a8c6ff; }
+.credit-foundation .landing-label { display: block; margin-bottom: 10px; color: rgb(255 255 255 / .35); font-size: 11px; font-weight: 500; letter-spacing: .08em; }
+.credit-foundation h3 { margin-bottom: 10px; font-size: 18px; font-weight: 500; }
+.lp .credit-foundation p { color: rgb(255 255 255 / .45); font-size: 14px; line-height: 1.6; }
+.credit-foundation p strong { color: #fff; font-weight: 500; }
+.credit-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #18181b; color: rgb(255 255 255 / .35); font-size: 12px; }
+.credit-row strong { display: inline-flex; align-items: center; gap: 6px; color: #cfe0ff; font-weight: 400; }
+.lp .rewards-note { padding: 16px 24px; border-top: 1px solid #18181b; color: rgb(255 255 255 / .35); font-size: 12px; line-height: 1.6; }
+@media (max-width: 1024px) { .pricing-grid { grid-template-columns: 1fr; gap: 32px; } }
+@media (max-width: 640px) {
+  .credit-foundation { grid-template-columns: 1fr; }
+  .credit-foundation > article + article { border-top: 1px solid #18181b; border-left: 0; }
+}

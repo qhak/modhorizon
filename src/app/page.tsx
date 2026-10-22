@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Blocks,
   CircleHelp,
+  Coins,
   Lightbulb,
   Zap,
   Code2,
@@ -32,6 +33,7 @@ import { VideoSlot } from "@/components/landing/media-slot";
 import { UseCaseTabs } from "@/components/landing/use-case-tabs";
 import { ContentSlider } from "@/components/landing/content-slider";
 import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
+import { CreditFoundation } from "@/components/credit-foundation";
 import { VoidBackdrop } from "@/components/void-backdrop";
 import { BrandMark } from "@/components/brand-mark";
 import "./landing.css";
@@ -86,7 +88,7 @@ const javaSnippet = [
 function Logo() {
   return (
     <Link href="/" className="lp-brand" aria-label="ModHorizon home">
-      <BrandMark size={26} />
+      <BrandMark size={24} />
       <span>ModHorizon</span>
     </Link>
   );
@@ -113,6 +115,7 @@ export default function Landing() {
             <a className="nav-link" href="#features">Features</a>
             <a className="nav-link" href="#versions">Versions</a>
             <a className="nav-link" href="#examples">Examples</a>
+            <a className="nav-link" href="#pricing">Pricing</a>
             <a className="nav-link" href="#faq">FAQ</a>
           </nav>
           <Link href="/create" className="nav-cta">Start building <ArrowRight size={15} aria-hidden="true" /></Link>
@@ -257,6 +260,25 @@ export default function Landing() {
           <UseCaseTabs />
         </section>
 
+        <section id="pricing" className="lp-section" data-reveal>
+          <SectionHeading title="Pricing" icon={Coins} />
+          <div className="pricing-grid">
+            <div className="pricing-intro">
+              <h3>More creating. Less commitment.</h3>
+              <p>A credit-based model is planned. Explore the workspace today; accounts, credit purchases and rewards aren&apos;t live yet.</p>
+              <Link href="/create" className="btn-cta-secondary">Open the workspace <ArrowRight size={16} aria-hidden="true" /></Link>
+            </div>
+            <div className="rewards-panel">
+              <div className="rewards-header">
+                <h3>Make room for your first idea.</h3>
+                <span>Rewards preview</span>
+              </div>
+              <CreditFoundation />
+              <p className="rewards-note">Proposed rewards, not an available balance. Referral bonuses require server verification. Paid pricing will be announced when available.</p>
+            </div>
+          </div>
+        </section>
+
         <section id="faq" className="lp-section faq-section" data-reveal>
           <SectionHeading title="FAQ" icon={CircleHelp} />
           <div className="faq-list">
@@ -292,6 +314,8 @@ export default function Landing() {
                   <a className="footer-link" href="#features">Features</a>
                   <span className="footer-separator">·</span>
                   <a className="footer-link" href="#versions">Versions</a>
+                  <span className="footer-separator">·</span>
+                  <a className="footer-link" href="#pricing">Pricing</a>
                   <span className="footer-separator">·</span>
                   <a className="footer-link" href="#faq">FAQ</a>
                 </div>

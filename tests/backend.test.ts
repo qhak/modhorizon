@@ -20,7 +20,8 @@ import { hasAllowedOrigin } from "../src/lib/request-origin";
 const request: GenerateRequest = {
   prompt:
     "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.",
-  platform: "paper",
+  artifactType: "plugin",
+  target: "paper",
   version: "1.21.4",
 };
 
@@ -128,10 +129,13 @@ test("input validation rejects invalid versions, unsafe source paths, collisions
   assert.throws(() => validateRequest({ ...request, version: "1.21.99" }));
   // 1.6.4 is a real release, but Paper never shipped a build for it.
   assert.throws(() => validateRequest({ ...request, version: "1.6.4" }));
-  assert.throws(() => validateRequest({ ...request, platform: "liteloader" }));
-  assert.throws(() => validateRequest({ ...request, platform: "neoforge", version: "1.19.2" }));
-  assert.equal(validateRequest({ ...request, platform: undefined }).platform, "paper");
-  assert.equal(validateRequest({ ...request, platform: "forge", version: "1.7.10" }).version, "1.7.10");
+  assert.throws(() => validateRequest({ ...request, target: "liteloader" }));
+  assert.throws(() => validateRequest({ ...request, target: "fabric" }));
+  assert.throws(() => validateRequest({ ...request, artifactType: "mod", target: "neoforge", version: "1.19.2" }));
+  assert.equal(validateRequest({ ...request, target: undefined }).target, "paper");
+  assert.equal(validateRequest({ ...request, artifactType: "mod", target: "forge", version: "1.7.10" }).version, "1.7.10");
+  assert.throws(() => validateRequest({ ...request, artifactType: "resource_pack", target: "vanilla", version: "1.5.2" }), /1\.6\.1/);
+  assert.equal(validateRequest({ ...request, artifactType: "shader_pack", target: "iris", version: "1.16.5" }).target, "iris");
   assert.throws(() => validateRequest({ ...request, prompt: "short" }));
   const generated = await new MockProvider().generate(request);
   for (const path of [
@@ -271,11 +275,11 @@ test("remote build verifies returned artifact and authenticates server-side", as
       );
       assert.equal(init?.redirect, "error");
       const body = JSON.parse(init!.body as string);
-      assert.equal(body.schemaVersion, 2);
+      // Paper plugins keep protocol 1 for the existing Paper worker.
+      assert.equal(body.schemaVersion, 1);
       assert.equal(body.platform, "paper");
       assert.equal(body.minecraftVersion, "1.21.4");
       assert.equal(body.javaVersion, 21);
-      assert.equal(body.mappings, "none");
       return Response.json({
         success: true,
         logs: ["Built"],
@@ -295,6 +299,19 @@ test("remote build verifies returned artifact and authenticates server-side", as
     const result = await new RemoteBuildService().build(fixture, request);
     assert.equal(result.success, true);
     assert.equal(result.artifact?.length, 4);
+    let sent: Record<string, unknown> = {};
+    globalThis.fetch = async (_url, init) => {
+      sent = JSON.parse(init!.body as string);
+      return Response.json({ success: false, logs: ["Failed"] });
+    };
+    await new RemoteBuildService().build(fixture, { version: "1.16.5", artifactType: "mod", target: "forge" });
+    assert.deepEqual(
+      { schemaVersion: sent.schemaVersion, artifactType: sent.artifactType, family: sent.family, javaVersion: sent.javaVersion, mappings: sent.mappings, minecraftVersion: sent.minecraftVersion },
+      { schemaVersion: 2, artifactType: "mod", family: "forge", javaVersion: 8, mappings: "mcp", minecraftVersion: "1.16.5" },
+    );
+    await new RemoteBuildService().build(fixture, { version: "3.4.0", artifactType: "plugin", target: "velocity" });
+    assert.equal(sent.apiVersion, "3.4.0");
+    assert.equal(sent.minecraftVersion, undefined);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.BUILD_SERVICE_URL;

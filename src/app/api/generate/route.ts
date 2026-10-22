@@ -1,7 +1,8 @@
 import { createAIProvider, limitedJson } from "@/lib/ai-provider";
 import { createBuildService } from "@/lib/build-service";
-import { generatePlugin } from "@/lib/generation";
+import { generateArtifact } from "@/lib/generation";
 import { serviceStatus } from "@/lib/service-status";
+import { artifactCatalog } from "@/lib/artifact-experts";
 import {
   InputError,
   MAX_REQUEST_BYTES,
@@ -13,6 +14,13 @@ export const runtime = "nodejs";
 export const maxDuration = 900;
 // Process-local guard only. Public deployments require authenticated quotas and a durable job queue.
 let active = 0;
+
+export async function GET() {
+  return Response.json(
+    { artifacts: artifactCatalog() },
+    { headers: { "Cache-Control": "public, max-age=300" } },
+  );
+}
 
 export async function POST(request: Request) {
   if (!hasAllowedOrigin(request))
@@ -47,7 +55,7 @@ export async function POST(request: Request) {
     const input = validateRequest(body);
     if (!serviceStatus().choices[input.modelId || ""])
       throw new InputError("That model is unavailable. Connect its provider first.");
-    const project = await generatePlugin(
+    const project = await generateArtifact(
       input,
       createAIProvider(input.modelId || ""),
       createBuildService(),

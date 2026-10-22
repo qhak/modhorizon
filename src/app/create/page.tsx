@@ -43,9 +43,25 @@ import {
   SquareTerminal,
   TriangleAlert,
   X,
+  Box,
+  Coffee,
+  CornerDownRight,
+  Ghost,
+  Grid3x3,
+  Image as ImageIcon,
+  KeyRound,
+  Keyboard,
+  Lightbulb,
+  Package,
+  PackageOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Sword,
+  Terminal,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Project } from "@/lib/types";
+import type { ArtifactTarget, Project } from "@/lib/types";
 import {
   DEFAULT_PLATFORM,
   MINECRAFT_RELEASES,
@@ -71,17 +87,19 @@ import {
 import { DiscordIcon, GitHubIcon, GoogleIcon } from "@/components/brand-icons";
 import { VoidBackdrop } from "@/components/void-backdrop";
 import { BrandMark } from "@/components/brand-mark";
+import { parseReply } from "@/lib/chat-commands";
 
 
 type SourceFile = { path: string; content: string };
-type Message = { role: "user" | "assistant"; text: string };
+/** reply is the model's own note about the build, with workspace commands. */
+type Message = { role: "user" | "assistant"; text: string; reply?: string };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
 
 function Logo() {
   return (
     <Link href="/" className="brand" aria-label="ModHorizon home">
-      <BrandMark size={26} />
+      <BrandMark size={24} />
       <span>ModHorizon</span>
     </Link>
   );
@@ -159,6 +177,14 @@ const CONTENT_TYPES = [
 ] as const;
 type ContentType = (typeof CONTENT_TYPES)[number]["id"];
 const CODE_TYPES: readonly ContentType[] = ["plugin", "mod"];
+// Pack runtimes the generation API expects. Iris shader packs also load in Oculus and OptiFine.
+const PACK_TARGETS: Partial<Record<ContentType, ArtifactTarget>> = { shader_pack: "iris", resource_pack: "vanilla", datapack: "vanilla" };
+const isCodeProject = (project: Project) => project.artifactType === "plugin" || project.artifactType === "mod";
+/** The loader for plugins and mods, or the kind of pack. */
+function projectTargetLabel(project: Project) {
+  if (isPlatformId(project.target)) return PLATFORMS[project.target].label;
+  return project.artifactType === "shader_pack" ? "Shader pack" : "Texture pack";
+}
 
 type MenuOption = { value: string; label: string; detail?: string; meta?: string; icon?: ReactNode; muted?: boolean };
 type MenuGroup = { label?: string; options: MenuOption[] };
@@ -577,12 +603,30 @@ function ProviderLogo({ provider }: { provider: Exclude<ModelProvider, "demo"> }
   );
 }
 
+/** Install steps for resource and shader pack ZIPs. */
+function PackGuide({ project }: { project: Project }) {
+  const shader = project.artifactType === "shader_pack";
+  const runtime = project.target === "optifine" ? "OptiFine" : "Iris";
+  return (
+    <div className="test-instructions">
+      <h3>Try it in Minecraft {project.version}</h3>
+      <ol>
+        {shader && <li><strong>Install {runtime} for Minecraft {project.version}.</strong> <a href={runtime === "OptiFine" ? "https://optifine.net/downloads" : "https://irisshaders.dev/"} target="_blank" rel="noreferrer">{runtime} download <ExternalLink size={12} /></a></li>}
+        <li><strong>Open the {shader ? "shaderpacks" : "resourcepacks"} folder.</strong> In game, go to {shader ? `Options → Video Settings → ${runtime === "OptiFine" ? "Shaders" : "Shader Packs"}` : "Options → Resource Packs"} and open the pack folder from there.</li>
+        <li><strong>Add the ZIP.</strong> Move the downloaded ZIP into that folder without unpacking it.</li>
+        <li><strong>Turn it on.</strong> Select the pack in the list, then click Done.</li>
+      </ol>
+    </div>
+  );
+}
+
 function TestGuide({ project, target, onTarget }: {
   project: Project;
   target: "local" | "hosted";
   onTarget: (target: "local" | "hosted") => void;
 }) {
-  const platform = platformOf(project.platform);
+  if (!isCodeProject(project)) return <PackGuide project={project} />;
+  const platform = platformOf(project.target);
   const java = javaVersionFor(platform.id, project.version);
   const javaLink = <a href={`https://adoptium.net/temurin/releases/?version=${java}`} target="_blank" rel="noreferrer">Get Temurin {java} <ExternalLink size={12} /></a>;
   const setupLink = <a href={platform.setupUrl} target="_blank" rel="noreferrer">{platform.label} setup <ExternalLink size={12} /></a>;
@@ -676,12 +720,10 @@ const SIGN_IN_PROVIDERS = [
   { id: "google", label: "Google", icon: GoogleIcon },
 ] as const;
 
-function SignInScreen({ providers, onClose, onGuest }: {
+function SignInScreen({ providers, onClose }: {
   /** Sign-in providers the account API reports as connected. */
   providers: readonly string[];
   onClose: () => void;
-  /** Development servers can continue without an account until sign-in is connected. */
-  onGuest?: () => void;
 }) {
   const back = useRef<HTMLButtonElement>(null);
   const close = useRef(onClose);
@@ -716,7 +758,6 @@ function SignInScreen({ providers, onClose, onGuest }: {
           )}
         </div>
         {providers.length === 0 && <p className="signin-note">Sign-in isn&apos;t connected on this server yet.</p>}
-        {onGuest && <button type="button" className="signin-guest" onClick={onGuest}>Continue without an account</button>}
       </div>
     </div>
   );
@@ -792,7 +833,9 @@ function useWideLayout() {
 const lineCount = (content: string) => content.split("\n").length;
 
 function ProjectSummary({ project, statusLabel }: { project: Project; statusLabel: string }) {
-  const platform = platformOf(project.platform);
+  const target = isPlatformId(project.target)
+    ? `${describeTarget(project.target, project.version)} · Java ${javaVersionFor(project.target, project.version)}`
+    : `${projectTargetLabel(project)} for Minecraft ${project.version}`;
   const lines = project.files.reduce((total, file) => total + lineCount(file.content), 0);
   const model = MODEL_OPTIONS.find((option) => option.id === project.modelId)?.label || project.provider;
   return (
@@ -801,7 +844,7 @@ function ProjectSummary({ project, statusLabel }: { project: Project; statusLabe
         <span className="project-card-icon" aria-hidden="true"><Blocks size={18} /></span>
         <div>
           <strong>{project.name}</strong>
-          <span>{describeTarget(platform.id, project.version)} · Java {javaVersionFor(platform.id, project.version)}</span>
+          <span>{target}</span>
         </div>
         <span className={`status-pill ${project.status}`}>{statusLabel}</span>
       </div>
@@ -810,6 +853,72 @@ function ProjectSummary({ project, statusLabel }: { project: Project; statusLabe
         <div><dt><AlignLeft size={12} aria-hidden="true" /> Lines</dt><dd>{lines.toLocaleString()}</dd></div>
         <div><dt><Cpu size={12} aria-hidden="true" /> Model</dt><dd title={model}>{model}</dd></div>
       </dl>
+    </div>
+  );
+}
+
+const CHIP_ICONS = {
+  reference: FileCode2, config: Settings2, command: Terminal, permission: KeyRound, event: Zap, item: Sword, block: Box,
+  entity: Ghost, recipe: Grid3x3, keybind: Keyboard, texture: ImageIcon, shader: Sun, dependency: Package, version: Gamepad2, java: Coffee,
+} as const;
+type Pane = "code" | "logs" | "test";
+
+/** The model's note after a build. Its commands become file links, copyable chips and buttons. */
+function AiReply({ message, project, onOpen, onNext }: {
+  message: string;
+  project: Project;
+  onOpen: (pane: Pane, file?: string) => void;
+  onNext: (text: string) => void;
+}) {
+  const [copied, setCopied] = useState("");
+  const findFile = (name: string) =>
+    project.files.find((file) => file.path === name)?.path ??
+    project.files.find((file) => file.path.endsWith(`/${name}`))?.path;
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text).then(() => {
+      setCopied(text);
+      setTimeout(() => setCopied(""), 1500);
+    });
+  };
+  const groups: { kind: "text" | "chips" | "actions" | "notes"; items: ReactNode[] }[] = [];
+  const add = (kind: (typeof groups)[number]["kind"], item: ReactNode) => {
+    const last = groups.at(-1);
+    if (last?.kind === kind && kind !== "text") last.items.push(item);
+    else groups.push({ kind, items: [item] });
+  };
+  parseReply(message).forEach((part, index) => {
+    if (part.kind === "text") return add("text", <p key={index}>{part.text}</p>);
+    const { name, arg } = part;
+    if (name === "download")
+      return add("actions", (
+        <button key={index} type="button" className="reply-action" disabled={!project.artifactAvailable} title={project.artifactAvailable ? undefined : "Nothing to download yet."} onClick={() => { window.location.href = `/api/projects/${project.id}/download`; }}>
+          <ArrowDownToLine size={13} /> Download .{isCodeProject(project) ? "jar" : "zip"}
+        </button>
+      ));
+    if (name === "build" || name === "test" || name === "install") {
+      const [Icon, label, pane] = name === "build" ? [SquareTerminal, "Build log", "logs" as const] : name === "test" ? [FlaskConical, "Test it", "test" as const] : [PackageOpen, "Install steps", "test" as const];
+      return add("actions", <button key={index} type="button" className="reply-action" onClick={() => onOpen(pane)}><Icon size={13} /> {label}</button>);
+    }
+    if (!arg) return;
+    if (name === "warning" || name === "tip")
+      return add("notes", <div key={index} className={`reply-note ${name === "warning" ? "is-warning" : ""}`}>{name === "warning" ? <TriangleAlert size={14} /> : <Lightbulb size={14} />}<span>{arg}</span></div>);
+    if (name === "next")
+      return add("notes", <button key={index} type="button" className="reply-next" onClick={() => onNext(arg)}><CornerDownRight size={14} /><span>{arg}</span></button>);
+    const Icon = CHIP_ICONS[name as keyof typeof CHIP_ICONS];
+    if (!Icon) return;
+    const file = name === "reference" ? findFile(arg) : name === "config" ? findFile("config.yml") : name === "shader" ? findFile("shaders.properties") : undefined;
+    const label = name === "reference" ? fileLabel(arg) : name === "config" ? `config.yml · ${arg}` : name === "java" && !/java/i.test(arg) ? `Java ${arg}` : arg;
+    if (file)
+      return add("chips", <button key={index} type="button" className="reply-chip" title={`Open ${file}`} onClick={() => onOpen("code", file)}><Icon size={13} /><span>{label}</span></button>);
+    if (name === "command" || name === "permission")
+      return add("chips", <button key={index} type="button" className="reply-chip" title="Copy" onClick={() => copy(arg)}>{copied === arg ? <Check size={13} /> : <Icon size={13} />}<span>{copied === arg ? "Copied" : label}</span></button>);
+    add("chips", <span key={index} className="reply-chip" title={name}><Icon size={13} /><span>{label}</span></span>);
+  });
+  return (
+    <div className="ai-reply">
+      {groups.map((group, index) =>
+        group.kind === "text" ? group.items : <div key={`group-${index}`} className={`reply-${group.kind}`}>{group.items}</div>,
+      )}
     </div>
   );
 }
@@ -832,8 +941,8 @@ export default function Home() {
   const [modal, setModal] = useState<"settings" | "guide" | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [signInOpen, setSignInOpen] = useState(false);
-  const [guest, setGuest] = useState(false);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -855,10 +964,12 @@ export default function Home() {
   // Wide screens always show the conversation, so the right pane falls back to Files.
   const pane = wide && tab === "conversation" ? "code" : tab;
   const versionProblem = CODE_TYPES.includes(contentType) ? incompatibility(platform, version) : null;
-  // Datapacks were added in Minecraft 1.13, so earlier releases can't load one.
+  // Datapacks were added in Minecraft 1.13 and resource packs in 1.6.1, so earlier releases can't load them.
   const packProblem = contentType === "datapack" && compareVersions(version, "1.13") < 0
     ? { title: `Datapacks can't be used with Minecraft ${version}.`, reason: "Datapacks were added in Minecraft 1.13." }
-    : null;
+    : contentType === "resource_pack" && compareVersions(version, "1.6.1") < 0
+      ? { title: `Texture packs can't target Minecraft ${version}.`, reason: "ModHorizon makes resource packs, which replaced the old texture pack format in Minecraft 1.6.1." }
+      : null;
   const supportedTypes = services?.artifactTypes ?? CONTENT_TYPES.map((type) => type.id);
   const typeUnavailable = !supportedTypes.includes(contentType);
   const contentLabel = CONTENT_TYPES.find((type) => type.id === contentType)!.label;
@@ -867,6 +978,8 @@ export default function Home() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  // The files, build and test panels are optional; chat-only keeps just the conversation.
+  const [showFiles, setShowFiles] = useState(true);
 
   useEffect(() => {
     // Retire saved accent palettes so returning workspaces use the graphite identity.
@@ -877,6 +990,33 @@ export default function Home() {
       // The shared graphite palette also works without browser storage.
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("modhorizon-show-files") === "false") setShowFiles(false);
+    } catch {
+      // Without storage the files panel simply starts open.
+    }
+  }, []);
+  function toggleFiles() {
+    const next = !showFiles;
+    setShowFiles(next);
+    if (!next) setTab("conversation");
+    try {
+      localStorage.setItem("modhorizon-show-files", String(next));
+    } catch {
+      // The choice still applies for this visit.
+    }
+  }
+  function openPane(next: Pane, file?: string) {
+    setShowFiles(true);
+    setTab(next);
+    if (file) setSelectedFile(file);
+  }
+  function suggest(text: string) {
+    setPrompt(text);
+    setTimeout(() => document.getElementById("followup")?.focus(), 0);
+  }
 
   useEffect(() => {
     const options = reasoningFor(selectedModel);
@@ -904,7 +1044,10 @@ export default function Home() {
   useEffect(() => {
     // The account API returns a profile for a signed-in session and an error otherwise.
     fetch("/api/library/session", { cache: "no-store" })
-      .then((response) => setSignedIn(response.ok))
+      .then(async (response) => {
+        setSignedIn(response.ok);
+        if (response.ok) setDisplayName((await response.json()).profile?.displayName || "");
+      })
       .catch(() => setSignedIn(false));
   }, []);
 
@@ -943,7 +1086,12 @@ export default function Home() {
                 p.logs.every((l: string) => typeof l === "string"),
             )
             .slice(0, 12)
-            .map((p: Project) => ({ ...p, artifactAvailable: false })),
+            .map((p: Project & { platform?: string }) => {
+              // Projects saved before packs were added only stored a platform.
+              const target = p.target ?? (isPlatformId(p.platform) ? p.platform : DEFAULT_PLATFORM);
+              const artifactType = p.artifactType ?? (isPlatformId(target) && PLATFORMS[target].kind === "mod" ? "mod" : "plugin");
+              return { ...p, target, artifactType, artifactAvailable: false };
+            }),
         );
     } catch {
       setStorageError(true);
@@ -1056,7 +1204,7 @@ export default function Home() {
   }
   function openProject(p: Project) {
     setProject(p);
-    setPlatform(platformOf(p.platform).id);
+    if (isPlatformId(p.target)) setPlatform(p.target);
     setVersion(p.version);
     if (p.modelId && MODEL_OPTIONS.some((model) => model.id === p.modelId))
       setSelectedModel(p.modelId);
@@ -1064,10 +1212,11 @@ export default function Home() {
       { role: "user", text: p.prompt },
       {
         role: "assistant",
+        reply: p.error ? undefined : p.message,
         text:
           p.error ||
           (p.status === "success"
-            ? "Done. The JAR is ready to download."
+            ? `Done. The ${isCodeProject(p) ? "JAR" : "ZIP"} is ready to download.`
             : "Done. It isn't compiled yet."),
       },
     ]);
@@ -1077,10 +1226,10 @@ export default function Home() {
     setTab("conversation");
     setMobileNav(false);
   }
-  async function generate({ skipSignIn = false } = {}) {
+  async function generate() {
     const current = project;
     if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || packProblem || typeUnavailable))) return;
-    if (!signedIn && !guest && !skipSignIn) {
+    if (!signedIn) {
       setSignInOpen(true);
       return;
     }
@@ -1094,11 +1243,11 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: text,
-          platform: current ? platformOf(current.platform).id : platform,
+          artifactType: current ? current.artifactType : contentType,
+          target: current ? current.target : PACK_TARGETS[contentType] ?? platform,
           version: current?.version || version,
           modelId: selectedModel,
-          // Read by the generation API; this build's server ignores fields it doesn't use.
-          artifactType: current ? (platformOf(current.platform).kind === "mod" ? "mod" : "plugin") : contentType,
+          // The generation API ignores reasoning and attachments until the providers take them.
           ...(reasoningFor(selectedModel) ? { reasoning } : {}),
           ...(!current && attachments.length
             ? { attachments: attachments.map(({ name, type, data }) => ({ name, type, data })) }
@@ -1143,10 +1292,11 @@ export default function Home() {
         { role: "user", text },
         {
           role: "assistant",
+          reply: next.error ? undefined : next.message,
           text:
             next.error ||
             (next.status === "success"
-              ? "Done. The JAR is ready to download."
+              ? `Done. The ${isCodeProject(next) ? "JAR" : "ZIP"} is ready to download.`
               : next.provider === "mock"
                 ? "Done. This is the built-in example, so it isn't compiled."
                 : "Done. It isn't compiled yet."),
@@ -1160,9 +1310,11 @@ export default function Home() {
     }
   }
   const currentFile = project?.files.find((f) => f.path === selectedFile);
+  // Plugins and mods download as JARs, packs as ZIPs.
+  const artifactName = project && !isCodeProject(project) ? "ZIP" : "JAR";
   const statusLabel =
     project?.status === "success"
-      ? "Build passed"
+      ? artifactName === "ZIP" ? "Packaged" : "Build passed"
       : project?.status === "failed"
         ? "Build failed"
         : "Source preview";
@@ -1236,8 +1388,8 @@ export default function Home() {
             <span>Settings</span>
           </button>
           <button className="account" onClick={() => setModal("settings")} aria-label="Account and credits">
-            <div className="avatar">D</div>
-            <div><strong>Guest</strong><span>Not signed in</span></div>
+            <div className="avatar">{signedIn ? (displayName || "Y").slice(0, 1).toUpperCase() : "D"}</div>
+            <div>{signedIn ? <><strong>{displayName || "Your account"}</strong><span>Signed in</span></> : <><strong>Guest</strong><span>Not signed in</span></>}</div>
           </button>
         </div>
       </aside>
@@ -1286,9 +1438,15 @@ export default function Home() {
               <Menu size={19} />
             </button>
             <span>{project?.name || "New project"}</span>
-            {project && <span className="tag paper-tag">{platformOf(project.platform).label}</span>}
+            {project && <span className="tag paper-tag">{projectTargetLabel(project)}</span>}
           </div>
           <div className="topbar-right">
+            {project && (
+              <button type="button" className="files-toggle" aria-pressed={showFiles} onClick={toggleFiles}>
+                {showFiles ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+                {showFiles ? "Chat only" : "Show files"}
+              </button>
+            )}
             <button
               className="icon-button"
               aria-label="Open help"
@@ -1463,7 +1621,7 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <div className={`project-workspace view-${tab}`}>
+          <div className={`project-workspace view-${tab}${showFiles ? "" : " chat-only"}`}>
               <div className="code-toolbar">
                 <div className="workspace-tabs" role="tablist" aria-label="Project views" onKeyDown={(event) => {
                   const views = wide ? (["code", "logs", "test"] as const) : (["conversation", "code", "logs", "test"] as const);
@@ -1514,25 +1672,25 @@ export default function Home() {
                     title={
                       !project.artifactAvailable
                         ? "No compiled artifact. Connect the isolated build service."
-                        : "Download compiled plugin"
+                        : `Download the ${artifactName}`
                     }
                     onClick={() => {
                       window.location.href = `/api/projects/${project.id}/download`;
                     }}
                   >
                     <ArrowDownToLine size={14} />
-                    <span>Download .jar</span>
+                    <span>Download .{artifactName.toLowerCase()}</span>
                   </Button>
                 </div>
               </div>
-            <section className="chat-panel" id="panel-conversation" {...(wide ? { "aria-label": "Conversation" } : { role: "tabpanel", "aria-labelledby": "tab-conversation" })} hidden={!wide && tab !== "conversation"}>
+            <section className="chat-panel" id="panel-conversation" {...(wide ? { "aria-label": "Conversation" } : { role: "tabpanel", "aria-labelledby": "tab-conversation" })} hidden={showFiles && !wide && tab !== "conversation"}>
               <ProjectSummary project={project} statusLabel={statusLabel} />
               <div className="chat-messages">
                 {messages.map((message, i) => (
                   <div key={i} className={`message message-${message.role}`}>
                     <div className="message-avatar">
                       {message.role === "assistant" ? (
-                        <Blocks size={14} />
+                        <BrandMark size={14} />
                       ) : (
                         "D"
                       )}
@@ -1541,7 +1699,8 @@ export default function Home() {
                       <strong>
                         {message.role === "assistant" ? "ModHorizon" : "You"}
                       </strong>
-                      <p>{message.text}</p>
+                      {message.reply && <AiReply message={message.reply} project={project} onOpen={openPane} onNext={suggest} />}
+                      <p className={message.reply ? "message-status" : undefined}>{message.text}</p>
                     </div>
                   </div>
                 ))}
@@ -1616,24 +1775,24 @@ export default function Home() {
                     </div>
                     {project.artifactAvailable && (
                       <Button size="sm" onClick={() => { window.location.href = `/api/projects/${project.id}/download`; }}>
-                        <ArrowDownToLine size={14} /> Download .jar
+                        <ArrowDownToLine size={14} /> Download .{artifactName.toLowerCase()}
                       </Button>
                     )}
                   </div>
-                  <ol className="test-steps" aria-label="Plugin testing progress">
+                  <ol className="test-steps" aria-label="Testing progress">
                     <li className={project.files.length ? "test-step-done" : "test-step-current"}><span>1</span><div><strong>Describe and generate</strong><small>{project.files.length ? "Source files are ready." : "No source files came back. Try again."}</small></div>{project.files.length ? <Check size={15} /> : <span className="step-state">Review</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>Compile</strong><small>{project.artifactAvailable ? "JAR ready." : project.files.length ? project.status === "failed" ? "The build failed. See the build log." : "Needs a build service." : "After generation."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and play</strong><small>{project.artifactAvailable ? `Install it on ${describeTarget(platformOf(project.platform).id, project.version)}.` : "After the JAR is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>{artifactName === "ZIP" ? "Package" : "Compile"}</strong><small>{project.artifactAvailable ? `${artifactName} ready.` : project.files.length ? project.status === "failed" ? "The build failed. See the build log." : project.status === "success" ? "Expired. Send a change to make it again." : "Needs a build service." : "After generation."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and play</strong><small>{project.artifactAvailable ? isPlatformId(project.target) ? `Install it on ${describeTarget(project.target, project.version)}.` : `Add it to Minecraft ${project.version}.` : `After the ${artifactName} is ready.`}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
                   </ol>
                   {!project.artifactAvailable && (
                     <div className="test-blocker" role="status">
-                      <strong>{project.status === "failed" ? project.files.length ? "The build failed" : "Generation failed" : "No JAR yet"}</strong>
-                      <p>{project.status === "failed" ? project.files.length ? "See the build log for the errors." : project.error || "Try generating it again." : "No build service is connected, so there's nothing to install yet."}</p>
+                      <strong>{project.status === "failed" ? project.files.length ? "The build failed" : "Generation failed" : project.status === "success" ? "Download expired" : `No ${artifactName} yet`}</strong>
+                      <p>{project.status === "failed" ? project.files.length ? "See the build log for the errors." : project.error || "Try generating it again." : project.status === "success" ? `The ${artifactName} is only kept while the server is running. Send a change to make it again.` : "No build service is connected, so there's nothing to install yet."}</p>
                       <button type="button" onClick={() => setTab(project.status === "failed" && project.files.length ? "logs" : project.files.length ? "code" : "conversation")}>{project.status === "failed" && project.files.length ? "Build log" : project.files.length ? "Source" : "Conversation"}<ArrowRight size={14} /></button>
                     </div>
                   )}
                   <TestGuide project={project} target={testTarget} onTarget={setTestTarget} />
-                  <p className="test-safety"><ShieldCheck size={14} /> Test on a private {platformOf(project.platform).kind === "mod" ? "world" : "server"} before going live.</p>
+                  <p className="test-safety"><ShieldCheck size={14} /> Test on a private {isPlatformId(project.target) && PLATFORMS[project.target].kind !== "mod" ? "server" : "world"} before going live.</p>
                 </div>
               ) : pane === "logs" ? (
                 <div className="build-logs">
@@ -1756,11 +1915,6 @@ export default function Home() {
         <SignInScreen
           providers={services?.auth?.providers ?? []}
           onClose={() => setSignInOpen(false)}
-          onGuest={process.env.NODE_ENV === "development" ? () => {
-            setGuest(true);
-            setSignInOpen(false);
-            void generate({ skipSignIn: true });
-          } : undefined}
         />
       )}
       <dialog

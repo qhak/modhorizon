@@ -57,15 +57,15 @@ test("each loader requires its own descriptor pointing at included classes", () 
     name: "Glow",
     files: [
       java("dev/mh/glow/Glow.java", "dev.mh.glow", "public class Glow {}"),
-      res("fabric.mod.json", JSON.stringify({ schemaVersion: 1, id: "glow", entrypoints: { main: ["dev.mh.glow.Glow"] } })),
+      res("fabric.mod.json", JSON.stringify({ schemaVersion: 1, id: "glow", version: "1.0.0", entrypoints: { main: ["dev.mh.glow.Glow"] } })),
       res("glow.mixins.json", "{}"),
       res("assets/glow/lang/en_us.json", "{}"),
     ],
   };
-  assert.doesNotThrow(() => validateProject(fabric, "fabric", "1.21.11"));
-  assert.throws(() => validateProject(fabric, "quilt", "1.21.11"), /quilt\.mod\.json/);
+  assert.doesNotThrow(() => validateProject(fabric, "mod", "fabric", "1.21.11"));
+  assert.throws(() => validateProject(fabric, "mod", "quilt", "1.21.11"), /quilt\.mod\.json/);
   assert.throws(
-    () => validateProject({ ...fabric, files: [fabric.files[0], res("fabric.mod.json", JSON.stringify({ schemaVersion: 1, id: "glow", entrypoints: { main: ["dev.mh.glow.Missing"] } }))] }, "fabric", "1.21.11"),
+    () => validateProject({ ...fabric, files: [fabric.files[0], res("fabric.mod.json", JSON.stringify({ schemaVersion: 1, id: "glow", version: "1.0.0", entrypoints: { main: ["dev.mh.glow.Missing"] } }))] }, "mod", "fabric", "1.21.11"),
     /included Java source/,
   );
 
@@ -73,28 +73,28 @@ test("each loader requires its own descriptor pointing at included classes", () 
     name: "Glow",
     files: [java("dev/mh/glow/Glow.java", "dev.mh.glow", '@Mod("glow")\npublic class Glow {}'), res(toml, 'modLoader="javafml"\n[[mods]]\nmodId="glow"\n')],
   });
-  assert.doesNotThrow(() => validateProject(modern("META-INF/neoforge.mods.toml"), "neoforge", "1.21.1"));
-  assert.throws(() => validateProject(modern("META-INF/mods.toml"), "neoforge", "1.21.1"), /neoforge\.mods\.toml/);
-  assert.doesNotThrow(() => validateProject(modern("META-INF/mods.toml"), "neoforge", "1.20.4"));
-  assert.doesNotThrow(() => validateProject(modern("META-INF/mods.toml"), "forge", "1.20.1"));
+  assert.doesNotThrow(() => validateProject(modern("META-INF/neoforge.mods.toml"), "mod", "neoforge", "1.21.1"));
+  assert.throws(() => validateProject(modern("META-INF/mods.toml"), "mod", "neoforge", "1.21.1"), /neoforge\.mods\.toml/);
+  assert.doesNotThrow(() => validateProject(modern("META-INF/mods.toml"), "mod", "neoforge", "1.20.4"));
+  assert.doesNotThrow(() => validateProject(modern("META-INF/mods.toml"), "mod", "forge", "1.20.1"));
 
   const legacyForge = {
     name: "Glow",
     files: [java("dev/mh/glow/Glow.java", "dev.mh.glow", '@Mod(modid = "glow")\npublic class Glow {}'), res("mcmod.info", '[{"modid":"glow"}]')],
   };
-  assert.doesNotThrow(() => validateProject(legacyForge, "forge", "1.12.2"));
-  assert.throws(() => validateProject(legacyForge, "forge", "1.16.5"), /mods\.toml/);
+  assert.doesNotThrow(() => validateProject(legacyForge, "mod", "forge", "1.12.2"));
+  assert.throws(() => validateProject(legacyForge, "mod", "forge", "1.16.5"), /mods\.toml/);
 
   const velocity = {
     name: "Lobby",
     files: [java("dev/mh/lobby/Lobby.java", "dev.mh.lobby", "public class Lobby {}"), res("velocity-plugin.json", '{"id":"lobby","main":"dev.mh.lobby.Lobby"}')],
   };
-  assert.doesNotThrow(() => validateProject(velocity, "velocity", "3.4.0"));
+  assert.doesNotThrow(() => validateProject(velocity, "plugin", "velocity", "3.4.0"));
   const bungee = {
     name: "Lobby",
     files: [java("dev/mh/lobby/Lobby.java", "dev.mh.lobby", "public class Lobby {}"), res("bungee.yml", "name: Lobby\nmain: dev.mh.lobby.Lobby\n")],
   };
-  assert.doesNotThrow(() => validateProject(bungee, "bungeecord", "1.21-R0.4"));
+  assert.doesNotThrow(() => validateProject(bungee, "plugin", "bungeecord", "1.21-R0.4"));
 });
 
 test("bukkit-family rules depend on version and platform", () => {
@@ -103,12 +103,12 @@ test("bukkit-family rules depend on version and platform", () => {
     files: [java("dev/mh/old/Old.java", "dev.mh.old", "public class Old {}"), res("plugin.yml", yml)],
   });
   const legacy = plugin("name: Old\nmain: dev.mh.old.Old\nversion: 1.0\n");
-  assert.doesNotThrow(() => validateProject(legacy, "spigot", "1.8.8"));
-  assert.throws(() => validateProject(legacy, "spigot", "1.13"), /api-version/);
+  assert.doesNotThrow(() => validateProject(legacy, "plugin", "spigot", "1.8.8"));
+  assert.throws(() => validateProject(legacy, "plugin", "spigot", "1.13"), /api-version/);
   const modern = plugin("name: Old\nmain: dev.mh.old.Old\napi-version: '1.21'\n");
-  assert.throws(() => validateProject(modern, "folia", "1.21.4"), /folia-supported/);
+  assert.throws(() => validateProject(modern, "plugin", "folia", "1.21.4"), /folia-supported/);
   assert.doesNotThrow(() =>
-    validateProject(plugin("name: Old\nmain: dev.mh.old.Old\napi-version: '1.21'\nfolia-supported: true\n"), "folia", "1.21.4"),
+    validateProject(plugin("name: Old\nmain: dev.mh.old.Old\napi-version: '1.21'\nfolia-supported: true\n"), "plugin", "folia", "1.21.4"),
   );
 });
 
@@ -130,7 +130,7 @@ test("incompatible versions explain why and suggest alternatives", async () => {
   // 1.9.1 sits between supported releases, so it was skipped rather than too early.
   assert.match(incompatibility("paper", "1.9.1")!.reason, /They all skipped it, so projects target 1\.9\.2|They all skipped it, so projects target 1\.9\.4/);
   assert.throws(
-    () => validateRequest({ prompt: "A mod that adds a glowing sword item.", platform: "neoforge", version: "1.19.2" }),
+    () => validateRequest({ prompt: "A mod that adds a glowing sword item.", artifactType: "mod", target: "neoforge", version: "1.19.2" }),
     /NeoForge can't be used with Minecraft 1\.19\.2\. NeoForge split off/,
   );
 });

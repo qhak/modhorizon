@@ -2,18 +2,20 @@
 
 ## Scope and trust boundaries
 
-The UI and Next.js API live in a separate `modhorizon` application. The initial target is Paper 1.21.x; Fabric and NeoForge are future platforms. PostgreSQL/Prisma are not required for this prototype because project storage is temporary. Restarting the application loses server-held projects and artifacts. Browser history is a convenience, not durable project storage or access control.
+Batch 2 adds a separate local SQLite project library under `/dashboard`, documented in [the implementation record](batch-2.md). It persists project metadata/source and protects its APIs with a development-only local session and owner-scoped queries. It does not introduce hosted authentication, credit billing, or durable build artifacts. The original prototype and generation/download access model described below remain in place; production dashboard/database access is disabled until hosted identity and storage are integrated.
 
-The application accepts descriptions and displays generated text. It never runs generated Java, Gradle, shell commands, or Minecraft plugins inside the Next.js process. AI output is untrusted even when a paid provider returns it. The `AIProvider` and `BuildService` interfaces in `src/lib/types.ts` keep provider selection and compilation separate from orchestration.
+The UI and Next.js API live in a separate `modhorizon` application. The API selects expert playbooks for Paper plugins, Fabric/Forge/NeoForge mods, vanilla resource packs, and Iris/OptiFine shader packs. Resource and shader packs can be downloaded as ZIPs; Paper plugin JAR builds use the build-service adapter; mod JARs require a loader-capable worker that is not included yet. The dashboard project library uses local SQLite. Restarting the application loses server-held build artifacts. Browser history is a convenience, not durable project storage or access control.
+
+The application accepts descriptions and displays generated text. It never runs generated Java, Gradle, shell commands, or Minecraft plugins inside the Next.js process. AI output is untrusted even when a paid provider returns it. The `AIProvider` and `BuildService` interfaces in `src/lib/types.ts` keep provider selection and compilation separate from orchestration. Artifact playbooks and task skills are server-owned prompt guidance and validators; they specialize a general model without fine-tuning its weights.
 
 ## Generation flow
 
-1. The generation API validates the request size, prompt length, supported version, and any source project supplied for an edit.
-2. The selected server-side AI provider returns a project name and source files. A deterministic development provider supports the first example only; a configured real provider supports generation and follow-up requests.
-3. Validation admits only Java sources below `src/main/java/` and the supported resource files `plugin.yml` and `config.yml`. It rejects traversal, absolute paths, duplicate names, build scripts, binary content, and excessive file counts/sizes. Files stay in memory in the web application; any worker must validate them again before writing.
-4. The build service receives validated sources and the selected Paper version. When no service is configured in development, orchestration returns a preview without an artifact. A configured external service is responsible for actual isolated compilation.
-5. Compilation failures can be supplied to the AI for at most three repairs after the initial attempt. Each revised project is validated again before the next build. Failure, provider errors, and timeout details become meaningful logs rather than successful artifact claims.
-6. Only a successful service response containing an artifact enables the JAR download. Compilation success says nothing about gameplay correctness or whether a plugin is safe to install.
+1. The generation API validates request size, prompt length, supported Minecraft version, artifact type/target pairing, and any source project supplied for an edit.
+2. The selected provider receives a server-owned expert playbook for the requested artifact. Task-matched skills add guidance for server-thread safety, mod client/server separation, resource identifiers, and shader performance. The deterministic development provider supports the first Paper plugin example only.
+3. The artifact-specific validator enforces allowed text file paths, metadata, and basic structure. It rejects traversal, absolute paths, duplicate names, build scripts, binary content, and excessive file counts/sizes. Files stay in memory in the web application; any worker must validate them again before writing.
+4. Paper plugin and mod sources can go to the isolated build-service adapter; mod builds require a loader-capable worker template that is not included yet. Resource packs and shader packs are packaged into ZIPs in memory after validation. Resource-pack metadata is set by a server-owned version table; textures remain outside the text-only generator. Shader source is not compiled or GPU-tested.
+5. Paper compilation failures can be supplied to the AI for at most three repairs after the initial attempt. Each revised project is validated again before the next build. Failure, provider errors, and timeout details become meaningful logs rather than successful artifact claims.
+6. A valid ZIP enables a resource-pack or shader-pack download; only a successful build-service response containing a JAR enables a plugin or mod download. Source previews do not claim installable artifacts. Compilation success says nothing about gameplay correctness or whether a plugin or mod is safe to install.
 
 ## External build worker: required implementation
 
