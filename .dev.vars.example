@@ -1,6 +1,31 @@
 # Local Workers-runtime preview. Do not put credentials in wrangler.jsonc.
 AI_PROVIDER=openai-compatible
+# OPENAI_API_KEY=
+# ANTHROPIC_API_KEY=
+# GEMINI_API_KEY=
 # AI_API_KEY=
 # AI_MODEL=
 # BUILD_SERVICE_URL=
 # BUILD_SERVICE_TOKEN=
+# Live Stripe configuration. Use a separate environment/database for test mode.
+# Add credentials to .dev.vars (gitignored), or Worker secrets when deploying.
+# STRIPE_SECRET_KEY=sk_live_...
+# STRIPE_WEBHOOK_SECRET=whsec_...
+# STRIPE_PRICE_STARTER=price_...
+# STRIPE_PRICE_PRO=price_...
+# STRIPE_PRICE_STUDIO=price_...
+
+# Dedicated managed accounts (runtime bindings, not NEXT_PUBLIC_ build variables).
+# SUPABASE_URL=https://PROJECT.supabase.co
+# SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+# APP_ORIGIN=https://modhorizon.callout-ai.workers.dev
+# AUTH_GOOGLE_ENABLED=false
+
+# Optional explicit Stripe customer portal configuration.
+# STRIPE_PORTAL_CONFIGURATION_ID=bpc_...
+
+# Temporary server-side model spending lock (enabled unless explicitly false).
+AI_TESTING_MODE=true
+# Gemini free-tier model uses a separate key from a project WITHOUT billing enabled.
+# GEMINI_FREE_API_KEY=
+# Never substitute the paid GEMINI_API_KEY for this key.

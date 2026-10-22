@@ -19,6 +19,9 @@ export type MinecraftVersion = string;
 export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";
 /** Plugins and mods target a platform from platforms.ts; packs target a game runtime. */
 export type ArtifactTarget = PlatformId | "vanilla" | "iris" | "optifine";
+export type TokenUsage = { inputTokens: number; outputTokens: number };
+export type ReasoningLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+export type ReasoningEffort = ReasoningLevel;
 export type GeneratedFile = { path: string; content: string };
 export type Project = {
   id: string;
@@ -31,10 +34,12 @@ export type Project = {
   artifactAvailable: boolean;
   provider: string;
   modelId?: string;
+  reasoningEffort?: ReasoningEffort;
   artifactType: ArtifactType;
   target: ArtifactTarget;
   /** The model's note about what it built; may contain workspace commands from chat-commands.ts. */
   message?: string;
+  creditsSpent?: number;
   error?: string;
 };
 export type GenerateRequest = {
@@ -44,9 +49,10 @@ export type GenerateRequest = {
   artifactType?: ArtifactType;
   target?: ArtifactTarget;
   modelId?: string;
+  reasoningEffort?: ReasoningEffort;
   project?: { name: string; files: GeneratedFile[] };
 };
-export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string };
+export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string; usage?: TokenUsage };
 export type BuildResult = {
   success: boolean;
   logs: string[];

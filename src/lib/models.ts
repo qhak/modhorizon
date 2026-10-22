@@ -1,5 +1,14 @@
 export type ModelProvider = "openai" | "anthropic" | "google" | "demo";
 export type ModelGroup = "Economy" | "Balanced" | "Advanced" | "Frontier";
+import type { ReasoningLevel } from "./types";
+import { testingModelAllowed } from "./model-access";
+export type { ReasoningLevel } from "./types";
+export const REASONING_EFFORTS: readonly ReasoningLevel[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
+export const DEFAULT_REASONING_EFFORT: ReasoningLevel = "medium";
+export function providerReasoningEffort(effort: ReasoningLevel, _provider: ModelProvider): ReasoningLevel { return effort; }
+export function reasoningEstimateMultiplier(effort: ReasoningLevel) {
+  return effort === "minimal" ? 0.6 : effort === "low" ? 0.75 : effort === "medium" ? 1 : effort === "high" ? 1.5 : effort === "xhigh" ? 2 : 2.5;
+}
 
 export type ModelOption = {
   id: string;
@@ -13,6 +22,16 @@ export type ModelOption = {
 };
 
 export const MODEL_OPTIONS: ModelOption[] = [
+  {
+    id: "gemini-3-flash-preview",
+    label: "Gemini 3 Flash Preview",
+    provider: "google",
+    providerLabel: "Google Gemini",
+    group: "Economy",
+    description: "Free-tier testing project · limited quota",
+    inputUsdPerMillion: 0.5,
+    outputUsdPerMillion: 3,
+  },
   {
     id: "gpt-6-luna",
     label: "GPT-6 Luna",
@@ -119,6 +138,35 @@ export function findModel(id: string | undefined) {
   return MODEL_OPTIONS.find((model) => model.id === id);
 }
 
+// Credits are priced against the most generous top-up rate: Studio's $0.025
+// per credit. At $0.005 of provider cost per credit, the target gross margin
+// is 80% before Stripe fees, hosting, taxes, and support.
+export const PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT = 5_000;
+export const MAX_GENERATION_OUTPUT_TOKENS = 16_000;
+
+export function creditsForUsage(modelId: string, inputTokens: number, outputTokens: number) {
+  if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 || !Number.isSafeInteger(outputTokens) || outputTokens < 0)
+    throw new Error("Token usage must contain nonnegative safe integers.");
+  const model = findModel(modelId);
+  if (!model || model.provider === "demo") return 0;
+  if (model.inputUsdPerMillion === undefined || model.outputUsdPerMillion === undefined) return null;
+  // USD per million tokens numerically equals micro-USD per token.
+  const providerCostMicroUsd = Math.ceil(inputTokens * model.inputUsdPerMillion + outputTokens * model.outputUsdPerMillion);
+  return Math.max(1, Math.ceil(providerCostMicroUsd / PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT));
+}
+
+export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT) {
+  const base = creditsForUsage(modelId, estimatedInputTokens, MAX_GENERATION_OUTPUT_TOKENS);
+  // Low effort is an estimate, not a provider output limit. Never discount the hold
+  // below the configured output ceiling; settlement refunds unused credits.
+  return base === null ? null : Math.ceil(base * Math.max(1, reasoningEstimateMultiplier(effort)));
+}
+
+export function estimateCreditsForModel(modelId: string, inputTokens = 1_500, outputTokens = 5_000, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT) {
+  const base = creditsForUsage(modelId, inputTokens, outputTokens);
+  return base === null ? null : Math.max(1, Math.ceil(base * reasoningEstimateMultiplier(effort)));
+}
+
 export function modelChoices(env: NodeJS.ProcessEnv) {
   const openAIReady = Boolean(
     env.OPENAI_API_KEY || (env.AI_API_KEY && env.AI_MODEL),
@@ -126,18 +174,20 @@ export function modelChoices(env: NodeJS.ProcessEnv) {
   const anthropicReady = Boolean(env.ANTHROPIC_API_KEY);
   const googleReady = Boolean(env.GEMINI_API_KEY);
   const development = env.NODE_ENV !== "production";
-  const demoReady = development && !openAIReady && !anthropicReady && !googleReady;
+  const demoReady = development && !openAIReady && !anthropicReady && !googleReady && !env.GEMINI_FREE_API_KEY;
 
   return Object.fromEntries(
     MODEL_OPTIONS.map((model) => [
       model.id,
-      model.provider === "openai"
+      testingModelAllowed(model.id, env) && (model.id === "gemini-3-flash-preview"
+        ? Boolean(env.GEMINI_FREE_API_KEY)
+        : model.provider === "openai"
         ? openAIReady
         : model.provider === "anthropic"
           ? anthropicReady
           : model.provider === "google"
             ? googleReady
-          : demoReady,
+          : demoReady),
     ]),
   ) as Record<string, boolean>;
 }
@@ -156,8 +206,6 @@ export function preferredModelId(
   return DEFAULT_MODEL_ID;
 }
 
-export type ReasoningLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
-
 export const REASONING_LABELS: Record<ReasoningLevel, string> = {
   minimal: "Minimal",
   low: "Low",
@@ -169,7 +217,7 @@ export const REASONING_LABELS: Record<ReasoningLevel, string> = {
 
 // The effort levels each provider's API accepts, lowest first.
 const PROVIDER_REASONING: Record<Exclude<ModelProvider, "demo">, ReasoningLevel[]> = {
-  openai: ["low", "medium", "high"],
+  openai: ["low", "medium", "high", "xhigh"],
   anthropic: ["low", "medium", "high", "xhigh", "max"],
   google: ["minimal", "low", "medium", "high"],
 };

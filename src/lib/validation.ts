@@ -1,4 +1,4 @@
-import type { ArtifactTarget, ArtifactType, GenerateRequest, GeneratedProject } from "./types";
+import type { ArtifactTarget, ArtifactType, GenerateRequest, GeneratedProject, ReasoningEffort } from "./types";
 import {
   DEFAULT_PLATFORM,
   MINECRAFT_RELEASES,
@@ -9,7 +9,7 @@ import {
   isPlatformId,
   type PlatformId,
 } from "./platforms";
-import { DEFAULT_MODEL_ID, findModel } from "./models";
+import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 
 export const MAX_REQUEST_BYTES = 200_000;
@@ -262,11 +262,11 @@ export function validateRequest(value: unknown): GenerateRequest {
   const data = value as Record<string, unknown>;
   if (typeof data.prompt !== "string" || data.prompt.trim().length < 12 || data.prompt.length > 4000)
     throw new InputError("Describe what to create in 12–4,000 characters.");
-  const artifactType = data.artifactType ?? "plugin";
+  const artifactType = data.artifactType ?? (isPlatformId(data.platform) && PLATFORMS[data.platform].kind === "mod" ? "mod" : "plugin");
   if (typeof artifactType !== "string" || !Object.hasOwn(ARTIFACT_EXPERTS, artifactType)) throw new InputError("Choose plugin, mod, resource_pack, or shader_pack.");
   const kind = artifactType as ArtifactType;
   const targets = targetsFor(kind);
-  const target = data.target ?? (kind === "plugin" ? DEFAULT_PLATFORM : targets.length === 1 ? targets[0] : undefined);
+  const target = data.target ?? data.platform ?? (kind === "plugin" ? DEFAULT_PLATFORM : targets.length === 1 ? targets[0] : undefined);
   if (typeof target !== "string" || !targets.includes(target as ArtifactTarget))
     throw new InputError(`Choose a target for this ${ARTIFACT_EXPERTS[kind].label.toLowerCase()}: ${targets.join(", ")}.`);
   if (typeof data.version !== "string") throw new InputError("Choose a Minecraft version.");
@@ -280,7 +280,14 @@ export function validateRequest(value: unknown): GenerateRequest {
     throw new InputError("Resource packs need Minecraft 1.6.1 or newer.");
   const modelId = data.modelId ?? DEFAULT_MODEL_ID;
   if (typeof modelId !== "string" || !findModel(modelId)) throw new InputError("Choose a supported AI model.");
+  const reasoning = reasoningFor(modelId);
+  const reasoningEffort = data.reasoningEffort ?? reasoning?.default ?? DEFAULT_REASONING_EFFORT;
+  if (typeof reasoningEffort !== "string" || !REASONING_EFFORTS.includes(reasoningEffort as ReasoningEffort))
+    throw new InputError("Choose a supported reasoning level.");
+  if (reasoning && !reasoning.levels.includes(reasoningEffort as ReasoningEffort))
+    throw new InputError("That reasoning level is not supported by the selected model.");
   return {
+    reasoningEffort: reasoningEffort as ReasoningEffort,
     prompt: data.prompt.trim(),
     version: data.version,
     artifactType: kind,

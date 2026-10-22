@@ -1,6 +1,21 @@
 # Cloudflare hosting
 
-## Current shareable preview — 21 October 2026
+## Current integrated version — 21 October 2026
+
+Deployed source commit `8aba389` with the latest frontend, billing foundation,
+model reasoning controls, credit quote endpoint, and durable credit reservations.
+Cloudflare Worker version: `98d4abb4-2eda-4936-8353-64e14c4a269c`.
+
+- [Homepage](https://modhorizon.callout-ai.workers.dev/), [create workspace](https://modhorizon.callout-ai.workers.dev/create), and [pricing](https://modhorizon.callout-ai.workers.dev/pricing) return HTTP 200.
+- Remote D1 migration `0002_generation_reservations.sql` was applied before deployment.
+- Live billing session and account endpoints work; a new guest receives the configured 10-credit Free allowance with a Secure, HttpOnly cookie.
+- `/api/status` advertises plugin and mod support. Provider keys and Stripe secrets are absent: AI generation and checkout remain disabled.
+- Quote requests reject unavailable providers and cross-origin requests without spending credits. No paid AI calls or payments were made during verification.
+- OpenNext build and deployment succeeded. The bundle contains no local SQLite files or private environment files.
+
+See [Generation and credit backend](backend-generation.md) for current integration details and remaining launch work. Older preview history follows.
+
+## Earlier dashboard preview — 21 October 2026
 
 Deployed the Batch 1 homepage/video and Batch 2 interface to the existing Worker. Current version: `23583bda-3d0c-45cf-b8a8-1ee4b158f91c`.
 

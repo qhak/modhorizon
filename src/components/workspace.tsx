@@ -939,7 +939,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                     title={
                       !project.artifactAvailable
                         ? project.artifactType === "mod" ? "Connect a loader-capable isolated build service to compile this mod." : "No installable artifact is available yet."
-                        : `Download ${ARTIFACT_LABELS[project.artifactType]} .${artifactExtension}`
+                        : `Download ${ARTIFACT_LABELS[project.artifactType ?? "plugin"]} .${artifactExtension}`
                     }
                     onClick={() => {
                       window.location.href = `/api/projects/${project.id}/download`;
@@ -1028,7 +1028,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                   onChange={(e) => setPrompt(e.target.value)}
                   disabled={busy}
                   maxLength={4000}
-                  placeholder={`Describe a change to your ${ARTIFACT_LABELS[project.artifactType]}…`}
+                  placeholder={`Describe a change to your ${ARTIFACT_LABELS[project.artifactType ?? "plugin"]}…`}
                 />
                 <div>
                   <ModelPicker
@@ -1084,7 +1084,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                   <div className="test-workflow-heading">
                     <div>
                       <span className="eyebrow">FROM PROMPT TO PLAYTEST</span>
-                      <h2>Test your {ARTIFACT_LABELS[project.artifactType]}</h2>
+                      <h2>Test your {ARTIFACT_LABELS[project.artifactType ?? "plugin"]}</h2>
                       <p>Review the output, install it in a matching Minecraft setup, and verify the behavior in game.</p>
                     </div>
                     {project.artifactAvailable && (

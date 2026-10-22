@@ -360,3 +360,15 @@ test("production forbids mock mode and insecure endpoints", () => {
     else Object.assign(process.env, { NODE_ENV: originalNodeEnv });
   }
 });
+
+test("direct provider creation cannot bypass the testing model lock", () => {
+  const keys=["AI_TESTING_MODE","OPENAI_API_KEY","ANTHROPIC_API_KEY","GEMINI_API_KEY"] as const;
+  const previous=keys.map(key=>process.env[key]);
+  Object.assign(process.env,{AI_TESTING_MODE:"true",OPENAI_API_KEY:"fake",ANTHROPIC_API_KEY:"fake",GEMINI_API_KEY:"fake"});
+  try {
+    for (const model of ["gpt-6-astra","gpt-6.1-sol","claude-opus-5-5","gemini-4-argon"])
+      assert.throws(()=>createAIProvider(model),/not connected/);
+  } finally {
+    keys.forEach((key,index)=>{if(previous[index]===undefined)delete process.env[key];else process.env[key]=previous[index];});
+  }
+});

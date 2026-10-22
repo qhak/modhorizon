@@ -64,7 +64,7 @@ test("project database persists creation, rename, star, source and deletion acro
 test("snapshot validation preserves real source, rejects unsafe files, and never restores expired artifact flags", async () => {
   // Use the same validated development example as the existing backend tests.
   const { MockProvider } = await import("../src/lib/mock-provider");
-  const source = await new MockProvider().generate({ prompt: "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.", version: "1.21.4" });
+  const source = await new MockProvider().generate({ prompt: "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.", target: "paper", version: "1.21.4" });
   const snapshot = validateSnapshot({ ...source, id: "existing-source-id", prompt: "Example source", version: "1.21.4", status: "preview", logs: [], provider: "mock", artifactAvailable: true });
   assert.equal(snapshot.artifactAvailable, false);
   assert.throws(() => validateSnapshot({ ...snapshot, files: [{ path: "../../escape.java", content: "bad" }] }));

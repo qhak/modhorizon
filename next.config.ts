@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 const config: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
@@ -7,3 +8,4 @@ const config: NextConfig = {
   turbopack: { root: process.cwd() },
 };
 export default config;
+initOpenNextCloudflareForDev();

@@ -15,7 +15,8 @@ export async function GET(
       { error: "Artifact unavailable or expired. Generate the project again." },
       { status: 404 },
     );
-  const extension = entry.project.artifactType === "plugin" || entry.project.artifactType === "mod" ? "jar" : "zip";
+  const artifactType = entry.project.artifactType ?? "plugin";
+  const extension = artifactType === "plugin" || artifactType === "mod" ? "jar" : "zip";
   const contentType = extension === "jar" ? "application/java-archive" : "application/zip";
   return new Response(new Uint8Array(entry.artifact), {
     headers: {

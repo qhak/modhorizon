@@ -81,11 +81,12 @@ import {
   MODEL_OPTIONS,
   REASONING_LABELS,
   reasoningFor,
+  estimateCreditsForModel,
   type ModelOption,
   type ModelProvider,
   type ReasoningLevel,
 } from "@/lib/models";
-import { DiscordIcon, GitHubIcon, GoogleIcon } from "@/components/brand-icons";
+import { TESTING_MODEL_IDS } from "@/lib/model-access";
 import { VoidBackdrop } from "@/components/void-backdrop";
 import { BrandMark } from "@/components/brand-mark";
 import { parseReply } from "@/lib/chat-commands";
@@ -94,6 +95,7 @@ import { parseReply } from "@/lib/chat-commands";
 type SourceFile = { path: string; content: string };
 /** reply is the model's own note about the build, with workspace commands. */
 type Message = { role: "user" | "assistant"; text: string; reply?: string };
+type BillingAccountView = { plan: "free" | "starter" | "pro" | "studio"; credits: number; subscriptionStatus: string; email?: string | null };
 const milestone =
   "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.";
 
@@ -440,12 +442,18 @@ function ModelPicker({
   onSetup,
   choices,
   disabled,
+  paidAccess,
+  reasoningEffort,
+  testingRestricted = true,
 }: {
   value: string;
   onChange: (modelId: string) => void;
   onSetup: () => void;
   choices: Record<string, boolean>;
   disabled: boolean;
+  paidAccess: boolean;
+  reasoningEffort: ReasoningLevel;
+  testingRestricted?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -471,18 +479,10 @@ function ModelPicker({
     if (open) root.current?.querySelector<HTMLButtonElement>('.model-option[aria-pressed="true"]:not(:disabled), .model-option:not(:disabled)')?.focus();
   }, [open]);
 
-  const rate = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  const showRate = (input?: number, output?: number) =>
-    input === undefined || output === undefined ? "—" : `${rate(input)} / ${rate(output)}`;
   const groupOrder = ["Economy", "Balanced", "Advanced", "Frontier"];
   const models = MODEL_OPTIONS.filter(
     (model): model is ModelOption & { provider: Exclude<ModelProvider, "demo"> } =>
-      model.provider !== "demo",
+      model.provider !== "demo" && (!testingRestricted || (TESTING_MODEL_IDS as readonly string[]).includes(model.id)),
   ).sort((left, right) => groupOrder.indexOf(left.group) - groupOrder.indexOf(right.group));
   const provider = selected.provider === "demo" ? null : selected.provider;
 
@@ -514,7 +514,7 @@ function ModelPicker({
         <div id="ai-model-menu" className="model-options" role="dialog" aria-label="Choose an AI model">
           <div className="model-options-heading">
             <strong>Model</strong>
-            <span>In / out per 1M tokens</span>
+            <span>Credits per model pass</span>
           </div>
           <div>
           {models.map((model, index) => (
@@ -526,7 +526,7 @@ function ModelPicker({
                 type="button"
                 aria-pressed={value === model.id}
                 title={choices[model.id] ? undefined : `Add a ${model.providerLabel} API key on the server to use this model.`}
-                disabled={!choices[model.id]}
+                disabled={!choices[model.id] || (model.group !== "Economy" && !paidAccess)}
                 className={`model-option ${value === model.id ? "model-option-active" : ""}`}
                 onClick={() => {
                   onChange(model.id);
@@ -548,9 +548,11 @@ function ModelPicker({
                   })()}
                 </span>
                 <span className="model-option-price">
-                  {showRate(model.inputUsdPerMillion, model.outputUsdPerMillion)}
+                  {estimateCreditsForModel(model.id, 1_500, 5_000, reasoningEffort) ?? "—"} credits / pass
                 </span>
-                {choices[model.id] ? (
+                {model.group !== "Economy" && !paidAccess ? (
+                  <span className="model-connect-label">Paid plan</span>
+                ) : choices[model.id] ? (
                   value === model.id && <Check size={14} aria-hidden="true" />
                 ) : (
                   <span className="model-connect-label">Setup</span>
@@ -713,55 +715,6 @@ async function readAttachment(file: File): Promise<Attachment> {
   const text = (await file.text()).slice(0, 40_000);
   if (text.includes("\0")) throw new Error(`${file.name} isn't an image or a text file.`);
   return { id, name: file.name, type: file.type || "text/plain", data: text, image: false, size: text.length };
-}
-
-const SIGN_IN_PROVIDERS = [
-  { id: "discord", label: "Discord", icon: DiscordIcon },
-  { id: "github", label: "GitHub", icon: GitHubIcon },
-  { id: "google", label: "Google", icon: GoogleIcon },
-] as const;
-
-function SignInScreen({ providers, onClose }: {
-  /** Sign-in providers the account API reports as connected. */
-  providers: readonly string[];
-  onClose: () => void;
-}) {
-  const back = useRef<HTMLButtonElement>(null);
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    back.current?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close.current(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  return (
-    <div className="signin-screen" role="dialog" aria-modal="true" aria-labelledby="signin-title">
-      <VoidBackdrop />
-      <button ref={back} type="button" className="signin-back" onClick={onClose}>
-        <ArrowLeft size={16} aria-hidden="true" /> Back
-      </button>
-      <div className="signin-card">
-        <span className="signin-logo" aria-hidden="true"><BrandMark size={64} /></span>
-        <h2 id="signin-title">Welcome to ModHorizon</h2>
-        <p>Sign in to start building.</p>
-        <div className="signin-providers">
-          {SIGN_IN_PROVIDERS.map(({ id, label, icon: Icon }) =>
-            providers.includes(id) ? (
-              <a key={id} className={`signin-provider signin-${id}`} href={`/api/auth/${id}?returnTo=/create`}>
-                <Icon size={19} /> Continue with {label}
-              </a>
-            ) : (
-              <button key={id} type="button" className={`signin-provider signin-${id}`} disabled>
-                <Icon size={19} /> Continue with {label}
-              </button>
-            ),
-          )}
-        </div>
-        {providers.length === 0 && <p className="signin-note">Sign-in isn&apos;t connected on this server yet.</p>}
-      </div>
-    </div>
-  );
 }
 
 const PROMPT_IDEAS: Record<ContentType | "proxy", readonly string[]> = {
@@ -942,8 +895,6 @@ export default function Home() {
   const [modal, setModal] = useState<"settings" | "guide" | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [signInOpen, setSignInOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -955,11 +906,12 @@ export default function Home() {
     message: string;
     choices: Record<string, boolean>;
     preferred: string;
+    testingRestricted?: boolean;
     /** Content types the generation API can build; plugins and mods when it doesn't say. */
     artifactTypes?: string[];
-    /** Sign-in providers the account API has connected. */
-    auth?: { providers?: string[] };
   } | null>(null);
+  const [billingAccount, setBillingAccount] = useState<BillingAccountView | null>(null);
+  const paidAccess = Boolean(billingAccount && billingAccount.plan !== "free" && ["active", "trialing"].includes(billingAccount.subscriptionStatus));
   const generationUnavailable = !services?.choices[selectedModel];
   const wide = useWideLayout();
   // Wide screens always show the conversation, so the right pane falls back to Files.
@@ -1043,13 +995,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // The account API returns a profile for a signed-in session and an error otherwise.
-    fetch("/api/library/session", { cache: "no-store" })
-      .then(async (response) => {
-        setSignedIn(response.ok);
-        if (response.ok) setDisplayName((await response.json()).profile?.displayName || "");
-      })
+    const controller = new AbortController();
+    fetch("/api/auth/status", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((data) => setSignedIn(Boolean(data?.user)))
       .catch(() => setSignedIn(false));
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -1061,6 +1012,15 @@ export default function Home() {
         setSelectedModel((current) => data.choices[current] ? current : data.preferred);
       })
       .catch(() => { /* Submission still reports service errors if status cannot load. */ });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/billing/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => { if (data.account) setBillingAccount(data.account); })
+      .catch(() => { /* Billing remains unavailable until the D1 binding is configured. */ });
     return () => controller.abort();
   }, []);
 
@@ -1209,6 +1169,7 @@ export default function Home() {
     setVersion(p.version);
     if (p.modelId && MODEL_OPTIONS.some((model) => model.id === p.modelId))
       setSelectedModel(p.modelId);
+    if (p.reasoningEffort) setReasoning(p.reasoningEffort);
     setMessages([
       { role: "user", text: p.prompt },
       {
@@ -1231,7 +1192,7 @@ export default function Home() {
     const current = project;
     if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || packProblem || typeUnavailable))) return;
     if (!signedIn) {
-      setSignInOpen(true);
+      window.location.assign("/account");
       return;
     }
     const text = prompt.trim();
@@ -1248,8 +1209,7 @@ export default function Home() {
           target: current ? current.target : PACK_TARGETS[contentType] ?? platform,
           version: current?.version || version,
           modelId: selectedModel,
-          // The generation API ignores reasoning and attachments until the providers take them.
-          ...(reasoningFor(selectedModel) ? { reasoning } : {}),
+          ...(reasoningFor(selectedModel) ? { reasoningEffort: reasoning } : {}),
           ...(!current && attachments.length
             ? { attachments: attachments.map(({ name, type, data }) => ({ name, type, data })) }
             : {}),
@@ -1262,6 +1222,7 @@ export default function Home() {
       if (!response.ok || !data.project)
         throw new Error(data.error || "Something went wrong. Try again.");
       const next: Project = data.project;
+      fetch("/api/billing/account", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((data) => { if (data?.account) setBillingAccount(data.account); }).catch(() => undefined);
       if (current && next.status === "failed") {
         const failure =
           next.error ||
@@ -1392,10 +1353,10 @@ export default function Home() {
             <Sparkles size={16} />
             <span>Plans &amp; credits</span>
           </Link>
-          <button className="account" onClick={() => setModal("settings")} aria-label="Account and credits">
-            <div className="avatar">{signedIn ? (displayName || "Y").slice(0, 1).toUpperCase() : "D"}</div>
-            <div>{signedIn ? <><strong>{displayName || "Your account"}</strong><span>Signed in</span></> : <><strong>Guest</strong><span>Not signed in</span></>}</div>
-          </button>
+          <Link className="account" href="/account" aria-label="Account and credits">
+            <div className="avatar">{signedIn ? (billingAccount?.email || "Y").slice(0, 1).toUpperCase() : "D"}</div>
+            <div><strong>{signedIn ? billingAccount?.email || "Your account" : "Sign in / Account"}</strong><span>{billingAccount ? `${billingAccount.plan[0].toUpperCase()}${billingAccount.plan.slice(1)} · ${billingAccount.credits} credits` : "Account and credits"}</span></div>
+          </Link>
         </div>
       </aside>
 
@@ -1424,9 +1385,9 @@ export default function Home() {
               </nav>
               <div className="topbar-right">
                 {!signedIn && (
-                  <button type="button" className="signin-button" onClick={() => setSignInOpen(true)}>
+                  <Link className="signin-button" href="/account">
                     Sign in <ArrowRight size={14} aria-hidden="true" />
-                  </button>
+                  </Link>
                 )}
               </div>
             </>
@@ -1559,7 +1520,10 @@ export default function Home() {
                       onChange={setSelectedModel}
                       onSetup={() => setModal("settings")}
                       choices={services?.choices || {}}
+                      testingRestricted={services?.testingRestricted ?? true}
                       disabled={busy}
+                      paidAccess={paidAccess}
+                      reasoningEffort={reasoning}
                     />
                     <ReasoningPicker modelId={selectedModel} value={reasoning} onChange={setReasoning} disabled={busy} />
                   </div>
@@ -1753,7 +1717,10 @@ export default function Home() {
                       onChange={setSelectedModel}
                       onSetup={() => setModal("settings")}
                       choices={services?.choices || {}}
+                      testingRestricted={services?.testingRestricted ?? true}
                       disabled={busy}
+                      paidAccess={paidAccess}
+                      reasoningEffort={reasoning}
                     />
                     <ReasoningPicker modelId={selectedModel} value={reasoning} onChange={setReasoning} disabled={busy} />
                   </div>
@@ -1916,12 +1883,7 @@ export default function Home() {
           </div>
         )}
       </main>
-      {signInOpen && (
-        <SignInScreen
-          providers={services?.auth?.providers ?? []}
-          onClose={() => setSignInOpen(false)}
-        />
-      )}
+
       <dialog
         ref={dialog}
         onCancel={() => setModal(null)}
@@ -2017,7 +1979,7 @@ export default function Home() {
               <span className="tag">{Object.keys(PLATFORMS).length} LOADERS</span>
             </div>
             <p className="settings-local">
-              <ShieldCheck size={15} /> Sign-in isn&apos;t set up yet.
+              <ShieldCheck size={15} /> <Link href="/account">Manage your account and sign-in options</Link>.
             </p>
           </>
         )}

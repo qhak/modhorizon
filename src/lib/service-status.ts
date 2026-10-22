@@ -7,8 +7,10 @@ export function serviceStatus(env: NodeJS.ProcessEnv = process.env) {
   const demoAvailable = choices.demo === true;
   return {
     generationAvailable,
+    artifactTypes: ["plugin", "mod", "resource_pack", "shader_pack"],
     buildConfigured: Boolean(env.BUILD_SERVICE_URL && env.BUILD_SERVICE_TOKEN),
     choices,
+    testingRestricted: env.AI_TESTING_MODE !== "false",
     preferred: preferredModelId(choices, env),
     message: !generationAvailable
       ? "Hosting preview · AI not connected"

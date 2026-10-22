@@ -37,3 +37,35 @@
   .pricing-grid { grid-template-columns: 1fr; max-width: 440px; }
   .pricing-card { min-height: 0; }
 }
+
+.pricing-balance { display: inline-flex; align-items: center; gap: 8px; margin-top: 20px; border: 1px solid #292a30; border-radius: 999px; background: #111217; padding: 9px 14px; color: #c9c9d2; font-size: 12px; }
+.pricing-balance strong { color: #fff; }
+.pricing-message { width: fit-content; max-width: min(100%, 560px); margin: 18px auto 0; border: 1px solid #514332; border-radius: 12px; background: #211b14; padding: 12px 16px; color: #f2d2a3; font-size: 13px; }
+.pricing-current { height: fit-content; border: 1px solid #31574c; border-radius: 999px; padding: 4px 7px; color: #8ed8bc; font-size: 10px; }
+.pricing-cta-muted { margin-top: auto; }
+.credit-pack-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1160px; margin: 16px auto 0; border: 1px solid #292a30; border-radius: 18px; background: #101115; padding: 22px; }
+.credit-pack-card .eyebrow { color: #a9a7ff; font-size: 10px; letter-spacing: .12em; }
+.credit-pack-card h2 { margin: 8px 0; font-size: 17px; }
+.credit-pack-card p { max-width: 600px; margin: 0; color: #999aa3; font-size: 12px; line-height: 1.6; }
+.credit-pack-card .pricing-cta { max-width: 250px; flex: 0 0 250px; }
+
+
+.pricing-intro .pricing-buckets { margin: 12px 0 0; font-size: 12px; color: #a7a8b2; }
+.pricing-buckets span { margin: 0 7px; }
+.credit-topup-card { align-items: flex-start; }
+.topup-form { width: 310px; flex: 0 0 310px; display: flex; flex-direction: column; gap: 10px; }
+.topup-form label { font-size: 12px; font-weight: 600; color: #e6e6ed; }
+.topup-form input { box-sizing: border-box; width: 100%; border: 1px solid #3c3d49; border-radius: 9px; background: #090a0d; color: #fff; padding: 12px; font: inherit; }
+.topup-form input:focus-visible { outline: 2px solid #887bff; outline-offset: 3px; }
+.credit-topup-card .topup-help { margin: 0; font-size: 11px; color: #aaaab7; }
+.credit-topup-card > div > .topup-help { margin-top: 12px; color: #e7c692; }
+.topup-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 12px; color: #c7c7d0; }
+.topup-total strong { color: #fff; font-size: 23px; }
+.credit-topup-card .pricing-cta { max-width: none; flex: none; }
+@media (max-width: 700px) {
+  .pricing-nav { flex-wrap: wrap; gap: 16px; }
+  .pricing-nav-actions { gap: 14px; }
+  .pricing-nav-actions .pricing-workspace { font-size: 11px; }
+  .credit-topup-card { flex-direction: column; }
+  .topup-form { width: 100%; flex-basis: auto; }
+}

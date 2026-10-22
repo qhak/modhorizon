@@ -117,6 +117,13 @@ export async function generateArtifact(
       "Compilation failed after three repair attempts. Review the build logs and revise your prompt.",
     );
   } catch (error) {
+    if (error instanceof Error && error.name === "BillingError") {
+      if (!project.files.length) throw error;
+      project.status = "preview";
+      project.error = error.message;
+      project.logs.push("Automatic repair stopped because the credit balance could not cover another model pass. The generated source remains available.");
+      return project;
+    }
     project.error =
       error instanceof Error
         ? error.message

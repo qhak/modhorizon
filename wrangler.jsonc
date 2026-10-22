@@ -14,8 +14,17 @@
   "services": [
     { "binding": "WORKER_SELF_REFERENCE", "service": "modhorizon" }
   ],
+  "d1_databases": [
+    {
+      "binding": "BILLING_DB",
+      "database_name": "modhorizon-billing",
+      "database_id": "34f5aa89-4f90-47ea-b8c5-3d8bb4fd8b2e",
+      "migrations_dir": "migrations"
+    }
+  ],
   "vars": {
-    "AI_PROVIDER": "openai-compatible"
+    "AI_PROVIDER": "openai-compatible",
+    "AI_TESTING_MODE": "true"
   },
   "observability": {
     "enabled": true,

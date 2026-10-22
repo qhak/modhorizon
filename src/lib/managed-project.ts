@@ -36,7 +36,7 @@ export function validateSnapshot(value: unknown): Project {
   const expert = ARTIFACT_EXPERTS[artifactType as ArtifactType];
   const target = data.target ?? (expert.targets.length === 1 ? expert.targets[0] : undefined);
   if (typeof target !== "string" || !expert.targets.includes(target as ArtifactTarget)) throw new InputError("Invalid source artifact target.");
-  const source = validateProject(data, artifactType as ArtifactType, target as ArtifactTarget);
+  const source = validateProject(data, artifactType as ArtifactType, target as ArtifactTarget, typeof data.version === "string" ? data.version : undefined);
   if (typeof data.id !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(data.id)) throw new InputError("Invalid source project ID.");
   if (!MINECRAFT_VERSIONS.includes(data.version as MinecraftVersion)) throw new InputError("Unsupported source version.");
   if (typeof data.prompt !== "string" || data.prompt.length > 4000 || typeof data.provider !== "string" || data.provider.length > 100) throw new InputError("Invalid source metadata.");
