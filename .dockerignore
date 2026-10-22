@@ -1,0 +1,8 @@
+**
+!build-service/
+!build-service/template/
+!build-service/template/build.gradle.kts
+!build-service/template/settings.gradle.kts
+!build-service/local/
+!build-service/local/Dockerfile
+!build-service/local/runner.py

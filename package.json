@@ -1,6 +1,6 @@
 {
   "name": "modhorizon",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3215",
@@ -13,7 +13,12 @@
     "db:migrate:local": "wrangler d1 migrations apply modhorizon-billing --local",
     "db:migrate:remote": "wrangler d1 migrations apply modhorizon-billing --remote",
     "deploy": "npm run build:cloudflare && opennextjs-cloudflare deploy",
-    "build:html": "next build && tsx scripts/static-index/build.ts"
+    "build:html": "next build && tsx scripts/static-index/build.ts",
+    "setup:local-builder": "node scripts/local-builder-setup.mjs",
+    "prepare:local-builder": "tsx build-service/local/prepare.ts",
+    "local:builder": "tsx build-service/local/start.ts",
+    "local:preview": "node scripts/local-preview.mjs",
+    "check:local-builder": "tsx build-service/local/check.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.12",

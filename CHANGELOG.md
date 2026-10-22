@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.3.0 — 2026-10-22
+
+- Added a private loopback-only Paper 1.21.4 build-service implementation, trusted Docker image preparation and an offline compilation smoke-check command.
+- Added authenticated, size-limited, single-job HTTP handling and disposable nonroot Docker jobs with no network, app secrets or host mounts; generated Gradle scripts are rejected.
+- Added local setup and preview launchers. The local app uses its own billing database and builder settings; the hosted site is not connected to the PC.
+- Restricted build context to immutable template/runner files and pinned the Gradle/Java image digest. Added repeated source validation, resource/output/deadline controls and bounded abnormal-container cleanup.
+
+Validation: 73 TypeScript tests, three Python validation tests, TypeScript checks and the application production build passed. Docker is not installed/running on the development PC, so image preparation, real offline JAR compilation and container cleanup acceptance remain unverified. Automatic approval review blocked installer execution; the owner must install and finish Docker Desktop setup. This is a prepared private-testing implementation, not a working public compiler. Live Cloudflare remains on v0.2.3.
+
 ## v0.2.3 — 2026-10-22
 
 - Fixed generation failing on Cloudflare before reaching the AI provider because Workers rejects the Fetch API's error redirect mode.
