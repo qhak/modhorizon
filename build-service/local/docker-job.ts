@@ -1,6 +1,6 @@
 import { spawn, execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname, delimiter } from "node:path";
 import { randomUUID } from "node:crypto";
 
 export function dockerBinary() {
@@ -10,6 +10,14 @@ export function dockerBinary() {
   ];
   return candidates.find(path => existsSync(path)) ?? "docker";
 }
+export function dockerEnvironment(binary = dockerBinary()): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { NODE_ENV: "development", ...Object.fromEntries(["PATH", "SystemRoot", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "HOME", "DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_CONFIG"]
+    .flatMap(key => process.env[key] ? [[key, process.env[key]!]] : [])) };
+  // Existing terminals may predate Docker's installation. Its credential helper
+  // must be discoverable alongside docker.exe without changing the user's PATH.
+  if (existsSync(binary)) env.PATH = `${dirname(binary)}${delimiter}${env.PATH || ""}`;
+  return env;
+}
 export function dockerArguments(name: string) {
   return ["run", "--rm", "--interactive", "--name", name, "--network", "none", "--read-only",
     "--user", "1000:1000", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -18,11 +26,11 @@ export function dockerArguments(name: string) {
     "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=64m,uid=1000,gid=1000,mode=0700",
     "--pull=never", "modhorizon-local-paper:1.21.4"];
 }
-export async function compileDockerJob(payload: unknown) {
+export async function compileDockerJob(payload: unknown, timeoutMs = 100_000) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 100_000) throw new Error("Invalid local compilation deadline.");
   const binary = dockerBinary(), name = `modhorizon-job-${randomUUID()}`;
   // Only Docker's own configuration environment reaches its client; no AI or Stripe keys.
-  const env: NodeJS.ProcessEnv = { NODE_ENV: "development", ...Object.fromEntries(["PATH", "SystemRoot", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "HOME", "DOCKER_HOST", "DOCKER_CONTEXT"]
-    .flatMap(key => process.env[key] ? [[key, process.env[key]!]] : [])) };
+  const env = dockerEnvironment(binary);
   return new Promise<unknown>((resolve, reject) => {
     const child = spawn(binary, dockerArguments(name), { windowsHide: true, env, stdio: ["pipe", "pipe", "pipe"] });
     let output = Buffer.alloc(0), exceeded = false, timedOut = false;
@@ -38,7 +46,7 @@ export async function compileDockerJob(payload: unknown) {
       void stopping.finally(() => child.kill());
       return stopping;
     };
-    const timer = setTimeout(() => { timedOut = true; stop(); }, 100_000);
+    const timer = setTimeout(() => { timedOut = true; stop(); }, timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => {
       if (output.length + chunk.length > 7_000_000) { exceeded = true; stop(); }
       else output = Buffer.concat([output, chunk]);

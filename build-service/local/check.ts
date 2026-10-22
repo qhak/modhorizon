@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { compileDockerJob } from "./docker-job";
 import { MockProvider } from "../../src/lib/mock-provider";
+async function main() {
 const request = { prompt: "Create a Paper plugin where players receive Speed II for 10 seconds whenever they kill a zombie.", artifactType: "plugin" as const, target: "paper" as const, version: "1.21.4" };
 const project = await new MockProvider().generate(request);
 const input = { schemaVersion: 1, platform: "paper", javaVersion: 21, minecraftVersion: "1.21.4", project };
@@ -20,3 +21,6 @@ const rejected = await compileDockerJob(broken) as { success: boolean; logs: str
 assert.equal(rejected.success, false);
 assert.ok(rejected.logs.length > 0);
 console.log("Offline JAR compilation and invalid-source rejection passed. Gameplay remains untested.");
+
+}
+void main().catch(error => { console.error(error instanceof Error ? error.message : "Local compiler check failed."); process.exitCode = 1; });

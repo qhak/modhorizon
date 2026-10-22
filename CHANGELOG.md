@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.3.1 — 2026-10-22
+
+- Verified the private Paper 1.21.4 compiler on Docker Desktop: prepared the pinned toolchain image, compiled a real Java21 JAR offline, rejected broken Java and confirmed forced-deadline container removal.
+- Verified the generation/build adapter over authenticated local HTTP using disposable test credentials and the fixed example provider. No paid AI call was made; the existing HealHorizon source was not available in the connected browser.
+- Fixed Windows credential-helper discovery after a fresh Docker installation, CommonJS execution of the compiler check, and whitespace/quoted provider settings in the local preview launcher.
+- Added repeatable HTTP/deadline acceptance commands and environment-isolation regression coverage. Local preview and builder are running on loopback; the live Cloudflare site remains v0.2.3.
+
+Validation: 75 automated tests and TypeScript checks passed; actual JAR contents/Java21 bytecode inspected, compiler-error build passed, HTTP pipeline reported success, forced timeout removed its job, and no job containers remained. No Minecraft gameplay test has been run. Only Paper1.21.4 is provisioned for local compilation.
+
 ## v0.3.0 — 2026-10-22
 
 - Added a private loopback-only Paper 1.21.4 build-service implementation, trusted Docker image preparation and an offline compilation smoke-check command.

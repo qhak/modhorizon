@@ -78,3 +78,26 @@ test("Docker arguments enforce isolated offline nonroot jobs without host mounts
   assert.ok(args.includes("--pull=never"));
   assert.ok(!args.some(arg => ["--mount", "--volume", "-v", "--env", "--env-file", "--privileged"].includes(arg)));
 });
+
+test("Docker client environment finds freshly installed helpers without passing provider credentials", async () => {
+  const {dockerEnvironment} = await import("../build-service/local/docker-job");
+  const {dirname,delimiter} = await import("node:path");
+  const previous = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY="private-test-fixture";
+  try {
+    const env=dockerEnvironment(process.execPath);
+    assert.ok(env.PATH?.startsWith(dirname(process.execPath)+delimiter));
+    assert.equal(env.OPENAI_API_KEY,undefined);
+    assert.equal(env.BUILD_SERVICE_TOKEN,undefined);
+    assert.equal(env.STRIPE_SECRET_KEY,undefined);
+    assert.equal(env.NODE_OPTIONS,undefined);
+  } finally {
+    if(previous===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previous;
+  }
+});
+
+
+test("local settings accept spaces and quotes around private credentials", async () => {
+  const {parseLocalSettings} = await import("../scripts/local-env.mjs");
+  assert.deepEqual(parseLocalSettings("# comment\n OPENAI_API_KEY = 'fixture' \nGEMINI_FREE_API_KEY=free\nINVALID KEY=ignored\n"), {OPENAI_API_KEY:"fixture",GEMINI_FREE_API_KEY:"free"});
+});

@@ -23,4 +23,8 @@ The local service cannot be used as a public build endpoint. Do not create a pub
 
 ## Validation status
 
-HTTP/validation/isolation tests can run without Docker. Actual image preparation, offline compilation, JAR contents and timeout cleanup require a running Docker installation. Until those succeed, the builder is prepared source code, not a verified working compiler.
+Verified on 22 October 2026 with Docker Desktop: image preparation; offline Java21 JAR compilation; invalid-source rejection; generation-to-builder HTTP integration; forced-deadline cleanup; and no leftover job containers. Gameplay remains untested. The existing HealHorizon output was not available through the connected browser, so acceptance used the fixed ZombieSprint source fixture without a paid AI call.
+
+With Docker running, use `npm run check:local-builder-http` to verify the HTTP integration with disposable test credentials, and `npm run check:local-builder-deadline` for forced cleanup. Neither reads saved API keys or invokes an AI provider.
+
+If Docker was just installed, the launcher finds its executable and credential helper without changing your system PATH. Settings allow spaces and quotes around values. Keep Docker, the builder and local preview running while testing.

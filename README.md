@@ -1,6 +1,6 @@
 # ModHorizon
 
-Current release: **v0.3.0**. See [change notes](CHANGELOG.md) for version history.
+Current release: **v0.3.1**. See [change notes](CHANGELOG.md) for version history.
 
 A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 
@@ -77,4 +77,4 @@ Implement and audit the isolated Java 21/Gradle worker, then run the above accep
 
 ## Private local compiler
 
-A private Paper 1.21.4 builder and local preview launchers are prepared in [the local builder guide](build-service/local/README.md). Docker Desktop installation and real compilation acceptance are still required. The live website remains on v0.2.3 and is not connected to your PC.
+A private Paper 1.21.4 builder and local preview launchers are prepared in [the local builder guide](build-service/local/README.md). Docker Desktop provisioning, offline compilation, HTTP adapter and cleanup acceptance have passed for Paper 1.21.4. The live website remains on v0.2.3 and is not connected to your PC.

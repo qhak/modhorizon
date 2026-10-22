@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-const env = { ...process.env };
-for (const line of readFileSync(".dev.vars", "utf8").split(/\r?\n/)) {
-  const match = line.match(/^([A-Z_]+)=(.*)$/);
-  if (match) env[match[1]] = match[2].trim().replace(/^(["'])(.*)\1$/, "$2");
-}
+import { parseLocalSettings } from "./local-env.mjs";
+const env = { ...process.env, ...parseLocalSettings(readFileSync(".dev.vars", "utf8")) };
 env.NODE_ENV = "development";
 env.APP_ORIGIN = "http://127.0.0.1:3215";
 env.AI_TESTING_MODE = "true";
