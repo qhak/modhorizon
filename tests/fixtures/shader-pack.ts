@@ -32,6 +32,7 @@ in vec4 tint;
 layout(location = 0) out vec4 color;
 void main() { color = texture(gtexture, texcoord) * tint; }`;
   return { name: "WarmSky", message: "/reference shaders/gbuffers_terrain.fsh", files: [
+    { path: "shader-plan.json", content: JSON.stringify({ goal: "Preserve visible terrain and clouds", referenceSummary: "No image supplied", pipeline: ["Render terrain and clouds into the scene colour buffer"], features: [{ name: "World rendering", kind: "baseline", priority: 1, status: "implemented", technique: "Textured lightmapped terrain and separate textured clouds", files: ["shaders/gbuffers_terrain.fsh", "shaders/gbuffers_clouds.fsh"], limitations: "GPU compilation and appearance not tested" }] }) },
     { path: "shaders/gbuffers_terrain.vsh", content: vertex },
     { path: "shaders/gbuffers_terrain.fsh", content: terrain },
     { path: "shaders/gbuffers_clouds.vsh", content: vertex },

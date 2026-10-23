@@ -44,16 +44,16 @@ test("invented program names and incomplete executable stages are rejected", () 
   const fixture = shaderPackFixture();
   assert.throws(() => check({ ...fixture, files: [...fixture.files, stage("shaders/world.vsh"), stage("shaders/world.fsh")] }), /Unrecognised shader program/);
   for (const content of ["void main() {}", "// #version 330\nvoid main() {}", "#version 330 compatibility\n// void main() {}"])
-    assert.throws(() => check({ ...fixture, files: fixture.files.map((file, index) => index === 0 ? { ...file, content } : file) }), /#version|main\(\)/);
+    assert.throws(() => check({ ...fixture, files: fixture.files.map(file => file.path === "shaders/gbuffers_terrain.vsh" ? { ...file, content } : file) }), /#version|main\(\)/);
 });
 
 test("local and absolute pack includes resolve, missing or escaping includes fail", () => {
   const fixture = shaderPackFixture();
   for (const include of ['"missing.glsl"', '"../outside.glsl"', '"/missing.glsl"'])
-    assert.throws(() => check({ ...fixture, files: fixture.files.map((file, index) => index === 0 ? { ...file, content: file.content + `\n#include ${include}` } : file) }), /includes a missing or unsupported/);
+    assert.throws(() => check({ ...fixture, files: fixture.files.map(file => file.path === "shaders/gbuffers_terrain.vsh" ? { ...file, content: file.content + `\n#include ${include}` } : file) }), /includes a missing or unsupported/);
   const files = [...fixture.files, { path: "shaders/lib/color.glsl", content: "vec3 identity(vec3 c) { return c; }" }];
   for (const include of ["lib/color.glsl", "/lib/color.glsl"])
-    assert.doesNotThrow(() => check({ ...fixture, files: files.map((file, index) => index === 0 ? { ...file, content: file.content + `\n#include "${include}"` } : file) }));
+    assert.doesNotThrow(() => check({ ...fixture, files: files.map(file => file.path === "shaders/gbuffers_terrain.vsh" ? { ...file, content: file.content + `\n#include "${include}"` } : file) }));
 });
 
 test("older incomplete shader projects remain editable without weakening output or path validation", () => {

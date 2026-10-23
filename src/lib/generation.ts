@@ -51,6 +51,7 @@ export async function generateArtifact(
     project.name = generated.name;
     project.files = generated.files;
     project.message = generated.message;
+    if (generated.shaderReport) project.shaderReport = generated.shaderReport;
     if (artifactType === "resource_pack" || artifactType === "shader_pack") {
       const packaged = packageMinecraftPack(generated, artifactType, request.version);
       project.files = packaged.files;
@@ -62,7 +63,11 @@ export async function generateArtifact(
           ? `Kept the pack_format from the generated pack.mcmeta. The server's compatibility table doesn't list Minecraft ${request.version}.`
           : `Set pack metadata for Minecraft ${request.version} from the server's compatibility table.`);
       if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
-      if (artifactType === "shader_pack") project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      if (artifactType === "shader_pack") {
+        const features = generated.shaderReport!.features;
+        project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Source links checked; effects are not runtime-verified.`);
+        project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      }
       saveArtifact(project, packaged.artifact);
       return project;
     }

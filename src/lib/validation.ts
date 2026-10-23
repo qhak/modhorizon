@@ -12,6 +12,7 @@ import {
 import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 import { validateAttachments } from "./reference-attachments";
+import { readShaderReport, stripShaderComments } from "./shader-report";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -35,7 +36,7 @@ function allowedPath(path: string, kind: ArtifactType): boolean {
     return SOURCE_PATH.test(path) || RESOURCE_PATH.test(path) || path === "README.md";
   if (kind === "resource_pack")
     return path === "pack.mcmeta" || path === "README.md" || /^assets\/[a-z0-9_.-]+\/[A-Za-z0-9_./-]+\.(json|mcmeta|properties)$/.test(path);
-  return path === "shaders.properties" || path === "README.md" || /^shaders\/[A-Za-z0-9_./-]+\.(vsh|fsh|glsl|properties)$/.test(path);
+  return path === "shader-plan.json" || path === "shaders.properties" || path === "README.md" || /^shaders\/[A-Za-z0-9_./-]+\.(vsh|fsh|glsl|properties)$/.test(path);
 }
 
 /** Platforms a request may target for each artifact type. */
@@ -223,7 +224,11 @@ function validateShaderPack(files: Files) {
       throw new InputError(`${file.path} needs a main() entrypoint.`);
   }
   for (const file of files.filter((file) => /\.(vsh|fsh|glsl)$/.test(file.path))) {
-    const code = file.content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    const code = stripShaderComments(file.content);
+    if (/\b(?:uniform|attribute|varying)\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+gl_\w+/.test(code))
+      throw new InputError(`${file.path} redeclares a reserved gl_ input; use the compatibility built-in without declaring it.`);
+    if (/^\s*#\s*(?:if|elif)\b[^\n]*(?:\b\d+\.\d*|\.\d+)\b/m.test(code))
+      throw new InputError(`${file.path} uses a floating-point preprocessor condition. #if/#elif require integer expressions; use shader arithmetic for float settings.`);
     for (const match of code.matchAll(/^\s*#include\s+"([^"]+)"/gm)) {
       const include = match[1];
       const resolved = include.startsWith("/") ? `shaders${include}` : file.path.slice(0, file.path.lastIndexOf("/") + 1) + include;
@@ -231,6 +236,8 @@ function validateShaderPack(files: Files) {
         throw new InputError(`${file.path} includes a missing or unsupported file: ${include}.`);
     }
   }
+  try { readShaderReport(files); }
+  catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid shader feature report."); }
 }
 
 /** Keeps the model's note readable: text only, no control characters, bounded length. */
@@ -284,7 +291,8 @@ export function validateProject(
     validateDescriptor(files, target, version ?? PLATFORMS[target].versions[0]);
   }
   const message = cleanMessage(project.message);
-  return { name: project.name, files, ...(message ? { message } : {}) };
+  return { name: project.name, files, ...(message ? { message } : {}),
+    ...(artifactType === "shader_pack" && !options.allowIncompleteShader ? { shaderReport: readShaderReport(files) } : {}) };
 }
 
 export function validateRequest(value: unknown): GenerateRequest {

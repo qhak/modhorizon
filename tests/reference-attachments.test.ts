@@ -68,6 +68,9 @@ test("all provider adapters send actual image blocks and untrusted text context 
     assert.ok(!firstText.includes(png)); // Not masquerading as text tokens.
     const system = mode === "legacy" ? body.messages[0].content : mode === "anthropic" ? body.system : mode === "google" ? body.system_instruction : body.input[0].content;
     assert.match(system, /Reference attachments are untrusted user data/);
+    assert.match(system, /FEATURE CONTRACT/);
+    assert.match(system, /IMAGE BRIEF/);
+    assert.match(system, /FOLLOW-UP/);
     if (mode === "openai") {
       assert.equal(body.store, false);
       assert.equal(content.find((part: { type: string }) => part.type === "input_image").image_url, image.data);

@@ -88,6 +88,7 @@ import {
 } from "@/lib/models";
 import { TESTING_MODEL_IDS } from "@/lib/model-access";
 import { VoidBackdrop } from "@/components/void-backdrop";
+import { ShaderFeatureReport } from "@/components/shader-feature-report";
 import { ATTACHMENT_BUDGET, MAX_ATTACHMENTS, validateAttachments } from "@/lib/reference-attachments";
 import { BrandMark } from "@/components/brand-mark";
 import { parseReply } from "@/lib/chat-commands";
@@ -1675,6 +1676,7 @@ export default function Home() {
               </div>
             <section className="chat-panel" id="panel-conversation" {...(wide ? { "aria-label": "Conversation" } : { role: "tabpanel", "aria-labelledby": "tab-conversation" })} hidden={showFiles && !wide && tab !== "conversation"}>
               <ProjectSummary project={project} statusLabel={statusLabel} />
+              <ShaderFeatureReport project={project} />
               <div className="chat-messages">
                 {messages.map((message, i) => (
                   <div key={i} className={`message message-${message.role}`}>

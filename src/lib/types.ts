@@ -14,7 +14,14 @@ export type ReasoningLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "
 export type ReasoningEffort = ReasoningLevel;
 export type GeneratedFile = { path: string; content: string };
 export type ReferenceAttachment = { name: string; type: string; data: string };
+export type ShaderReport = {
+  goal: string;
+  referenceSummary: string;
+  pipeline: string[];
+  features: { name: string; kind: string; priority: number; status: "implemented" | "approximation" | "omitted"; technique: string; files: string[]; limitations: string }[];
+};
 export type Project = {
+  shaderReport?: ShaderReport;
   id: string;
   name: string;
   prompt: string;
@@ -45,7 +52,7 @@ export type GenerateRequest = {
   reasoningEffort?: ReasoningEffort;
   project?: { name: string; files: GeneratedFile[] };
 };
-export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string; usage?: TokenUsage };
+export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string; shaderReport?: ShaderReport; usage?: TokenUsage };
 export type BuildResult = {
   success: boolean;
   logs: string[];

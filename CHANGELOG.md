@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.6.0 — 2026-10-23
+
+- Shader generation now uses focused sky, lighting/shadow, water/reflection and atmosphere modules, plus reference interpretation and follow-up preservation guidance.
+- Require a source-linked shader-plan.json with a reference brief, pipeline decisions and implemented/approximate/omitted features. The workspace exposes those statuses as model reports, with compilation and visual appearance explicitly unverified.
+- Catch reserved built-in declarations, direct floating-point preprocessor conditions and missing conventional shadow/scene-reflection prerequisites. Old projects remain editable.
+- Keep the workflow within one model call; no automatic paid analysis/repair loop or pricing change. Quotes use the assembled context.
+
+Validation: 96 tests, TypeScript checks and the Cloudflare production build passed. Fixture browser checks passed for feature/omission visibility, images, quotes, follow-ups and mobile layout; no paid model call. Actual compilation, reference matching and model-quality improvement remain unverified. See docs/shader-generation-workflow.md.
+
 ## v0.5.0 — 2026-10-23
 
 - Reference images and supported text files now reach the selected model for new projects and follow-up edits; the follow-up composer has attachment controls and previews.
