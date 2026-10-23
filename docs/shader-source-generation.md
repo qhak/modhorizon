@@ -1,5 +1,17 @@
 # Full shader-source generation
 
+## Response transport room - v0.11.3
+
+Shader provider envelopes now allow2,000,000 bytes, separate from150 KB total
+source,80,000 characters per file and32,000 output tokens. Escaped project JSON
+and provider metadata can be larger than extracted source. Non-shader envelopes
+remain400,000 bytes. Over-limit replies fail with an AI-provider transport error
+naming the byte limit; they are not retried or converted into partial ZIPs.
+Compiler diagnostic responses separately allow600,000 bytes for escaped JSON;
+the producer's80 KB raw output cap remains. The earlier400 KB descriptions below
+are historical. No original oversized response was retained, so this update does
+not establish how much valid shader source the owner's failed response contained.
+
 ## Local High-reasoning timeout - v0.11.2
 
 Configured localhost allows up to ten minutes per shader model pass, with local

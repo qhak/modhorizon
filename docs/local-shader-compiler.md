@@ -102,3 +102,16 @@ client abort is not proof that upstream computation stopped. No paid model retry
 was run for validation.
 
 Transport reference checked23 October2026: [Undici dispatcher documentation](https://undici.nodejs.org/).
+
+## v0.11.3 response-size boundaries
+
+The owner's generic Service response exceeds the size limit error did not name
+its reader. Shader provider replies previously had a400 KB envelope limit;
+compiler responses had a100 KB limit. They now admit2 MB and600 KB respectively,
+without raising150 KB shader source,32,000 output tokens or80 KB raw compiler
+output. JSON escaping and provider envelope metadata are distinct from source.
+The new errors identify provider transport versus compiler diagnostics and show
+the configured ceiling. Oversized responses still fail without a hidden retry.
+Regression fixtures verify all four adapters accept500 KB envelopes containing
+unchanged valid source and reject replies above2 MB, including multibyte data.
+Other artifacts retain400 KB. No paid model retry was run.

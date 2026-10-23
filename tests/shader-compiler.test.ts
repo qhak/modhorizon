@@ -12,6 +12,23 @@ const request = validateRequest({ prompt: "Create a sunset shader with reflected
 const fail = { success: false, logs: ["gbuffers_water.fsh: undefined mhApplyLighting"] };
 const pass = { success: true, logs: ["Compiled 4 stages; linked 2 programs; 0 failed programs."] };
 
+test("compiler transport accepts escaped diagnostic output and names its own size limit", async t => {
+  const previous = { NODE_ENV: process.env.NODE_ENV, SHADER_COMPILER_TOKEN: process.env.SHADER_COMPILER_TOKEN, SHADER_COMPILER_URL: process.env.SHADER_COMPILER_URL };
+  Object.assign(process.env, { NODE_ENV: "development", SHADER_COMPILER_TOKEN: "fixture", SHADER_COMPILER_URL: "http://127.0.0.1:3231/check" });
+  let oversized = false;
+  // Escaped JSON can exceed raw driver output size; the source reader's limit is separate.
+  const logs = Array(40).fill("\\".repeat(1800));
+  t.mock.method(globalThis, "fetch", async () => oversized ? new Response(" ".repeat(600_001)) : Response.json({ success: false, logs }));
+  try {
+    const compiler = createShaderCompiler()!;
+    assert.deepEqual((await compiler.check(shaderPackFixture())).logs, logs);
+    oversized = true;
+    await assert.rejects(compiler.check(shaderPackFixture()), /Local shader compiler response exceeded the 600,000-byte diagnostic limit/);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
+});
+
 test("compiler failure blocks ZIPs, with opt-in at most one repair and recheck", async () => {
   for (const budget of [0, 10]) for (const repaired of [false, true]) {
     let calls = 0, checks = 0;

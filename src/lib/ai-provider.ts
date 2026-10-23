@@ -233,9 +233,11 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
 }
 
 const MAX_PROVIDER_RESPONSE_BYTES = 400_000;
-async function providerJson(response: Response): Promise<unknown> {
+const MAX_SHADER_PROVIDER_RESPONSE_BYTES = 2_000_000;
+async function providerJson(response: Response, request: GenerateRequest): Promise<unknown> {
+  const maxBytes = request.artifactType === "shader_pack" ? MAX_SHADER_PROVIDER_RESPONSE_BYTES : MAX_PROVIDER_RESPONSE_BYTES;
   try {
-    const data = await limitedJson(response, MAX_PROVIDER_RESPONSE_BYTES);
+    const data = await limitedJson(response, maxBytes);
     if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("AI provider returned an unsupported response envelope.");
     const objectArray = (value: unknown): Record<string, unknown>[] => {
       if (!Array.isArray(value) || value.some(item => !item || typeof item !== "object" || Array.isArray(item)))
@@ -250,6 +252,8 @@ async function providerJson(response: Response): Promise<unknown> {
     }
     return data;
   } catch (error) {
+    if (error instanceof Error && error.message === "Service response exceeds the size limit.")
+      throw new Error(`AI provider response exceeded the ${maxBytes.toLocaleString("en-US")}-byte transport limit before source validation. No automatic retry was made.`);
     if (error instanceof SyntaxError) throw new Error("AI provider returned an invalid JSON response envelope. No automatic retry was made.");
     throw error;
   }
@@ -327,7 +331,7 @@ class OpenAIProvider implements AIProvider {
       throw new Error(
         `OpenAI request failed (HTTP ${response.status}). Check provider access and configuration.`,
       );
-    const data = (await providerJson(response)) as {
+    const data = (await providerJson(response, request)) as {
       status?: string;
       incomplete_details?: { reason?: string };
       output_text?: string;
@@ -392,7 +396,7 @@ class AnthropicProvider implements AIProvider {
       throw new Error(
         `Anthropic request failed (HTTP ${response.status}). Check provider access and configuration.`,
       );
-    const data = (await providerJson(response)) as {
+    const data = (await providerJson(response, request)) as {
       stop_reason?: string;
       content?: { type?: string; text?: string }[];
       usage?: Record<string, unknown>;
@@ -452,7 +456,7 @@ class GeminiProvider implements AIProvider {
       throw new Error(
         `Google Gemini request failed (HTTP ${response.status}). Check Google AI API access and configuration.`,
       );
-    const data = (await providerJson(response)) as {
+    const data = (await providerJson(response, request)) as {
       status?: string;
       steps?: { type?: string; content?: { type?: string; text?: string }[] }[];
       usage?: Record<string, unknown>;

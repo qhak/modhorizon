@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.11.3 - 2026-10-23
+
+- Raise shader provider response envelopes from 400,000 to 2,000,000 bytes across all adapters, allowing escaped project JSON and provider metadata without increasing source or output-token limits. Other artifact envelopes retain 400,000 bytes.
+- Allow 600,000 bytes for compiler diagnostic JSON, accounting for escaping of the already bounded raw compiler output. Raw compiler output, line counts and execution limits remain unchanged.
+- Replace generic size errors at these boundaries with explicit AI-provider transport versus local compiler diagnostic messages, including the configured byte limit. Fail closed and never auto-retry an oversized response.
+
+Validation: Cloudflare build passes. 133 tests and TypeScript pass, including all four adapters with a valid 500 KB envelope, byte-based over-limit rejection, unchanged non-shader bounds, source-limit rejection, escaped compiler diagnostics and no hidden retries. The owner's original generic error did not identify its boundary; no raw failed response was retained. No paid retry or new visual acceptance was performed.
+
 ## v0.11.2 - 2026-10-23
 
 - Allow each shader provider pass up to 600 seconds in configured localhost development, following the owner's 240-second timeout on High reasoning. Hosted shader requests retain 240 seconds and other artifact deadlines are unchanged.

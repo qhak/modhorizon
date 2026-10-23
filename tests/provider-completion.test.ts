@@ -15,6 +15,33 @@ function configure() {
   return () => { for (const [key, value] of Object.entries(old)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } };
 }
 
+test("all adapters accept larger shader envelopes while enforcing transport and source bounds independently", async t => {
+  const restore = configure(); let mode = "openai", oversized = false, calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    const padding = "x".repeat(oversized ? 2_000_001 : 500_000);
+    if (mode === "legacy") return Response.json({ padding, choices: [{ message: { content: text } }] });
+    if (mode === "anthropic") return Response.json({ padding, content: [{ type: "text", text }] });
+    if (mode === "google") return Response.json({ padding, status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
+    return Response.json({ padding, status: "completed", output_text: text });
+  });
+  try {
+    for (const [adapter, model] of [["openai", "gpt-6-luna"], ["legacy", "gpt-6-luna"], ["anthropic", "claude-sonnet-5-5"], ["google", "gemini-3-flash-preview"]]) {
+      mode = adapter; oversized = false;
+      if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }
+      else process.env.OPENAI_API_KEY = "fixture";
+      const provider = createAIProvider(model);
+      const result = await provider.generate({ ...request, modelId: model });
+      assert.deepEqual(result.files, shaderPackFixture().files);
+      oversized = true;
+      await assert.rejects(provider.generate({ ...request, modelId: model }), /AI provider response exceeded the 2,000,000-byte transport limit/);
+    }
+    mode = "openai"; oversized = false; process.env.OPENAI_API_KEY = "fixture";
+    await assert.rejects(createAIProvider("gpt-6-luna").generate({ ...request, artifactType: "plugin", target: "paper" }), /400,000-byte transport limit/);
+    assert.equal(calls, 9, "Transport failures do not trigger hidden retries");
+  } finally { restore(); }
+});
+
 test("OpenAI completion status precedes parsing and text blocks are assembled in order", async t => {
   const restore = configure(); let payload: unknown; let calls = 0;
   t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json(payload); });
@@ -54,8 +81,8 @@ test("empty, malformed JSON and valid JSON with bad source produce different saf
     await assert.rejects(provider.generate(request), error => error instanceof Error && /malformed or incomplete project JSON/.test(error.message) && !error.message.includes("secret-source-marker") && !error.message.includes("raw"));
     payload = { status: "completed", output_text: JSON.stringify({ name: "Unsafe", files: [{ path: "../private.glsl", content: "private-source" }] }) };
     await assert.rejects(provider.generate(request), /Shader pack structure check failed: Unsupported shader pack file path/);
-    payload = { status: "completed", output_text: text + "x".repeat(400_001) };
-    await assert.rejects(provider.generate(request), /Service response exceeds the size limit/);
+    payload = { status: "completed", output_text: text + "x".repeat(2_000_001) };
+    await assert.rejects(provider.generate(request), /AI provider response exceeded the 2,000,000-byte transport limit/);
     const tooLarge = shaderPackFixture();
     tooLarge.files.push({ path: "shaders/lib/large.glsl", content: "x".repeat(80_001) });
     payload = { status: "completed", output_text: JSON.stringify(tooLarge) };
@@ -87,7 +114,7 @@ test("provider envelope failures hide raw text and enforce the response limit in
   t.mock.method(globalThis, "fetch", async () => mode === "malformed"
     ? new Response('{"private-provider-marker":"bad\njson"}')
     : mode === "shape" ? Response.json(invalidShape)
-    : Response.json({ status: "completed", output_text: text, padding: "é".repeat(210_000) }));
+    : Response.json({ status: "completed", output_text: text, padding: "é".repeat(1_010_000) }));
   try {
     const provider = createAIProvider("gpt-6-luna");
     await assert.rejects(provider.generate(request), error => error instanceof Error && /invalid JSON response envelope/.test(error.message) && !error.message.includes("private-provider-marker"));
@@ -97,7 +124,7 @@ test("provider envelope failures hide raw text and enforce the response limit in
       await assert.rejects(provider.generate(request), /unsupported response envelope/);
     }
     mode = "bytes";
-    await assert.rejects(provider.generate(request), /Service response exceeds the size limit/);
+    await assert.rejects(provider.generate(request), /AI provider response exceeded the 2,000,000-byte transport limit/);
   } finally { restore(); }
 });
 
