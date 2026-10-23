@@ -42,6 +42,40 @@ test("all adapters accept larger shader envelopes while enforcing transport and 
   } finally { restore(); }
 });
 
+test("all adapters receive targeted compiler repair guidance and exact source with matching input estimates", async t => {
+  const restore = configure(); let mode = "openai", calls = 0;
+  const errors = ['Program: gbuffers_terrain', 'declaration of "gbufferModelViewInverse" conflicts with previous declaration'];
+  let expectedInput = 0;
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    calls++;
+    const body = JSON.parse(String(init?.body));
+    const user = mode === "legacy" || mode === "anthropic" ? body.messages.at(-1).content : mode === "google" ? body.input : body.input.at(-1).content;
+    const payload = JSON.parse(user);
+    assert.deepEqual(payload.currentProject.files, shaderPackFixture().files);
+    assert.deepEqual(payload.compilationErrors, errors);
+    assert.match(payload.shaderCompilerRepair.objective, /smallest coherent source changes/);
+    assert.match(payload.shaderCompilerRepair.checklist.join(" "), /Different include guards do not prevent duplicate declarations/);
+    if (mode === "openai") {
+      assert.equal(expectedInput, Math.ceil((body.input[0].content.length + user.length + JSON.stringify(body.text.format.schema).length) / 3));
+    }
+    if (mode === "legacy") return Response.json({ choices: [{ message: { content: text } }] });
+    if (mode === "anthropic") return Response.json({ content: [{ type: "text", text }] });
+    if (mode === "google") return Response.json({ steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
+    return Response.json({ output_text: text });
+  });
+  try {
+    for (const [adapter, model] of [["openai", "gpt-6-luna"], ["legacy", "gpt-6-luna"], ["anthropic", "claude-sonnet-5-5"], ["google", "gemini-3-flash-preview"]]) {
+      mode = adapter;
+      if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }
+      else process.env.OPENAI_API_KEY = "fixture";
+      const input = { ...request, modelId: model, project: shaderPackFixture() };
+      expectedInput = estimateProviderInputTokens(input, errors);
+      assert.deepEqual((await createAIProvider(model).generate(input, errors)).files, shaderPackFixture().files);
+    }
+    assert.equal(calls, 4);
+  } finally { restore(); }
+});
+
 test("OpenAI completion status precedes parsing and text blocks are assembled in order", async t => {
   const restore = configure(); let payload: unknown; let calls = 0;
   t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json(payload); });

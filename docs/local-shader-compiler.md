@@ -115,3 +115,29 @@ the configured ceiling. Oversized responses still fail without a hidden retry.
 Regression fixtures verify all four adapters accept500 KB envelopes containing
 unchanged valid source and reject replies above2 MB, including multibyte data.
 Other artifacts retain400 KB. No paid model retry was run.
+
+## v0.11.4 repair evidence and guidance
+
+The owner generated AmberwaterIris with Luna/High, two reference images and one
+optional repair. Logs show three initial failed programs: missing haze-setting
+and inverse-matrix declarations. The repair fixed these but introduced duplicate
+matrix declarations in terrain/water; the second check failed two programs and
+correctly blocked a ZIP. The local request lasted about7.4 minutes. The retained
+project has38 files (the UI reports667 lines); this is a failed AI repair, not an
+unchanged AI success. Source and diagnostics were retained as designed.
+
+New initial guidance teaches shared declaration ownership. Repair payloads now
+instruct every provider to inspect expanded include dependencies and make minimal
+coherent changes, rather than add a uniform to every consumer. Separate guards
+on different libraries do not prevent duplicate declarations in one stage. Input
+estimates include the exact checklist. No extra automatic attempt is added and
+no broad GLSL-rewriting regex substitutes for compilation.
+
+A separately named manual AmberwaterIris-repair-01 removes the duplicate matrix
+declarations, moves shadow/buffer settings into GLSL metadata, and removes a
+repeated shadow-space transform. Native driver validation passes28 stages/14
+links, and the actual application validator/ZIP packager passes. This copy is
+installed in Downloads and both test shaderpacks folders, while the original
+failed source remains preserved. Iris integration, appearance and FPS are pending.
+The prompt guidance is regression-tested for transport and accounting, not proven
+by a new paid generation or claimed to guarantee future compile success.

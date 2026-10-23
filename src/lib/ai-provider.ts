@@ -9,6 +9,7 @@ import { PLATFORMS, isPlatformId, javaVersionFor, mappingsFor, type Mappings, ty
 import type { AIProvider, GenerateRequest, GeneratedProject, TokenUsage } from "./types";
 import { ESTIMATED_IMAGE_INPUT_TOKENS, isImageReference, referenceDescriptions } from "./reference-attachments";
 import { shaderExampleContext } from "./shader-examples";
+import { shaderCompilerRepairContext } from "./shader-context";
 
 /** Shader pipelines can need longer to generate than small gameplay projects. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
@@ -154,6 +155,7 @@ function projectInput(request: GenerateRequest, errors?: string[]) {
     ...(request.artifactType === "shader_pack" ? { shaderEngineeringExamples: shaderExampleContext(request) } : {}),
     currentProject: request.project,
     compilationErrors: errors,
+    shaderCompilerRepair: shaderCompilerRepairContext(request, errors),
     ...(request.attachments?.length ? { references: referenceDescriptions(request.attachments) } : {}),
   });
 }

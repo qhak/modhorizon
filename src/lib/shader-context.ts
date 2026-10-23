@@ -1,6 +1,7 @@
 import type { GenerateRequest } from "./types";
 
 export const SHADER_BASELINE = [
+  "Give each shared uniform, macro and helper an explicit owning include. Include required settings/declarations before their use. Audit the expanded include graph of each executable stage: separate guards in two different files do not prevent those files declaring the same uniform twice. Prefer a single guarded declaration header shared by consumers; never blindly add a missing declaration to every stage or library.",
   "Use the selected Minecraft version and Iris/OptiFine compatibility profile. Render the world before applying post-processing. ModHorizon requires explicit root gbuffers_terrain.vsh/.fsh and gbuffers_clouds.vsh/.fsh as a conservative product baseline, not a universal runtime requirement.",
   "Preserve terrain/cutout foliage, clouds, sky/sun/moon/stars, entities/hand, particles/weather, water/glass, lightmap lighting and fog. Use supplied geometry programs or deliberate documented fallbacks; clouds/sky must not inherit terrain lightmap assumptions. Keep UVs, vertex tint, alpha/cutout alphaTestRef, varyings and render targets coherent. Do not interpret 'preserve rendering' as 'leave the requested appearance unchanged'.",
   "For compatibility geometry use ftransform() for clip position, gl_ModelViewMatrix * gl_Vertex for view position, gl_TextureMatrix[0] * gl_MultiTexCoord0 for texture UV, gl_TextureMatrix[1] * gl_MultiTexCoord1 for lightmap UV, and gl_Color for tint. Texture/tint/lightmap multiplication is a baseline, not realistic directional lighting.",
@@ -8,6 +9,21 @@ export const SHADER_BASELINE = [
   "Set explicit DRAWBUFFERS or RENDERTARGETS directives in fragment stages; without one, multiple default attachments are bound, so never assume output index equals an isolated buffer. Buffer clear/format controls are GLSL const declarations, not invented shaders.properties assignments. A translucent overlay must have an explicit transparent RGBA clear value; colortex1 defaults to opaque white. Audit the actual writer, reader, lifetime, alpha and clear value of every composite input.",
   "Audit preservation, coordinates, material gating, stage interfaces and settings before returning. Do not invent runtime APIs. Packaging does not compile GLSL or GPU-test it. Require day/night, water/glass, clouds, terrain/cutouts and shader toggle checks in README; never claim those tests ran.",
 ].join(" ");
+
+/** Compiler repairs are targeted source edits, not another visual redesign. */
+export function shaderCompilerRepairContext(request: GenerateRequest, errors?: string[]) {
+  if (request.artifactType !== "shader_pack" || !errors?.length) return undefined;
+  return {
+    objective: "Repair the supplied shader project against compiler diagnostics with the smallest coherent source changes. Return the full updated project.",
+    checklist: [
+      "Inspect each failing program and its transitive includes before editing. Flattened driver line numbers can refer to included files; identify the actual declaration owner rather than assuming the root file owns the error.",
+      "For an undefined setting, uniform or helper, include its existing owner before use or create one guarded owner if absent. Check every consumer of a changed include, not just the program named in the error.",
+      "For a conflicting declaration, retain one correctly typed declaration in each expanded shader stage. Different include guards do not prevent duplicate declarations across different libraries. Do not remove both declarations, or declarations used by a separate vertex/fragment stage.",
+      "Audit vertex/fragment varyings, macro order, buffer directives and common-space transforms after the edit. Preserve working passes, settings, visual goals and feature coverage; do not redesign the whole renderer to fix a declaration.",
+      "Self-review the complete revised source for new conflicts. The server will compile once more, but you must not claim that compilation, Iris rendering or visual acceptance has already passed.",
+    ],
+  };
+}
 
 const MODULES = [
   { id: "stylized", label: "Stylized lighting and outlines", pattern: /\b(cel|toon|cartoon|comic|outline|outlines|posteriz\w*|stylized|stylised)\b/i, guidance: "Choose the requested artistic style rather than a photorealistic golden preset. Cel shading can quantize directional diffuse light into intentional bands while retaining ambient and blocklight, biome tint and cutout alpha. Outlines can use depth/normal discontinuities in screen space with bounded width and distance/background rejection; colour contrast alone is not geometric edge detection. Keep sky, transparency and UI readable and avoid outlining every texture pixel. Explain screen-space and material limitations." },

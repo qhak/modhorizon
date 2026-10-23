@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.11.4 - 2026-10-23
+
+- Teach shared uniform/helper/settings ownership during shader generation. Explain that separate include guards do not prevent duplicate declarations across different libraries.
+- Add a compiler-repair checklist to the actual provider payload: inspect transitive includes, repair the owning declaration, check all consumers and preserve working passes instead of redesigning the renderer. The shared token estimator counts this additional repair context.
+- Preserve the one-repair limit, credit authorization and native compile gate. This is context guidance, not a deterministic source-rewriting pass or a claim that model errors cannot recur.
+
+Validation: Cloudflare build passes. 134 tests and TypeScript pass, including all four adapters receiving the exact current source, diagnostics and targeted checklist with matching input estimates. The owner's AmberwaterIris automatic repair still fails two programs; a separate offline manual repair passes 28 stages/14 links and is installed separately. No additional paid provider call or visual acceptance was performed.
+
 ## v0.11.3 - 2026-10-23
 
 - Raise shader provider response envelopes from 400,000 to 2,000,000 bytes across all adapters, allowing escaped project JSON and provider metadata without increasing source or output-token limits. Other artifact envelopes retain 400,000 bytes.
