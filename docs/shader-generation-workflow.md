@@ -16,6 +16,14 @@ Feature entries contain name, kind, priority 1-3, status (`implemented`, `approx
 
 Existing path/size, stage pairing, root terrain/cloud coverage, includes and entrypoint checks remain. Explicit terrain/cloud coverage is a ModHorizon supported-profile policy, not a universal Iris rule.
 
+### StillwaterGloam white-screen failure — v0.6.3 context correction
+
+The owner's generated StillwaterGloam pack rendered a white screen. Its composite mixed colortex1 over the scene, but the layer had no transparent clear constant and water lacked routing to attachment 1. Additionally, its gbuffers_water sampled colortex0, which is an atlas binding rather than scene colour in that stage. The new guidance explains explicit output mappings, buffer lifetimes, clear colours and a concrete supported pipeline: opaque geometry to 0; deferred copies 0 to 4; water reads 4 plus opaque depth and writes to a transparent-cleared 1; composite combines 0/1 into 0. gl_FragData[0] maps to the first selected target, even when that target is 4 or 1. Alpha/blending and overlapping translucent surfaces still need deliberate design.
+
+Buffer constants belong in GLSL; the clear-colour constructor needs all four values. This is an instructed recipe, not an automatically verified renderer or general static dataflow analysis. A separate manually repaired ZIP changes routing, adds the deferred snapshot, redirects the water sampler and sets the overlay clear constant; no source is rewritten automatically by the app. Its runtime result is pending.
+
+Sources checked 23 October 2026: [colour-buffer sampling and defaults](https://shaders.properties/current/reference/buffers/colortex/), [output routing](https://shaders.properties/current/reference/constants/rendertargets/), [clear-colour constants](https://shaders.properties/current/reference/constants/buffer_clear_color/), [deferred ordering](https://shaders.properties/current/reference/programs/deferred/).
+
 Additional guards catch custom uniform/attribute/varying declarations using reserved `gl_` names and direct floating literals in `#if`/`#elif`. Built-in expressions, comments and integer conditions remain accepted. These checks are not a preprocessor or compiler and do not catch every illegal declaration or macro expansion.
 
 For the supported conventional pipeline, a feature reported as implemented cast shadows is expected to have a shadow program. Implemented scene reflections are expected to have scene-colour (`colortex`/legacy `gcolor`) and scene-depth (`depthtex`) references in supplied shader source. From v0.6.2, missing prerequisites produce a report warning and a "Claim needs review · untested" badge rather than failing generation. These are limited dependency heuristics, not proof of correct shadow/reflection math, used variables, material gating, sampling quality or a visual match. They are not general shader architecture proofs.

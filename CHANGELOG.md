@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.6.3 — 2026-10-23
+
+- Teach explicit fragment output routing and GLSL buffer-clear declarations after StillwaterGloam rendered a white screen in the owner's Iris test.
+- Water/reflection guidance now includes a deferred opaque snapshot into colortex4, safe gbuffers sampling, a transparent-cleared overlay, and consistent output-index/attachment and alpha conventions. Explicitly forbid scene-colour reads from colortex0–3 in Iris gbuffers stages.
+- Keep the correction as generation guidance; no blind source rewriting, additional model call or GPU-verification claim. A separate manually repaired original test pack is preserved outside the repository for owner retesting.
+
+Validation: 99 tests, TypeScript and Cloudflare build passed. The separate 22-file repair candidate passes structural validation; its in-game rendering remains unverified.
+
 ## v0.6.2 — 2026-10-23
 
 - Treat shader feature citations as report metadata: existing shaders/*.properties files are valid supporting citations, and missing/unsupported citations produce visible warnings instead of discarding the generated pack.
