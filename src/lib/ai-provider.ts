@@ -8,6 +8,19 @@ import { replyInstructions } from "./chat-commands";
 import { PLATFORMS, isPlatformId, javaVersionFor, mappingsFor, type Mappings, type PlatformFamily, type PlatformId } from "./platforms";
 import type { AIProvider, GenerateRequest, GeneratedProject, TokenUsage } from "./types";
 
+/** Shader pipelines can need longer to generate than small gameplay projects. */
+async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
+  const timeoutMs = request.artifactType === "shader_pack" ? 240_000 : defaultTimeoutMs;
+  const signal = AbortSignal.timeout(timeoutMs);
+  try {
+    return await serviceFetch(url, { ...init, signal });
+  } catch (error) {
+    if ((error instanceof Error && error.name === "TimeoutError") || signal.aborted)
+      throw new Error(`AI generation timed out after ${timeoutMs / 1000} seconds. No completed project was received. Try a smaller set of effects or a lower reasoning level.`);
+    throw error;
+  }
+}
+
 export function trustedEndpoint(value: string, name: string): URL {
   const url = new URL(value);
   if (
@@ -185,12 +198,12 @@ class OpenAIProvider implements AIProvider {
       legacyCompatible ? "AI_BASE_URL" : "OPENAI_BASE_URL",
     );
     if (!endpoint.pathname.endsWith("/")) endpoint.pathname += "/";
-    const response = await serviceFetch(
+    const response = await generationFetch(
+      request,
       new URL(legacyCompatible ? "chat/completions" : "responses", endpoint),
       {
       method: "POST",
       redirect: "manual",
-      signal: AbortSignal.timeout(90_000),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
@@ -262,10 +275,9 @@ class AnthropicProvider implements AIProvider {
       "ANTHROPIC_BASE_URL",
     );
     if (!endpoint.pathname.endsWith("/")) endpoint.pathname += "/";
-    const response = await serviceFetch(new URL("messages", endpoint), {
+    const response = await generationFetch(request, new URL("messages", endpoint), {
       method: "POST",
       redirect: "manual",
-      signal: AbortSignal.timeout(90_000),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": key,
@@ -313,10 +325,9 @@ class GeminiProvider implements AIProvider {
       "GEMINI_BASE_URL",
     );
     if (!endpoint.pathname.endsWith("/")) endpoint.pathname += "/";
-    const response = await serviceFetch(new URL("interactions", endpoint), {
+    const response = await generationFetch(request, new URL("interactions", endpoint), {
       method: "POST",
       redirect: "manual",
-      signal: AbortSignal.timeout(180_000),
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": key,
@@ -336,7 +347,7 @@ class GeminiProvider implements AIProvider {
         },
         store: false,
       }),
-    });
+    }, 180_000);
     if (!response.ok)
       throw new Error(
         `Google Gemini request failed (HTTP ${response.status}). Check Google AI API access and configuration.`,

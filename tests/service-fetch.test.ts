@@ -44,3 +44,35 @@ test("AI providers and builder reject redirects without sending credentials to a
     }
   }
 });
+
+test("shader requests get four minutes across providers, retain other deadlines and never auto-retry timeouts", async t => {
+  const values = { AI_TESTING_MODE: "false", OPENAI_API_KEY: "fixture", ANTHROPIC_API_KEY: "fixture", GEMINI_FREE_API_KEY: "fixture" };
+  const previous = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
+  Object.assign(process.env, values);
+  const deadlines: number[] = [];
+  t.mock.method(AbortSignal, "timeout", (milliseconds: number) => {
+    deadlines.push(milliseconds);
+    return new AbortController().signal;
+  });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    calls++;
+    assert.ok(init?.signal);
+    assert.equal(init?.redirect, "manual");
+    throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  });
+  try {
+    for (const [model, normalDeadline] of [["gpt-6-luna", 90_000], ["claude-sonnet-5-5", 90_000], ["gemini-3-flash-preview", 180_000]] as const) {
+      const provider = createAIProvider(model);
+      await assert.rejects(provider.generate({ ...request, artifactType: "shader_pack", target: "iris" }), /timed out after 240 seconds.*No completed project/);
+      assert.equal(deadlines.at(-1), 240_000);
+      await assert.rejects(provider.generate(request), new RegExp(`timed out after ${normalDeadline / 1000} seconds`));
+      assert.equal(deadlines.at(-1), normalDeadline);
+    }
+    assert.equal(calls, 6);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});

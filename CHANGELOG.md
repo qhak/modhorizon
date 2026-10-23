@@ -1,5 +1,12 @@
 # Change notes
 
+## v0.3.4 — 2026-10-23
+
+- Shader provider requests now allow four minutes for generation instead of the 90-second OpenAI/Anthropic or three-minute Gemini deadlines. Other artifact deadlines are unchanged.
+- Timeout errors explain that no completed project was received and suggest reducing scope or reasoning. No automatic retry or extra model call was added; the existing credit-reservation refund path remains in use.
+
+Validation: all 85 automated tests, TypeScript checks and the Cloudflare production build passed. Provider regression coverage uses simulated timeouts without paid API calls. A successful GoldenHorizon generation remains unverified.
+
 ## v0.3.3 — 2026-10-23
 
 - Expanded shader generation context using WarmHorizon runtime-test findings: explicit terrain/cloud coverage, texture/lightmap/alpha handling, deliberate fallback programs, correct settings placement and preservation checks for the rest of the world.
