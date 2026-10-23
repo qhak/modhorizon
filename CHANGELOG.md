@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.11.5 - 2026-10-23
+
+- Add a hidden native celestial-blending probe using the actual fragment source and declared blend factors in an offscreen float framebuffer. Verify black borders, dark halos, bright texels, alpha fading and fully transparent texels against a preserved sky background.
+- Teach generation to audit sun/moon compositing separately from ordinary material transparency. Black RGB with opaque alpha must not replace the sky; additive celestial contribution is one supported approach, not a policy for water/glass.
+- Preserve the failing Amberwater repair-01. A separate manual repair-02 changes only its celestial fragment/blend contract and README and is installed under a new name; no generated shader is silently substituted.
+
+Validation: Cloudflare build passes. 134 TypeScript tests, TypeScript checking and four native driver regressions pass. The actual repair-01 fails four of five celestial blend cases; repair-02 passes all five and compiles 28 stages/14 links. The app validator and ZIP packager pass. Full Iris appearance remains pending; no paid provider call was made.
+
 ## v0.11.4 - 2026-10-23
 
 - Teach shared uniform/helper/settings ownership during shader generation. Explain that separate include guards do not prevent duplicate declarations across different libraries.

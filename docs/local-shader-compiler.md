@@ -141,3 +141,30 @@ installed in Downloads and both test shaderpacks folders, while the original
 failed source remains preserved. Iris integration, appearance and FPS are pending.
 The prompt guidance is regression-tested for transport and accounting, not proven
 by a new paid generation or claimed to guarantee future compile success.
+
+## v0.11.5 rendering evidence beyond compilation
+
+The owner screenshot of AmberwaterIris-repair-01 shows a black rectangle around
+the sun. The isolated game log confirms that pack was loaded. Native compilation
+had passed, demonstrating that stage/link checks alone cannot validate appearance.
+
+The celestial fragment returned sampled RGB/alpha unchanged while properties
+used ordinary source-alpha replacement. A black opaque texel therefore replaces
+the rendered sky. `probe_celestial.py` reproduces this with the actual fragment
+and blend settings in a hidden float FBO. Repair-01 fails black-border, halo,
+bright-texel and alpha-fade expectations; the fully transparent case already passes.
+A separately installed repair-02 adds celestial RGB over the background using
+SRC_ALPHA/ONE, preserves destination alpha using ZERO/ONE, and discards empty
+black/transparent texels. All five synthetic cases and all28 stages/14 links pass.
+Only the celestial fragment, its blend rule/comments and manual README change;
+water, terrain, shadows, atmosphere and post-processing source remain identical.
+
+Four native regression cases now cover both format metadata and celestial blend
+fail/pass examples. This is not a full Iris screenshot test or evidence that all
+visual defects are resolved. Generation guidance includes the lesson; no paid
+new generation was performed. The manual copy must remain labelled separately
+from unchanged AI output.
+
+Primary program reference checked23 October2026: [Iris gbuffers programs](https://shaders.properties/current/reference/programs/gbuffers/).
+
+Blend syntax reference: [Iris rendering directives](https://github.com/IrisShaders/docs/blob/main/src/content/docs/current/Reference/Shaders.Properties/rendering.mdx), checked23 October2026.
