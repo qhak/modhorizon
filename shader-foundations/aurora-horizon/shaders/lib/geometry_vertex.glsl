@@ -4,6 +4,10 @@ varying vec2 vLM;
 varying vec4 vColour;
 varying vec3 vPlayer;
 varying vec3 vNormal;
+#ifdef MH_TERRAIN
+attribute vec4 mc_Entity;
+varying float vTerrainMaterial;
+#endif
 void mhVertex() {
     gl_Position = ftransform();
     vUV = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
@@ -13,4 +17,7 @@ void mhVertex() {
     vPlayer = (gbufferModelViewInverse * view).xyz;
     vec3 vn = gl_NormalMatrix * gl_Normal;
     vNormal = mat3(gbufferModelViewInverse) * vn;
+#ifdef MH_TERRAIN
+    vTerrainMaterial = mc_Entity.x;
+#endif
 }

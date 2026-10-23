@@ -12,9 +12,9 @@ function collect(directory: string): { path: string; content: string }[] {
     return entry.isDirectory() ? collect(path) : [{ path: relative(sourceRoot, path).replaceAll("\\", "/"), content: readFileSync(path, "utf8").replaceAll("\r\n", "\n") }];
   });
 }
-const project = validateProject({ name: "AuroraHorizonCandidate02", files: collect(sourceRoot) }, "shader_pack", "iris", "1.21.11");
+const project = validateProject({ name: "AuroraHorizonCandidate03", files: collect(sourceRoot) }, "shader_pack", "iris", "1.21.11");
 const packaged = packageMinecraftPack(project, "shader_pack", "1.21.11");
-const output = resolve(process.argv[2] || "../outputs/AuroraHorizon-candidate-02.zip");
+const output = resolve(process.argv[2] || "../outputs/AuroraHorizon-candidate-03.zip");
 const bytes = Buffer.from(packaged.artifact);
 if (existsSync(output) && !readFileSync(output).equals(bytes))
   throw new Error(`A different candidate already exists at ${output}. Choose a new filename to preserve test history.`);

@@ -4,10 +4,13 @@ Usage: python scripts/shaders/probe_lighting.py shader-foundations/aurora-horizo
 Compiles the actual lighting include (and its common include), supplies identity
 matrices, deterministic normals/lightmap coordinates, and constant shadow maps.
 Renders one pixel per case on the native compatibility driver. Tests directional
-lighting, direct-light occlusion and retained blocklight. No visible windows,
+lighting, direct-light occlusion, retained blocklight, bounded material response,
+and terrain metal/stone highlights with shadow attenuation. Pins the five approved
+general/water lighting outputs to catch unintended baseline changes. No visible windows,
 Minecraft interaction, third-party modules or downloaded compiler are required.
 """
 import ctypes as C
+import math
 from pathlib import Path
 import sys
 
@@ -81,8 +84,14 @@ def probe(root):
             read_buffer(0x8CE0)
             texts = [(0x8B31, "#version 120\nvoid main(){gl_Position=gl_Vertex;}\n"),
                 (0x8B30, "#version 120\n" + expand(root / "lib/lighting.glsl", root) + "\n"
-                 "uniform vec3 probeNormal; uniform vec2 probeLm;\n"
+                 "uniform vec3 probeNormal; uniform vec2 probeLm; uniform int probeMode; uniform float probeMaterial;\n"
                  "void main(){vec3 c=lightSurface(vec3(0.3),probeNormal,vec3(0.0),probeLm,1.0,1.0);"
+                 "if(probeMode>0){vec2 r=terrainMaterialResponse(probeMaterial).xy;"
+                 "if(probeMode==1)c=vec3(r,0.0);"
+                 "if(probeMode==2)c=terrainHighlight(vec3(0.3),vec3(0,1,0),vec3(0,1,0),vec3(0,1,0),r.x,r.y);"
+                 "if(probeMode==3||probeMode==4){"
+                 "c=lightTerrainMaterial(vec3(0.3),vec3(0,1,0),vec3(0,1,0),vec3(0,-0.25,0),probeLm,1.0,probeMaterial);"
+                 "if(probeMode==4)c-=lightSurface(vec3(0.3)*(1.0-r.y*0.55),vec3(0,1,0),vec3(0,-0.25,0),probeLm,1.0,1.0);}}"
                  "gl_FragColor=vec4(c*0.25,1.0);}\n")]
             for kind, text in texts:
                 shader = create(kind)
@@ -123,11 +132,13 @@ def probe(root):
             for token in (0x0B71, 0x0BE2, 0x0B44, 0x0BD0):
                 disable(token)
 
-            def sample(normal, lightmap, shadow):
+            def sample(normal, lightmap, shadow, mode=0, material=1003):
                 pixel = (C.c_ubyte * 4)(shadow, shadow, shadow, 255)
                 tex_image(0x0DE1, 0, 0x8058, 1, 1, 0, 0x1908, 0x1401, pixel)
                 uniform3(loc("probeNormal"), *normal)
                 uniform2(loc("probeLm"), *lightmap)
+                uniform1i(loc("probeMode"), mode)
+                uniform1f(loc("probeMaterial"), material)
                 begin(0x0007)
                 for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
                     vertex(x, y)
@@ -153,7 +164,42 @@ def probe(root):
             assert cases["sun-facing lit"][1] > cases["reverse-facing lit"][1] + 0.05, "Directional illumination failed"
             assert cases["sun-facing lit"][1] > cases["sun-facing occluded"][1] + 0.05, "Shadow attenuation failed"
             assert cases["dark with blocklight"][1] > cases["dark without blocklight"][1] + 0.02, "Blocklight retention failed"
+            expected = {
+                "sun-facing lit": (.25098, .2445, .22314),
+                "reverse-facing lit": (.00594, .0075, .01002),
+                "sun-facing occluded": (.01098, .0141, .01914),
+                "dark without blocklight": (.001505, .001692, .001994),
+                "dark with blocklight": (.234005, .113292, .036869),
+            }
+            for name, rgb in expected.items():
+                assert max(abs(a-b) for a, b in zip(cases[name][0], rgb)) < .00001, "Approved baseline changed: " + name
             print("PASS: directional illumination, shadow attenuation, retained blocklight.")
+            print("PASS: all five approved water/general lighting baseline values unchanged.")
+            normal, full_sky = (0, 1, 0), (.03125, .96875)
+            for material in (0, 1003, 1004, 1005, 1006, 1007):
+                rgb, _ = sample(normal, full_sky, 255, 1, material)
+                roughness, metallic = rgb[0]*4, rgb[1]*4
+                assert all(math.isfinite(v) for v in rgb), "Nonfinite material response"
+                assert 0 < roughness <= 1 and 0 <= metallic <= 1, "Material response outside valid bounds"
+                print(f"  Material {material}: roughness={roughness:.5f}, metallic={metallic:.5f}")
+            stone = sample(normal, full_sky, 255, 2, 1003)
+            metal = sample(normal, full_sky, 255, 2, 1005)
+            assert all(math.isfinite(v) for v in (*stone[0], *metal[0])), "Nonfinite highlight"
+            assert metal[1] > stone[1] + .01, "Metal highlight did not exceed rough stone at fixed aligned view/light"
+            print(f"  Fixed-view highlight stone={stone[0]}, metal={metal[0]}")
+            highlight_lit = sample(normal, full_sky, 255, 4, 1005)
+            highlight_shadow = sample(normal, full_sky, 0, 4, 1005)
+            ambient = sample(normal, full_sky, 0, 3, 1005)
+            torch = sample(normal, (.96875, .03125), 0, 3, 1005)
+            no_torch = sample(normal, (.03125, .03125), 0, 3, 1005)
+            assert all(math.isfinite(v) for values in (highlight_lit, highlight_shadow, ambient, torch, no_torch) for v in values[0]), "Nonfinite terrain lighting"
+            assert highlight_lit[1] > .01, "Lit terrain highlight missing"
+            assert max(abs(v) for v in highlight_shadow[0]) < .00001, "Direct highlight persisted under full shadow"
+            assert ambient[1] > .001, "Ambient terrain illumination vanished in shadow"
+            assert torch[1] > no_torch[1] + .02, "Terrain blocklight vanished in shadow"
+            print(f"  Terrain highlight lit={highlight_lit[0]}, shadow={highlight_shadow[0]}")
+            print(f"  Shadowed terrain ambient={ambient[0]}, torch={torch[0]}")
+            print("PASS: finite material response, metal/stone distinction, shadowed direct-highlight removal, ambient/torch retention.")
             print("Synthetic math/driver test only; not Iris integration or visual fidelity.")
         finally:
             use(0)

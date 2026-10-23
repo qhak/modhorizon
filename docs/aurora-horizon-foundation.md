@@ -1,6 +1,6 @@
 # Aurora Horizon: original reference-inspired renderer
 
-Status: candidate 02, 23 October 2026. Experimental, not yet promoted into the
+Status: candidate 03, 23 October 2026. Experimental, not yet promoted into the
 ModHorizon AI generation path. The source is in `shader-foundations/aurora-horizon`.
 Target: Minecraft Java 1.21.11 with Iris 1.10.8. OptiFine is not supported by this
 candidate because its early background uses Iris's `begin` pass.
@@ -82,6 +82,8 @@ The foundation retains vanilla textures; PBR normal/roughness relief is omitted.
 | WATER_WAVES | .015, .030, .045, .060 | Reflective normal ripples |
 | BLOOM_STRENGTH | 0, .05, .10, .15 | Highlight glow |
 | EXPOSURE | .85, 1.0, 1.05, 1.15 | Final brightness |
+| SURFACE_RELIEF | 0, .035, .065, .09 | Bounded terrain colour-height normal approximation |
+| MATERIAL_HIGHLIGHTS | 0, .5, 1.0, 1.5 | Added terrain material highlights |
 
 After runtime promotion, provide the working source, this contract, observed
 acceptance evidence and known failure cases as context. The AI should explain
@@ -146,6 +148,37 @@ Two native regression tests ensure that an un-commented undefined format name
 fails while the documented metadata form passes. Run them with
 `python tests/test_shader_driver.py` on Windows. Original candidate 01 is preserved;
 candidate 02 needs a new Iris test before any visual-quality claim.
+
+### Candidate 03 terrain iteration
+
+The owner confirmed candidate 02 renders and praised its water, supplying a
+shoreline screenshot. That establishes acceptance of the pictured water look,
+not full scene/material preservation or reference fidelity. Candidate 03 keeps
+the water programs, scene-copy, background, composite and final source unchanged.
+The existing shared lightSurface function is unchanged, and the five deterministic
+lighting outputs remain identical. Reflected scenery can change as terrain gains
+new shading; this is not a claim of identical final pixels.
+
+Terrain IDs 1003–1007 select rough stone, wood, metal, soil and polished stone.
+The added GGX-style direct highlights use bounded category roughness/metal response,
+sky exposure and the original shadow visibility. Diffuse shading is adjusted for
+the perturbed normal without adding the original direct contribution twice.
+Shadow position/bias keeps the geometric normal. Highlights use the eye translation
+from gbufferModelViewInverse rather than assuming player-relative zero is the eye.
+Antipodal half-vectors are guarded to avoid NaNs.
+
+Near-camera surface gradients infer a small normal perturbation from texture
+brightness. Position/height derivatives are evaluated before cutout discard, their
+gradient is bounded, and the effect fades from 16–40 blocks. No neighbouring atlas
+sprite is sampled. This is colour-height inference, not true PBR normal/height maps,
+physical displacement or measured material data. Painted texture variation can
+produce false bumps; compare moving close views for shimmer. Material categories
+are manually curated and incomplete. The metal response is approximate and not a
+claim of strict energy conservation. Foliage gets no inferred relief.
+
+Native driver compilation/linking, original lighting behaviour, finite material
+parameters, metal/stone highlight separation and shadow gating are tested. The
+new in-game block appearance and performance still require owner comparison.
 
 ## Primary implementation references
 

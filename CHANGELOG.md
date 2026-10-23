@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.8.0 — 2026-10-23
+
+- Add candidate 03 terrain materials: category-based roughness/metal response, shadow-gated highlights and bounded near-camera texture-brightness normal detail. Expose two controls; keep the owner's accepted water and post-processing source intact.
+- Guard highlight view/half vectors and evaluate detail derivatives before cutout discard. Preserve geometric normals for shadow bias and keep the original shared lighting path unchanged.
+- Document that inferred relief/material categories are approximations, with true PBR maps, full category coverage and in-game visual/FPS acceptance still outstanding. Keep the experimental foundation outside live AI generation.
+
+Validation: 101 tests and TypeScript pass; all 22 native GLSL stages/11 programs compile/link without shims. Two native format regressions pass. Extended synthetic GPU probes verify finite material outputs, stronger metal/stone highlight separation, shadow gating and unchanged original lighting cases. Source hashes preserve the accepted water/post-processing programs. Candidate 03 packages separately for owner testing.
+
 ## v0.7.1 — 2026-10-23
 
 - Fix Aurora Horizon's RGBA16F declarations using Iris's documented block-comment metadata form. Preserve candidate 01 and package candidate 02 separately.

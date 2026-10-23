@@ -1,4 +1,4 @@
-# Aurora Horizon — candidate 02
+# Aurora Horizon — candidate 03
 
 Original ModHorizon shader foundation for Minecraft Java 1.21.11 / Iris 1.10.8.
 Visual target: the owner's golden forest/lake and sunset village/water references.
@@ -26,7 +26,7 @@ does not establish correct Iris uniforms, buffer ordering, materials or appearan
 
 ## Install and first test
 
-Select AuroraHorizon-candidate-02.zip in the isolated ModHorizon Shader Test
+Select AuroraHorizon-candidate-03.zip in the isolated ModHorizon Shader Test
 profile. Keep the older generated and repaired packs for comparison.
 
 1. First inspect a tree beside grass/stone at ground level, with the sun to one
@@ -66,3 +66,17 @@ need compilation and repeatable in-game tests before promotion.
 See the repository's docs/aurora-horizon-foundation.md for the buffer contract,
 primary sources, validation evidence and promotion gate. Do not describe this
 candidate as tested training ground truth until the acceptance record passes.
+
+## Candidate 03 terrain materials
+
+The owner's candidate-02 water look is retained. Water programs, sky, haze,
+composite and final stages are unchanged. Terrain now has material-dependent
+roughness/highlights (rough stone, timber, soil, metal and polished stone).
+Near-camera stone/wood/soil also get bounded brightness-derived normal detail.
+This is an approximation inferred from existing texture colour, not actual PBR
+normal/height maps, displaced geometry or guaranteed material accuracy. Detail
+fades over 16-40 blocks to limit shimmer. Foliage is not given inferred relief.
+
+Use SURFACE_RELIEF=0 to disable the inferred detail and MATERIAL_HIGHLIGHTS=0 to
+remove the added highlights. Compare cobblestone, planks, polished stone and an
+iron block at close range, in sun and shadow, then recheck the approved water.

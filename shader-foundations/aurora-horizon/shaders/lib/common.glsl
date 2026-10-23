@@ -7,6 +7,8 @@
 #define WATER_WAVES 0.045 // [0.015 0.030 0.045 0.060]
 #define BLOOM_STRENGTH 0.10 // [0.0 0.05 0.10 0.15]
 #define EXPOSURE 1.05 // [0.85 1.0 1.05 1.15]
+#define SURFACE_RELIEF 0.065 // [0.0 0.035 0.065 0.09]
+#define MATERIAL_HIGHLIGHTS 1.0 // [0.0 0.5 1.0 1.5]
 uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
