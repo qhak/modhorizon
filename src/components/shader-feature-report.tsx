@@ -9,8 +9,9 @@ export function ShaderFeatureReport({ project }: { project: Project }) {
   const incomplete = report.features.filter(feature => feature.status !== "implemented").length;
   return <details className="shader-feature-report" open>
     <summary>Shader feature plan{incomplete ? ` · ${incomplete} approximated or omitted` : ""}</summary>
-    <p className="shader-report-notice">Feature statuses are the model&apos;s report. Source citation problems appear below; compilation and appearance are not verified.</p>
+    <p className="shader-report-notice">Feature statuses describe the supplied source. Reference interpretations and unmet requests are model reports. Source citation problems appear below; compilation and appearance are not verified.</p>
     <p>{report.goal}</p>
+    {!!report.unfulfilledRequests?.length && <div className="shader-report-notice"><strong>Model-reported unmet requests</strong><ul>{report.unfulfilledRequests.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
     <details><summary>Reference interpretation and rendering plan</summary><p>{report.referenceSummary}</p><ol>{report.pipeline.map((step, index) => <li key={index}>{step}</li>)}</ol></details>
     <ul>{report.features.map(feature => <li key={feature.name}>
       <div><strong>{feature.name}</strong><span className={`shader-feature-status status-${feature.status}`}>{feature.status === "implemented" ? feature.warnings?.length ? "Claim needs review · untested" : "Implemented · untested" : feature.status === "approximation" ? "Approximation" : "Omitted"}</span></div>

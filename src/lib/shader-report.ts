@@ -16,6 +16,9 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
   let parsed;
   try { parsed = JSON.parse(manifest.content); } catch { throw new Error("shader-plan.json must contain valid JSON."); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid shader plan object.");
+  if (parsed.unfulfilledRequests !== undefined && (!Array.isArray(parsed.unfulfilledRequests) || parsed.unfulfilledRequests.length > 12))
+    throw new Error("Shader plan unmet requests must contain up to 12 text items.");
+  const unfulfilledRequests = parsed.unfulfilledRequests?.map((item: unknown) => text(item, "unmet request", 500));
   if (!Array.isArray(parsed.pipeline) || !parsed.pipeline.length || parsed.pipeline.length > 6) throw new Error("Shader plan needs 1-6 pipeline steps.");
   if (!Array.isArray(parsed.features) || !parsed.features.length || parsed.features.length > 12) throw new Error("Shader plan needs 1-12 feature entries.");
   const paths = new Set(files.map(file => file.path));
@@ -53,5 +56,5 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
     if (feature.kind === "reflections" && (!/\b(?:colortex\d+|gcolor)\b/.test(code) || !/\bdepthtex\d+\b/.test(code)))
       (feature.warnings ??= []).push("Scene reflections are reported implemented without the supported scene colour/depth dependencies; the claim is unsubstantiated.");
   }
-  return { goal: text(parsed.goal, "goal", 500), referenceSummary: text(parsed.referenceSummary, "reference summary", 900), pipeline: parsed.pipeline.map((step: unknown) => text(step, "pipeline step", 300)), features };
+  return { goal: text(parsed.goal, "goal", 500), referenceSummary: text(parsed.referenceSummary, "reference summary", 900), pipeline: parsed.pipeline.map((step: unknown) => text(step, "pipeline step", 300)), features, ...(unfulfilledRequests ? { unfulfilledRequests } : {}) };
 }

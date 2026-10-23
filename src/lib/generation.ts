@@ -4,6 +4,7 @@ import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { expertFor, selectArtifactSkills, usesBukkitApi } from "./artifact-experts";
 import { packageMinecraftPack, resourcePackFormat } from "./packager";
+import { recognizedShaderLook } from "./shader-adaptation";
 import { PLATFORMS, describeTarget, isPlatformId } from "./platforms";
 import type {
   AIProvider,
@@ -67,7 +68,11 @@ export async function generateArtifact(
         const features = generated.shaderReport!.features;
         project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Effects are not runtime-verified.`);
         for (const feature of features) for (const warning of feature.warnings || []) project.logs.push(`Feature report warning (${feature.name}): ${warning}`);
-        project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+        if (recognizedShaderLook(generated)) {
+          project.logs.push("Reference interpretation and eight allowed look controls validated. Assembled the pinned AuroraHorizon renderer; source paths and immutable rendering contracts checked.");
+          project.logs.push("Foundation evidence: candidate02 water view accepted by owner; candidate03 terrain is experimental. Base compiled offline on one driver. This adaptation has not been compiled or visually tested in Iris.");
+        }
+        project.logs.push("ZIP packaging succeeded. This output's GLSL compiler compatibility and GPU runtime behavior have not been checked.");
       }
       saveArtifact(project, packaged.artifact);
       return project;

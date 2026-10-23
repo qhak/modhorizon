@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.9.0 — 2026-10-23
+
+- New Iris 1.21.11 requests interpret reference images into eight bounded look controls, then assemble the pinned original AuroraHorizon candidate03 renderer. All four provider adapters use the same one-pass specification, capability context and evidence limits; no renderer rewrite or automatic retry is needed.
+- Recognize follow-ups by reconstructing and comparing every canonical source file. Preserve unknown/custom shader projects on the existing full-source edit path; reject invalid settings without changing prior work. Other targets/versions retain their current generator.
+- Display all model-reported unmet requests in the shader feature plan and README. Disclose accepted candidate02 water evidence, experimental candidate03 terrain and absent per-output Iris/GPU testing. Keep model prose out of executable source and derive renderer feature claims from pinned source.
+- Include compact context/schema/images in input estimates and count only returned model text in missing-usage output estimates. Add reproducible source snapshot syncing and document the integration as context/code reuse, not model training.
+
+Validation: 107 tests, TypeScript and Cloudflare build pass. Default/minimum/maximum/zero-effect assembled variants compile 88 native GLSL stages and link 44 programs with no failures on one NVIDIA driver. Mocked desktop/mobile checks cover actual image upload, quote/submission parity, new/follow-up flows, all 12 unmet items, no attachment persistence, no browser errors or overflow. No paid model calls or new in-game visual acceptance were performed.
+
 ## v0.8.0 — 2026-10-23
 
 - Add candidate 03 terrain materials: category-based roughness/metal response, shadow-gated highlights and bounded near-camera texture-brightness normal detail. Expose two controls; keep the owner's accepted water and post-processing source intact.

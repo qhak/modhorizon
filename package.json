@@ -1,6 +1,6 @@
 {
   "name": "modhorizon",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3215",
@@ -21,7 +21,8 @@
     "local:preview": "node scripts/local-preview.mjs",
     "check:local-builder": "tsx build-service/local/check.ts",
     "check:local-builder-http": "tsx build-service/local/check-http.ts",
-    "check:local-builder-deadline": "tsx build-service/local/check-deadline.ts"
+    "check:local-builder-deadline": "tsx build-service/local/check-deadline.ts",
+    "sync:shader-foundation": "tsx scripts/shaders/sync-foundation.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.12",

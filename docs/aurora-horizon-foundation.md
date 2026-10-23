@@ -1,7 +1,8 @@
 # Aurora Horizon: original reference-inspired renderer
 
-Status: candidate 03, 23 October 2026. Experimental, not yet promoted into the
-ModHorizon AI generation path. The source is in `shader-foundations/aurora-horizon`.
+Status: candidate 03, 23 October 2026. Experimental foundation available through
+bounded AI look adaptation from v0.9.0. This is not general runtime promotion or
+reference-fidelity acceptance. The source is in `shader-foundations/aurora-horizon`.
 Target: Minecraft Java 1.21.11 with Iris 1.10.8. OptiFine is not supported by this
 candidate because its early background uses Iris's `begin` pass.
 
@@ -16,7 +17,7 @@ successfully creating a ZIP or restoring a broken pipeline does not meet this.
 The source is original; neither a reference shader nor its assets were copied.
 This is a compact first foundation rather than a claim of reference-pack parity.
 
-Promotion requires the owner/runtime record to demonstrate:
+Full visual acceptance still requires the owner/runtime record to demonstrate:
 
 1. Recognisable cast shadows and clearly different sun-facing/shaded block faces.
 2. Visible nearby landscape shapes reflected at the shoreline; readable shallows.
@@ -85,15 +86,35 @@ The foundation retains vanilla textures; PBR normal/roughness relief is omitted.
 | SURFACE_RELIEF | 0, .035, .065, .09 | Bounded terrain colour-height normal approximation |
 | MATERIAL_HIGHLIGHTS | 0, .5, 1.0, 1.5 | Added terrain material highlights |
 
-After runtime promotion, provide the working source, this contract, observed
-acceptance evidence and known failure cases as context. The AI should explain
-reference observations, choose bounded look values, then make scoped source edits
-only when a requested effect requires them. Recompile and retest architecture
-changes. Do not replace this renderer with a tiny colour-filter scaffold, invent
-new uniforms/buffer properties, or silently omit a defining reference feature.
+From v0.9.0 new Iris 1.21.11 requests use a structured reference interpretation,
+eight numeric enum controls and a list of unmet requests. The server assembles
+the pinned 30-file candidate03 renderer, changing only the eight macro values.
+All four provider adapters receive capability/evidence context and actual images;
+the complete renderer is not repeatedly generated or sent as input. One model
+pass is used, with no automatic retry. This is context and code reuse, not
+model-weight training or a guarantee that an image can be reproduced.
 
-This is retrieval/context and code reuse, not model-weight training. The current
-release does not inject this unverified candidate into provider requests.
+Follow-ups use this path only when every file matches a canonical output of the
+versioned assembler. Unknown/modified files or markers retain the full-source
+legacy edit path. Other versions and OptiFine retain their existing generator.
+Invalid look responses fail clearly without overwriting the current project.
+Arbitrary palettes, new architecture/effects and true PBR maps are outside these
+controls; unmet requests are displayed in full in the source-derived feature
+report and README. Models are told to retain unchanged current settings.
+
+The snapshot is `src/lib/shader-foundation-data.json`; regenerate it using
+`npm run sync:shader-foundation` after deliberate source changes. Tests require
+exact parity with authored source. A new source revision requires a new
+foundation identifier/recognition policy, native checks and in-game testing.
+The Worker does not read source files from disk or run a native GPU compiler.
+Quotes use the same compact input/schema/images as requests. Missing-usage
+fallback counts the returned look JSON, not server-assembled source as AI output.
+
+Evidence remains limited: the owner accepted one candidate02 water view; the
+candidate03 material work is experimental. Default, minimum, maximum and zero
+bloom/relief/highlight assembled variants compiled offline (88 stages/44 links,
+zero failures on RTX 3070, NVIDIA 610.88). This is not exhaustive enumeration,
+Iris integration testing, live output compilation or reference-fidelity proof.
 
 ## Build and verification
 

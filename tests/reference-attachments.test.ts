@@ -7,6 +7,7 @@ import { creditsForUsage } from "../src/lib/models";
 import { ESTIMATED_IMAGE_INPUT_TOKENS, validateAttachments } from "../src/lib/reference-attachments";
 import { InputError, validateRequest } from "../src/lib/validation";
 import { shaderPackFixture } from "./fixtures/shader-pack";
+import { DEFAULT_LOOK } from "../src/lib/shader-adaptation";
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=";
 const image = { name: "sunset.png", type: "image/png", data: `data:image/png;base64,${png}` };
@@ -112,7 +113,7 @@ test("all provider adapters send actual image blocks and untrusted text context 
 test("missing usage falls back to an image-inclusive estimate", async t => {
   const previous = process.env.OPENAI_API_KEY;
   process.env.OPENAI_API_KEY = "fixture";
-  t.mock.method(globalThis, "fetch", async () => Response.json({ output_text: JSON.stringify(shaderPackFixture()) }));
+  t.mock.method(globalThis, "fetch", async () => Response.json({ output_text: JSON.stringify({ name: "Sunset", message: "Warm light", goal: "Sunset", referenceSummary: "Warm low sun", settings: DEFAULT_LOOK, unfulfilledRequests: [] }) }));
   try {
     const request = validateRequest({ ...base, attachments: [image] });
     const result = await createAIProvider("gpt-6-luna").generate(request);

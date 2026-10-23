@@ -15,6 +15,7 @@ export type ReasoningEffort = ReasoningLevel;
 export type GeneratedFile = { path: string; content: string };
 export type ReferenceAttachment = { name: string; type: string; data: string };
 export type ShaderReport = {
+  unfulfilledRequests?: string[];
   goal: string;
   referenceSummary: string;
   pipeline: string[];

@@ -86,7 +86,7 @@ test("provider shader structure errors explain missing rendering coverage withou
     ] }), usage: { input_tokens: 120, output_tokens: 240 } });
   };
   try {
-    const project = await generateArtifact({ prompt: "Create a warm Iris shader pack.", artifactType: "shader_pack", target: "iris", version: "1.21.11", modelId: "gpt-6-luna" }, createAIProvider("gpt-6-luna"));
+    const project = await generateArtifact({ prompt: "Create a warm OptiFine shader pack.", artifactType: "shader_pack", target: "optifine", version: "1.21.11", modelId: "gpt-6-luna" }, createAIProvider("gpt-6-luna"));
     assert.equal(project.status, "failed");
     assert.equal(project.artifactAvailable, false);
     assert.match(project.error!, /Shader pack structure check failed:.*gbuffers_terrain/);
