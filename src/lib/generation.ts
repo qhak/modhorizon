@@ -49,7 +49,7 @@ export async function generateArtifact(
     project.name = generated.name;
     project.files = generated.files;
     project.message = generated.message;
-    if (artifactType === "resource_pack" || artifactType === "shader_pack") {
+    if (expertFor(artifactType).buildMode === "zip") {
       const packaged = packageMinecraftPack(generated, artifactType, request.version);
       project.files = packaged.files;
       project.status = "success";
@@ -61,6 +61,7 @@ export async function generateArtifact(
           : `Set pack metadata for Minecraft ${request.version} from the server's compatibility table.`);
       if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
       if (artifactType === "shader_pack") project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      if (artifactType === "datapack") project.logs.push("Set datapack metadata for the selected Minecraft release. File paths, JSON and function tags were checked; commands and gameplay have not been tested in Minecraft.");
       saveArtifact(project, packaged.artifact);
       return project;
     }

@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.4.0 — 2026-10-23
+
+- Connected datapacks across generation, the artifact catalog, saved projects and both workspaces. Added namespaced text-file/JSON/function-tag validation, version-aware directories and ZIP packaging with pinned metadata for 51 Java releases from 1.13 through 26.3.
+- Added installation guidance and a fixed hello-world datapack download that needs no AI provider, account or credits. Custom generation retains the existing provider, account and credit requirements.
+- Added 30 searchable, filterable prompt examples across plugins, mods, datapacks, resource packs and shaders. Example links preserve their intended version, type and prompt; the standalone preview preserves sample-download links.
+- Faded the hero video into the shared starfield to remove the solid horizontal transition, softened the closing video to 12% opacity and retained the original video files and real screenshots.
+
+Validation: all 74 automated tests, TypeScript, production Next.js, Cloudflare and standalone HTML builds passed. Local HTTP checks verified the five image cards, example library, catalog, primary pages/media and readable sample ZIPs for 1.13, 1.21.4, 1.21.11 and 26.3; pre-1.13 downloads return 400. Served CSS confirms the transparent hero fade and closing-video opacity. Browser layout review and Minecraft runtime testing were unavailable; no live AI generation or deployment performed. Local production server restarted on port 3215. Used the next unused minor version because the v0.3.x tags already exist.
+
 ## v0.2.4 — 2026-10-23
 
 - Replaced the homepage carousel with four visible creation cards, distinct category icons and real Minecraft screenshots sourced from Wikimedia Commons and Modrinth, with author and licence links. Existing hero and closing videos are unchanged; no generated artwork was added.

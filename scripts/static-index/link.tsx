@@ -5,6 +5,6 @@ import { staticHref } from "./hrefs";
 declare const WORKSPACE_URL: string;
 
 /** Stands in for next/link in the standalone page, where there is no Next router. */
-export default function Link({ href, ...props }: ComponentProps<"a"> & { href: string }) {
+export default function Link({ href, prefetch: _prefetch, ...props }: ComponentProps<"a"> & { href: string; prefetch?: boolean }) {
   return <a href={staticHref(href, WORKSPACE_URL)} {...props} />;
 }

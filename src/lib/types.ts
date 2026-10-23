@@ -6,7 +6,7 @@ import { MINECRAFT_RELEASES } from "./platform-versions";
 export const MINECRAFT_VERSIONS: readonly MinecraftVersion[] = MINECRAFT_RELEASES;
 /** A Minecraft release, or a proxy API version for proxy platforms. */
 export type MinecraftVersion = string;
-export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack";
+export type ArtifactType = "plugin" | "mod" | "resource_pack" | "shader_pack" | "datapack";
 /** Plugins and mods target a platform from platforms.ts; packs target a game runtime. */
 export type ArtifactTarget = PlatformId | "vanilla" | "iris" | "optifine";
 export type TokenUsage = { inputTokens: number; outputTokens: number };

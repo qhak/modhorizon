@@ -1,6 +1,7 @@
 import { MINECRAFT_VERSIONS, type ArtifactTarget, type ArtifactType, type MinecraftVersion, type Project } from "./types";
 import { InputError, validateProject } from "./validation";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
+import { dataPackFormat } from "./datapack-versions";
 
 export type LocalProfile = { displayName: string; credits: null; mode: "local" };
 export type ManagedProject = {
@@ -21,11 +22,12 @@ export function projectName(value: unknown) {
 export function validateCreation(value: unknown): CreateProject {
   const data = object(value);
   const kind = data.kind ?? "plugin";
-  if (typeof kind !== "string" || !Object.hasOwn(ARTIFACT_EXPERTS, kind)) throw new InputError("Choose plugin, mod, resource_pack, or shader_pack.");
+  if (typeof kind !== "string" || !Object.hasOwn(ARTIFACT_EXPERTS, kind)) throw new InputError("Choose plugin, mod, resource_pack, shader_pack, or datapack.");
   const expert = ARTIFACT_EXPERTS[kind as ArtifactType];
   const platform = data.platform ?? (expert.targets.length === 1 ? expert.targets[0] : undefined);
   if (typeof platform !== "string" || !expert.targets.includes(platform as ArtifactTarget)) throw new InputError(`Choose a target for this ${expert.label.toLowerCase()}: ${expert.targets.join(", ")}.`);
   if (!MINECRAFT_VERSIONS.includes(data.version as MinecraftVersion)) throw new InputError("Choose a supported Minecraft version.");
+  if (kind === "datapack" && !dataPackFormat(String(data.version))) throw new InputError("Datapacks need Minecraft 1.13 or newer.");
   if (data.description !== undefined && (typeof data.description !== "string" || data.description.length > 4000)) throw new InputError("Description must be at most 4,000 characters.");
   return { name: projectName(data.name), kind: kind as ArtifactType, platform: platform as ArtifactTarget, version: data.version as MinecraftVersion, description: (data.description as string | undefined)?.trim() ?? "" };
 }

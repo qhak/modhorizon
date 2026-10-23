@@ -1,8 +1,14 @@
 # Generation and credit backend
 
-The create workspace currently supports plugin and mod generation. Shader packs,
-resource packs and datapacks are not connected to `/api/generate`; requests for
-those types are rejected rather than silently generating a plugin.
+The create workspace supports plugins, mods, resource packs, shader packs and
+datapacks through `/api/generate`. Plugins and mods require a compatible isolated
+build service for a JAR. Text-based resource/shader packs and datapacks are
+validated and packaged into ZIPs without a Java build service. All AI generation
+still requires a configured provider and the normal account/credit checks.
+
+Datapacks target vanilla Minecraft Java 1.13 onward, with server-owned pack
+metadata and version-correct directory checks. See [Datapacks](datapacks.md) for
+installation, validation limits and the free fixed sample download.
 
 ## Frontend integration
 

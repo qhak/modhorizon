@@ -6,7 +6,7 @@ import { ArrowRight, CalendarRange, Gamepad2, Layers } from "lucide-react";
 import { SITE_MEDIA } from "@/lib/site-media";
 import { VideoSlot } from "./media-slot";
 
-const WORDS = ["plugins", "mods", "shaders", "resource packs"] as const;
+const WORDS = ["plugins", "mods", "datapacks", "shaders", "resource packs"] as const;
 
 /** Types, holds, deletes and cycles through words; static under reduced motion. */
 function useTypewriter(words: readonly string[]) {
@@ -61,7 +61,7 @@ export function Hero({ stats }: { stats: { value: string; label: string; icon: k
               <span className="typed-word">{typed}</span>
               <span className="cursor" />
             </span>
-            <span className="sr-only">plugins, mods, shaders and resource packs</span>
+            <span className="sr-only">plugins, mods, datapacks, shaders and resource packs</span>
             <span className="hero-title-rest">from a prompt.</span>
           </h1>
 

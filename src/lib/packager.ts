@@ -1,5 +1,6 @@
 import { deflateRawSync } from "node:zlib";
 import type { ArtifactType, GeneratedProject, MinecraftVersion } from "./types";
+import { dataPackFormat } from "./datapack-versions";
 
 const MAX_ARCHIVE_BYTES = 5_000_000;
 const crcTable = new Uint32Array(256);
@@ -104,10 +105,15 @@ export function resourcePackFormat(version: MinecraftVersion): number | undefine
 }
 
 export function packageMinecraftPack(project: GeneratedProject, artifactType: ArtifactType, version: MinecraftVersion): { files: GeneratedProject["files"]; artifact: Uint8Array } {
-  if (artifactType !== "resource_pack" && artifactType !== "shader_pack")
-    throw new Error("ZIP packaging is only available for resource packs and shader packs.");
+  if (artifactType !== "resource_pack" && artifactType !== "shader_pack" && artifactType !== "datapack")
+    throw new Error("ZIP packaging is only available for resource packs, shader packs and datapacks.");
   let files = project.files;
-  const format = artifactType === "resource_pack" ? resourcePackFormat(version) : undefined;
+  const dataFormat = artifactType === "datapack" ? dataPackFormat(version) : undefined;
+  if (artifactType === "datapack" && !dataFormat)
+    throw new Error("Choose a supported datapack release: Minecraft 1.13 or newer.");
+  const format = dataFormat?.[0] ?? (artifactType === "resource_pack" ? resourcePackFormat(version) : undefined);
+  if (artifactType === "datapack" && !files.some((file) => file.path === "pack.mcmeta"))
+    throw new Error("Datapacks need a root pack.mcmeta file.");
   // Releases outside the table keep the pack_format the model wrote; validation already checked it is an integer.
   if (format !== undefined) {
     files = project.files.map((file) => {
@@ -115,9 +121,10 @@ export function packageMinecraftPack(project: GeneratedProject, artifactType: Ar
       const metadata = JSON.parse(file.content) as { pack: Record<string, unknown> };
       metadata.pack.pack_format = format;
       delete metadata.pack.supported_formats;
-      if (format >= 65) {
-        metadata.pack.min_format = [format, 0];
-        metadata.pack.max_format = [format, 0];
+      if (format >= (artifactType === "datapack" ? 82 : 65)) {
+        metadata.pack.min_format = [format, dataFormat?.[1] ?? 0];
+        metadata.pack.max_format = [format, dataFormat?.[1] ?? 0];
+        if (artifactType === "datapack") delete metadata.pack.pack_format;
       } else {
         delete metadata.pack.min_format;
         delete metadata.pack.max_format;

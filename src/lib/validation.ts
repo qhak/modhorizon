@@ -11,6 +11,7 @@ import {
 } from "./platforms";
 import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
+import { dataPackFormat } from "./datapack-versions";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -34,6 +35,8 @@ function allowedPath(path: string, kind: ArtifactType): boolean {
     return SOURCE_PATH.test(path) || RESOURCE_PATH.test(path) || path === "README.md";
   if (kind === "resource_pack")
     return path === "pack.mcmeta" || path === "README.md" || /^assets\/[a-z0-9_.-]+\/[A-Za-z0-9_./-]+\.(json|mcmeta|properties)$/.test(path);
+  if (kind === "datapack")
+    return path === "pack.mcmeta" || path === "README.md" || /^data\/[a-z0-9_.-]+\/(?:[a-z0-9_.-]+\/)*[a-z0-9_.-]+\.(json|mcfunction)$/.test(path);
   return path === "shaders.properties" || path === "README.md" || /^shaders\/[A-Za-z0-9_./-]+\.(vsh|fsh|glsl|properties)$/.test(path);
 }
 
@@ -206,6 +209,52 @@ function validateShaderPack(files: Files) {
     throw new InputError("Shader source needs an explicit GLSL #version directive.");
 }
 
+function validateDatapack(files: Files, version?: string) {
+  const metadata = files.find((file) => file.path === "pack.mcmeta");
+  if (!metadata) throw new InputError("Datapacks need a root pack.mcmeta file.");
+  const parsed = json(metadata.content, "pack.mcmeta") as { pack?: Record<string, unknown> } | null;
+  const pack = parsed?.pack;
+  const bound = (value: unknown) => (Number.isInteger(value) && Number(value) >= 0)
+    || (Array.isArray(value) && value.length >= 1 && value.length <= 2 && value.every(n => Number.isInteger(n) && n >= 0));
+  const hasDescription = typeof pack?.description === "string" || Boolean(pack?.description && typeof pack.description === "object");
+  const hasLegacyFormat = Number.isInteger(pack?.pack_format) && Number(pack?.pack_format) > 0;
+  const hasModernFormat = bound(pack?.min_format) && bound(pack?.max_format);
+  if (!hasDescription || !(hasLegacyFormat || hasModernFormat))
+    throw new InputError("Datapack pack.mcmeta needs a description and valid pack_format or min_format/max_format metadata.");
+  if (version && !dataPackFormat(version)) throw new InputError("Datapacks need a supported Minecraft release from 1.13 onward.");
+  const data = files.filter(file => file.path.startsWith("data/"));
+  if (!data.length) throw new InputError("Add at least one namespaced file under data/<namespace>/.");
+  const modern = version ? compareVersions(version, "1.21") >= 0 : undefined;
+  const renamed = ["function", "recipe", "advancement", "loot_table", "predicate", "item_modifier", "structure"];
+  const legacy = ["functions", "recipes", "advancements", "loot_tables", "predicates", "item_modifiers", "structures"];
+  for (const file of data) {
+    const parts = file.path.split("/");
+    const folder = parts[2];
+    const wrongFolders = modern ? legacy : renamed;
+    if (modern !== undefined && (wrongFolders.includes(folder) || folder === "tags" && (modern ? ["functions", "items", "blocks", "entity_types", "fluids", "game_events"] : ["function", "item", "block", "entity_type", "fluid", "game_event"]).includes(parts[3])))
+      throw new InputError(`${file.path} uses a directory name from a different Minecraft version. Use ${modern ? "singular" : "legacy plural"} datapack directories for ${version}.`);
+    if (file.path.endsWith(".mcfunction")) {
+      if (!["function", "functions"].includes(folder)) throw new InputError(".mcfunction files belong under data/<namespace>/function/ (functions/ before 1.21).");
+      if (file.content.split(/\r?\n/).some(line => line.trimStart().startsWith("/")))
+        throw new InputError(`${file.path}: commands inside .mcfunction files must not start with a slash.`);
+    } else {
+      const content = json(file.content, file.path);
+      if (folder === "tags" && ["function", "functions"].includes(parts[3])) {
+        const values = (content as { values?: unknown } | null)?.values;
+        if (!Array.isArray(values)) throw new InputError(`${file.path} needs a values array.`);
+        for (const entry of values) {
+          const id = typeof entry === "string" ? entry : entry && typeof entry === "object" ? entry.id : undefined;
+          if (typeof id !== "string" || !/^#?[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(id)) throw new InputError(`${file.path} contains an invalid function identifier.`);
+          if (id.startsWith("#")) continue;
+          const [namespace, path] = id.split(":");
+          if (data.some(file => file.path.startsWith(`data/${namespace}/`)) && !files.some(file => file.path === `data/${namespace}/${parts[3]}/${path}.mcfunction`) && !(typeof entry === "object" && entry.required === false))
+            throw new InputError(`${file.path} references a missing function: ${id}.`);
+        }
+      }
+    }
+  }
+}
+
 /** Keeps the model's note readable: text only, no control characters, bounded length. */
 function cleanMessage(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -247,6 +296,7 @@ export function validateProject(
 
   if (artifactType === "resource_pack") validateResourcePack(files);
   else if (artifactType === "shader_pack") validateShaderPack(files);
+  else if (artifactType === "datapack") validateDatapack(files, version);
   else {
     if (!isPlatformId(target)) throw new InputError("Choose a supported platform.");
     if (!files.some((file) => file.path.endsWith(".java")))
@@ -263,7 +313,7 @@ export function validateRequest(value: unknown): GenerateRequest {
   if (typeof data.prompt !== "string" || data.prompt.trim().length < 12 || data.prompt.length > 4000)
     throw new InputError("Describe what to create in 12–4,000 characters.");
   const artifactType = data.artifactType ?? (isPlatformId(data.platform) && PLATFORMS[data.platform].kind === "mod" ? "mod" : "plugin");
-  if (typeof artifactType !== "string" || !Object.hasOwn(ARTIFACT_EXPERTS, artifactType)) throw new InputError("Choose plugin, mod, resource_pack, or shader_pack.");
+  if (typeof artifactType !== "string" || !Object.hasOwn(ARTIFACT_EXPERTS, artifactType)) throw new InputError("Choose plugin, mod, resource_pack, shader_pack, or datapack.");
   const kind = artifactType as ArtifactType;
   const targets = targetsFor(kind);
   const target = data.target ?? data.platform ?? (kind === "plugin" ? DEFAULT_PLATFORM : targets.length === 1 ? targets[0] : undefined);
@@ -278,6 +328,8 @@ export function validateRequest(value: unknown): GenerateRequest {
   // pack.mcmeta arrived with resource packs in 1.6.1; older clients only read texture packs.
   else if (kind === "resource_pack" && compareVersions(data.version, "1.6.1") < 0)
     throw new InputError("Resource packs need Minecraft 1.6.1 or newer.");
+  else if (kind === "datapack" && !dataPackFormat(data.version))
+    throw new InputError("Datapacks need a supported Minecraft release from 1.13 onward.");
   const modelId = data.modelId ?? DEFAULT_MODEL_ID;
   if (typeof modelId !== "string" || !findModel(modelId)) throw new InputError("Choose a supported AI model.");
   const reasoning = reasoningFor(modelId);

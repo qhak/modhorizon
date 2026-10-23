@@ -1,8 +1,10 @@
 # ModHorizon
 
-Current release: **v0.2.4**. See [change notes](CHANGELOG.md) for version history.
+Current release: **v0.4.0**. See [change notes](CHANGELOG.md) for version history.
 
-A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
+A standalone Next.js application for creating Minecraft plugins, mods, resource packs, shader packs and datapacks. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
+
+The homepage includes 30 searchable example prompts. [Datapack support](docs/datapacks.md) covers Java 1.13 onward, with a fixed sample ZIP available without an AI key or credits.
 
 Batch 1 introduced the cinematic landing page at `/` and preserved the original prototype at `/workspace`. Accounts and credit rewards are presented as planned, with no client-side balance changes. See the [Batch 1 implementation record](docs/batch-1.md) for assets, validation and remaining scope.
 

@@ -26,7 +26,7 @@ import {
 import { SITE_MEDIA } from "@/lib/site-media";
 import { Hero } from "@/components/landing/hero";
 import { VideoSlot } from "@/components/landing/media-slot";
-import { UseCaseTabs } from "@/components/landing/use-case-tabs";
+import { ExampleLibrary } from "@/components/landing/example-library";
 import { VersionChecker } from "@/components/landing/version-checker";
 import { ContentGallery } from "@/components/landing/content-gallery";
 import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
@@ -102,7 +102,7 @@ export default function Landing() {
           <Logo />
           <nav aria-label="Primary">
             <a className="nav-link" href="#create">Explore</a>
-            <a className="nav-link" href="#features">How it works</a>
+            <a className="nav-link" href="#examples">Examples</a>
             <a className="nav-link" href="#versions">Compatibility</a>
             <Link className="nav-link" href="/pricing">Pricing</Link>
           </nav>
@@ -119,10 +119,11 @@ export default function Landing() {
         <section id="create" className="lp-section" data-reveal>
           <SectionHeading title="Make it your Minecraft." description="Choose a starting point. Bring your own idea." icon={Blocks} />
           <ContentGallery />
-          <details className="more-examples" id="examples">
-            <summary><Lightbulb size={18} aria-hidden="true" />Need an idea? Explore more prompts<Plus size={16} aria-hidden="true" /></summary>
-            <UseCaseTabs />
-          </details>
+        </section>
+
+        <section id="examples" className="lp-section" data-reveal>
+          <SectionHeading title="A little inspiration goes a long way." description="Find an idea, make it yours, and open it in the workspace." icon={Lightbulb} />
+          <ExampleLibrary />
         </section>
 
         <section id="features" className="lp-section" data-reveal>
@@ -255,7 +256,7 @@ export default function Landing() {
                   <span className="footer-separator">·</span>
                   <a className="footer-link" href="#faq">FAQ</a>
                   <span className="footer-separator">·</span>
-                  <a className="footer-link" href="/media/types/CREDITS.md">Image credits</a>
+                  <Link className="footer-link" href="/media/types/CREDITS.md" prefetch={false}>Image credits</Link>
                 </div>
               </div>
               <p className="footer-copyright">© {new Date().getFullYear()} ModHorizon · Not affiliated with Mojang Studios or Microsoft</p>

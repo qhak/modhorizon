@@ -52,14 +52,17 @@ const DEFAULT_ARTIFACT_OPTIONS: ArtifactOption[] = [
   { type: "mod", label: "Minecraft mod", targets: [{ id: "fabric", label: "Fabric" }, { id: "forge", label: "Minecraft Forge" }, { id: "neoforge", label: "NeoForge" }], output: "mod-jar-requires-mod-loader-build-service", limitations: [] },
   { type: "resource_pack", label: "Resource pack", targets: [{ id: "vanilla", label: "Vanilla resource pack" }], output: "installable-zip", limitations: [] },
   { type: "shader_pack", label: "Shader pack", targets: [{ id: "iris", label: "Iris" }, { id: "optifine", label: "OptiFine" }], output: "installable-zip", limitations: [] },
+  { type: "datapack", label: "Datapack", targets: [{ id: "vanilla", label: "Vanilla datapack" }], output: "installable-zip", limitations: ["Minecraft Java 1.13 or newer; test commands in game."] },
 ];
 const EXAMPLE_PROMPTS: Record<ArtifactType, string> = {
+  datapack: "Create a Minecraft Java datapack with a manual function that gives a player a small starter kit once, tracked by a scoreboard.",
   plugin: "Create a Paper plugin with a /spawn command that teleports players to world spawn.",
   mod: "Create a Fabric mod that adds a craftable copper lantern with a soft blue glow.",
   resource_pack: "Create a resource pack that renames the diamond sword to 'Nightfall Blade' in English and adds a short purple-themed pack description.",
   shader_pack: "Create a lightweight Iris shader pack with warm sunset colors, subtle water reflections, and a performance-friendly settings file.",
 };
 const ARTIFACT_LABELS: Record<ArtifactType, string> = {
+  datapack: "datapack",
   plugin: "server plugin", mod: "Minecraft mod", resource_pack: "resource pack", shader_pack: "shader pack",
 };
 
@@ -563,12 +566,12 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
         text:
           p.error ||
           (p.status === "success"
-            ? p.artifactType === "resource_pack" || p.artifactType === "shader_pack"
+            ? p.artifactType === "resource_pack" || p.artifactType === "shader_pack" || p.artifactType === "datapack"
               ? "Your pack ZIP is ready to download. Install it in Minecraft and verify the result in game."
               : p.artifactType === "mod"
                 ? `The ${p.target} build service returned a mod JAR. Test it on a matching client and server.`
                 : "The build service compiled this plugin. Download it and verify its behavior on a local Paper server."
-            : p.artifactType === "resource_pack" || p.artifactType === "shader_pack"
+            : p.artifactType === "resource_pack" || p.artifactType === "shader_pack" || p.artifactType === "datapack"
               ? "Source preview ready. The validated pack files will be packaged as a ZIP."
               : p.artifactType === "mod"
                 ? "Source preview ready. Connect a loader-capable isolated build service to compile a mod JAR."
@@ -657,7 +660,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
   const currentFile = project?.files.find((f) => f.path === selectedFile);
   const statusLabel =
     project?.status === "success"
-      ? project.artifactType === "resource_pack" || project.artifactType === "shader_pack" ? "Packaged and ready" : "Build passed"
+      ? project.artifactType === "resource_pack" || project.artifactType === "shader_pack" || project.artifactType === "datapack" ? "Packaged and ready" : "Build passed"
       : project?.status === "failed"
         ? "Build failed"
         : "Source preview";
@@ -1058,7 +1061,9 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                 <strong>{statusLabel}</strong>
                 <span>
                   {project.status === "success"
-                    ? project.artifactType === "resource_pack"
+                    ? project.artifactType === "datapack"
+                      ? "Packaged as a datapack ZIP. Test commands and gameplay in Minecraft."
+                      : project.artifactType === "resource_pack"
                       ? "Packaged as a resource-pack ZIP. Add textures separately if your prompt requires them."
                       : project.artifactType === "shader_pack"
                         ? "Packaged as a shader ZIP. GLSL and GPU behavior still need in-game testing."
@@ -1095,8 +1100,8 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                   </div>
                   <ol className="test-steps" aria-label="Plugin testing progress">
                     <li className={project.files.length ? "test-step-done" : "test-step-current"}><span>1</span><div><strong>Describe and generate</strong><small>{project.files.length ? "Source files are ready for review." : "Generation did not return source files. Review the conversation and try again."}</small></div>{project.files.length ? <Check size={15} /> : <span className="step-state">Review</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>{project.artifactType === "resource_pack" || project.artifactType === "shader_pack" ? "Package the files" : "Compile the project"}</strong><small>{project.artifactAvailable ? `An installable .${artifactExtension} file is ready.` : project.files.length ? project.status === "failed" ? "The build failed. Open Build to review the logs." : "Waiting for a compatible isolated build service." : "Available after source generation succeeds."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
-                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and test</strong><small>{project.artifactAvailable ? project.artifactType === "plugin" ? `Install the JAR on a Paper ${project.version} server you control.` : project.artifactType === "mod" ? `Install the JAR in the ${project.target} mods folder on the required client/server.` : project.artifactType === "resource_pack" ? "Import the ZIP using Minecraft’s Resource Packs screen." : `Install the ZIP through ${project.target} and check it in game.` : "Available after an installable artifact is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-done" : project.files.length ? "test-step-current" : "test-step-locked"}><span>2</span><div><strong>{project.artifactType === "resource_pack" || project.artifactType === "shader_pack" || project.artifactType === "datapack" ? "Package the files" : "Compile the project"}</strong><small>{project.artifactAvailable ? `An installable .${artifactExtension} file is ready.` : project.files.length ? project.status === "failed" ? "The build failed. Open Build to review the logs." : "Waiting for a compatible isolated build service." : "Available after source generation succeeds."}</small></div>{project.artifactAvailable ? <Check size={15} /> : <span className="step-state">{project.status === "failed" && project.files.length ? "Review" : "Waiting"}</span>}</li>
+                    <li className={project.artifactAvailable ? "test-step-current" : "test-step-locked"}><span>3</span><div><strong>Install and test</strong><small>{project.artifactAvailable ? project.artifactType === "plugin" ? `Install the JAR on a Paper ${project.version} server you control.` : project.artifactType === "mod" ? `Install the JAR in the ${project.target} mods folder on the required client/server.` : project.artifactType === "datapack" ? "Place the ZIP in world/datapacks and run /reload." : project.artifactType === "resource_pack" ? "Import the ZIP using Minecraft’s Resource Packs screen." : `Install the ZIP through ${project.target} and check it in game.` : "Available after an installable artifact is ready."}</small></div>{project.artifactAvailable ? <span className="step-state">Next</span> : <span className="step-state">Locked</span>}</li>
                   </ol>
                   {!project.artifactAvailable && (
                     <div className="test-blocker" role="status">
@@ -1135,12 +1140,16 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                     )}
                   </> : (
                     <div className="test-instructions">
-                      <h3>{project.artifactType === "mod" ? "Install the mod" : project.artifactType === "resource_pack" ? "Import the resource pack" : `Install with ${project.target}`}</h3>
+                      <h3>{project.artifactType === "mod" ? "Install the mod" : project.artifactType === "datapack" ? "Install the datapack" : project.artifactType === "resource_pack" ? "Import the resource pack" : `Install with ${project.target}`}</h3>
                       <ol>
                         {project.artifactType === "mod" ? <>
                           <li>Install Minecraft {project.version} with the matching {project.target} loader.</li>
                           <li>Copy the downloaded JAR into the instance’s <code>mods</code> folder. Install it on each side required by the generated mod.</li>
                           <li>Launch a disposable test world and review the game log if it fails to load.</li>
+                        </> : project.artifactType === "datapack" ? <>
+                          <li>Place the ZIP directly in your test world's <code>datapacks</code> folder without unpacking it.</li>
+                          <li>Run <code>/reload</code> and <code>/datapack list enabled</code> with commands enabled or operator permissions.</li>
+                          <li>Follow the generated README to trigger the functions and verify the behavior in game.</li>
                         </> : project.artifactType === "resource_pack" ? <>
                           <li>Open Options → Resource Packs → Open Pack Folder.</li>
                           <li>Copy the downloaded ZIP into that folder, return to Minecraft, and enable the pack.</li>

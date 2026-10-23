@@ -5,7 +5,7 @@ export class MockProvider implements AIProvider {
   name = "mock";
   async generate(request: GenerateRequest): Promise<GeneratedProject> {
     if (request.artifactType && request.artifactType !== "plugin")
-      throw new Error("The deterministic demo provider only supports its Paper plugin example. Configure a real AI provider for mods, resource packs, and shader packs.");
+      throw new Error("The deterministic demo provider only supports its Paper plugin example. Configure a real AI provider for mods, resource packs, shader packs and datapacks.");
     const normalized = request.prompt
       .toLowerCase()
       .replace(/[.!]/g, "")

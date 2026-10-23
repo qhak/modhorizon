@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ArtifactTarget, Project } from "@/lib/types";
+import { dataPackFormat } from "@/lib/datapack-versions";
 import {
   DEFAULT_PLATFORM,
   MINECRAFT_RELEASES,
@@ -186,7 +187,7 @@ const isCodeProject = (project: Project) => project.artifactType === "plugin" ||
 /** The loader for plugins and mods, or the kind of pack. */
 function projectTargetLabel(project: Project) {
   if (isPlatformId(project.target)) return PLATFORMS[project.target].label;
-  return project.artifactType === "shader_pack" ? "Shader pack" : "Texture pack";
+  return project.artifactType === "datapack" ? "Datapack" : project.artifactType === "shader_pack" ? "Shader pack" : "Resource pack";
 }
 
 type MenuOption = { value: string; label: string; detail?: string; meta?: string; icon?: ReactNode; muted?: boolean };
@@ -609,6 +610,18 @@ function ProviderLogo({ provider }: { provider: Exclude<ModelProvider, "demo"> }
 
 /** Install steps for resource and shader pack ZIPs. */
 function PackGuide({ project }: { project: Project }) {
+  if (project.artifactType === "datapack") return (
+    <div className="test-instructions">
+      <h3>Try your datapack in Minecraft Java {project.version}</h3>
+      <ol>
+        <li><strong>Use a test world.</strong> Open its folder from the world selection screen, or locate your server&apos;s world folder.</li>
+        <li><strong>Open the datapacks folder.</strong> Place the downloaded ZIP directly inside <code>world/datapacks/</code>, without unpacking it.</li>
+        <li><strong>Load the pack.</strong> With commands enabled or operator permission, run <code>/reload</code>, then <code>/datapack list enabled</code>.</li>
+        <li><strong>Try the mechanic.</strong> Follow README.md for function names and checks. If Minecraft reports an error, inspect the server log before using it in your main world.</li>
+      </ol>
+      <p>The ZIP is packaged and structurally checked. Commands and gameplay still need an in-game test.</p>
+    </div>
+  );
   const shader = project.artifactType === "shader_pack";
   const runtime = project.target === "optifine" ? "OptiFine" : "Iris";
   return (
@@ -991,6 +1004,7 @@ export default function Home() {
     }
     const type = CONTENT_TYPES.find((entry) => entry.id === sharedType);
     if (type) chooseContentType(type.id);
+    if (type && !CODE_TYPES.includes(type.id) && sharedVersion && MINECRAFT_RELEASES.includes(sharedVersion as (typeof MINECRAFT_RELEASES)[number])) setVersion(sharedVersion);
     if (shared || sharedPlatform || type) window.history.replaceState(null, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1130,6 +1144,7 @@ export default function Home() {
   function chooseContentType(next: ContentType) {
     if (next === "plugin" && PLATFORMS[platform].kind === "mod") choosePlatform("paper");
     else if (next === "mod" && PLATFORMS[platform].kind !== "mod") choosePlatform("fabric");
+    if (!CODE_TYPES.includes(next) && !MINECRAFT_RELEASES.includes(version as (typeof MINECRAFT_RELEASES)[number])) setVersion("1.21.4");
     setContentType(next);
   }
   const ideaKey: ContentType | "proxy" = contentType === "plugin" && PLATFORMS[platform].kind === "proxy" ? "proxy" : contentType;
@@ -1166,6 +1181,7 @@ export default function Home() {
   }
   function openProject(p: Project) {
     setProject(p);
+    setContentType(p.artifactType);
     if (isPlatformId(p.target)) setPlatform(p.target);
     setVersion(p.version);
     if (p.modelId && MODEL_OPTIONS.some((model) => model.id === p.modelId))
@@ -1917,7 +1933,7 @@ export default function Home() {
             <ol className="guide-steps">
               <li>
                 <strong>Describe it</strong>
-                <span>Pick a loader and a Minecraft version.</span>
+                <span>Pick a creation type and Minecraft version. Plugins and mods also need a loader.</span>
               </li>
               <li>
                 <strong>Read the source</strong>
@@ -1925,7 +1941,7 @@ export default function Home() {
               </li>
               <li>
                 <strong>Build and test</strong>
-                <span>Download the JAR and try it on a test server or world.</span>
+                <span>Download a pack ZIP, or build a plugin/mod JAR with a connected build service. Try it in a test world.</span>
               </li>
             </ol>
             <Button
@@ -1940,6 +1956,8 @@ export default function Home() {
               Try the zombie speed example
               <ArrowRight size={15} />
             </Button>
+            <a className="docs-link" href="/#examples">Browse example prompts <ArrowRight size={13} /></a>
+            <a className="docs-link" href={`/api/examples/datapack?version=${dataPackFormat(version) ? version : "1.21.4"}`} download>Download a sample datapack <ArrowDownToLine size={13} /></a>
             <a
               className="docs-link"
               href={PLATFORMS[platform].setupUrl}
