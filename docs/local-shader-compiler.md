@@ -69,3 +69,12 @@ actual credits and fixed-camera in-game comparisons separately. Do not label a
 manually fixed output as an unchanged AI success or equate compilation with
 matching the reference. No paid end-to-end repair or new visual acceptance has
 yet been performed for this release.
+
+## v0.11.1 source limits
+
+The same validator now admits up to60 shader files and80,000 characters per file,
+within150 KB total source. New shader selections default toHigh reasoning when
+supported; explicit choices and the optional repair credit limit remain under
+user control. These defaults can increase reservations/cost or elapsed time; the
+quote uses the actual selected effort. The compiler service must be restarted
+with local preview to load changed validation limits.

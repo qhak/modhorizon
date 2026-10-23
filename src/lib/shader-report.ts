@@ -19,7 +19,7 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
   if (parsed.unfulfilledRequests !== undefined && (!Array.isArray(parsed.unfulfilledRequests) || parsed.unfulfilledRequests.length > 12))
     throw new Error("Shader plan unmet requests must contain up to 12 text items.");
   const unfulfilledRequests = parsed.unfulfilledRequests?.map((item: unknown) => text(item, "unmet request", 500));
-  if (!Array.isArray(parsed.pipeline) || !parsed.pipeline.length || parsed.pipeline.length > 6) throw new Error("Shader plan needs 1-6 pipeline steps.");
+  if (!Array.isArray(parsed.pipeline) || !parsed.pipeline.length || parsed.pipeline.length > 16) throw new Error("Shader plan needs 1-16 pipeline steps.");
   if (!Array.isArray(parsed.features) || !parsed.features.length || parsed.features.length > 12) throw new Error("Shader plan needs 1-12 feature entries.");
   const paths = new Set(files.map(file => file.path));
   const seen = new Set<string>();
@@ -47,7 +47,7 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
     if (item.status === "omitted" && item.files.length)
       warnings.push("The model marked this feature omitted but also cited source; the report is inconsistent.");
     return { name, kind: item.kind, priority: Number(item.priority), status: item.status,
-      technique: text(item.technique, "technique", 500), files: sourceFiles, limitations: text(item.limitations, "limitations", 600, item.status === "implemented"), ...(warnings.length ? { warnings } : {}) } as ShaderReport["features"][number];
+      technique: text(item.technique, "technique", 2000), files: sourceFiles, limitations: text(item.limitations, "limitations", 2000, item.status === "implemented"), ...(warnings.length ? { warnings } : {}) } as ShaderReport["features"][number];
   });
   const code = files.filter(file => /\.(vsh|fsh|glsl)$/.test(file.path)).map(file => stripShaderComments(file.content)).join("\n");
   for (const feature of features.filter(feature => feature.status === "implemented")) {
@@ -56,5 +56,5 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
     if (feature.kind === "reflections" && (!/\b(?:colortex\d+|gcolor)\b/.test(code) || !/\bdepthtex\d+\b/.test(code)))
       (feature.warnings ??= []).push("Scene reflections are reported implemented without the supported scene colour/depth dependencies; the claim is unsubstantiated.");
   }
-  return { goal: text(parsed.goal, "goal", 500), referenceSummary: text(parsed.referenceSummary, "reference summary", 900), pipeline: parsed.pipeline.map((step: unknown) => text(step, "pipeline step", 300)), features, ...(unfulfilledRequests ? { unfulfilledRequests } : {}) };
+  return { goal: text(parsed.goal, "goal", 2000), referenceSummary: text(parsed.referenceSummary, "reference summary", 4000), pipeline: parsed.pipeline.map((step: unknown) => text(step, "pipeline step", 2000)), features, ...(unfulfilledRequests ? { unfulfilledRequests } : {}) };
 }

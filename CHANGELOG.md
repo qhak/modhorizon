@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.11.1 - 2026-10-23
+
+- Raise shader pipeline descriptions from 300 to 2,000 characters each and allow up to 16 steps. Expand goal, reference-summary, technique and limitation text so detailed planning does not hit the former small caps.
+- Default new shader selections and requests with omitted effort to High reasoning, respecting explicit effort choices and leaving other artifact defaults alone. Actual quotes/reservations use the selected level; no artificial waiting or minimum code length is added.
+- Allow 60 shader files instead of 30 and 80,000 characters per shader file instead of 40,000. Retain the 150 KB total source, 32,000 output-token and request-size bounds.
+- Remove the context instruction to apply only one or two visual layers first; encourage complete interacting effects, source/interface audits and appropriate implementation depth. High reasoning receives up to four relevant engineering modules; examples remain optional and bounded.
+
+Validation: Cloudflare build, TypeScript and mocked desktop/mobile controls pass; 129 automated tests cover long plans, source/count/total boundaries and explicit reasoning overrides. No paid generation or new visual acceptance was run. More reasoning and implementation room do not guarantee reference fidelity.
+
 ## v0.11.0 — 2026-10-23
 
 - Check generated shader stages and links with a private Windows raw-driver service during configured local preview, before ZIP packaging. Failed checks retain source and diagnostics with failed status and no installable ZIP.

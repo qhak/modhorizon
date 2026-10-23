@@ -9,7 +9,7 @@ import {
   isPlatformId,
   type PlatformId,
 } from "./platforms";
-import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
+import { DEFAULT_MODEL_ID, findModel, reasoningFor, defaultReasoningForArtifact, REASONING_EFFORTS } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 import { validateAttachments } from "./reference-attachments";
 import { readShaderReport, stripShaderComments } from "./shader-report";
@@ -265,8 +265,10 @@ export function validateProject(
   const project = value as Record<string, unknown>;
   if (typeof project.name !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(project.name))
     throw new InputError("Project names must use 1–48 letters, numbers, underscores, or hyphens and start with a letter.");
-  if (!Array.isArray(project.files) || project.files.length === 0 || project.files.length > MAX_FILE_COUNT)
-    throw new InputError(`A project must contain 1–${MAX_FILE_COUNT} source files.`);
+  const maxFileCount = artifactType === "shader_pack" ? 60 : MAX_FILE_COUNT;
+  const maxFileChars = artifactType === "shader_pack" ? 80_000 : MAX_FILE_CHARS;
+  if (!Array.isArray(project.files) || project.files.length === 0 || project.files.length > maxFileCount)
+    throw new InputError(`A project must contain 1–${maxFileCount} source files.`);
   const code = artifactType === "plugin" || artifactType === "mod";
   const seen = new Set<string>();
   let bytes = 0;
@@ -279,8 +281,8 @@ export function validateProject(
         : `Unsupported ${artifactType.replace("_", " ")} file path. ${ARTIFACT_EXPERTS[artifactType].sourcePaths}`);
     if (seen.has(path.toLowerCase())) throw new InputError("Duplicate source file path.");
     seen.add(path.toLowerCase());
-    if (typeof content !== "string" || content.includes("\0") || content.length > MAX_FILE_CHARS)
-      throw new InputError(`Source files must be text and no larger than ${MAX_FILE_CHARS.toLocaleString()} characters.`);
+    if (typeof content !== "string" || content.includes("\0") || content.length > maxFileChars)
+      throw new InputError(`Source files must be text and no larger than ${maxFileChars.toLocaleString()} characters.`);
     bytes += new TextEncoder().encode(content).length;
     if (bytes > MAX_SOURCE_BYTES) throw new InputError("Generated project exceeds the 150 KB source limit.");
     return { path, content };
@@ -334,7 +336,7 @@ export function validateRequest(value: unknown): GenerateRequest {
   const modelId = data.modelId ?? DEFAULT_MODEL_ID;
   if (typeof modelId !== "string" || !findModel(modelId)) throw new InputError("Choose a supported AI model.");
   const reasoning = reasoningFor(modelId);
-  const reasoningEffort = data.reasoningEffort ?? reasoning?.default ?? DEFAULT_REASONING_EFFORT;
+  const reasoningEffort = data.reasoningEffort ?? defaultReasoningForArtifact(modelId, kind);
   if (typeof reasoningEffort !== "string" || !REASONING_EFFORTS.includes(reasoningEffort as ReasoningEffort))
     throw new InputError("Choose a supported reasoning level.");
   if (reasoning && !reasoning.levels.includes(reasoningEffort as ReasoningEffort))

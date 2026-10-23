@@ -81,6 +81,7 @@ import {
   MODEL_OPTIONS,
   REASONING_LABELS,
   reasoningFor,
+  defaultReasoningForArtifact,
   estimateCreditsForModel,
   type ModelOption,
   type ModelProvider,
@@ -1033,7 +1034,7 @@ export default function Home() {
 
   useEffect(() => {
     const options = reasoningFor(selectedModel);
-    if (options) setReasoning(options.default);
+    if (options) setReasoning(defaultReasoningForArtifact(selectedModel, project?.artifactType ?? contentType));
   }, [selectedModel]);
 
   useEffect(() => {
@@ -1187,6 +1188,7 @@ export default function Home() {
     });
   }
   function chooseContentType(next: ContentType) {
+    setReasoning(defaultReasoningForArtifact(selectedModel, next));
     if (next === "plugin" && PLATFORMS[platform].kind === "mod") choosePlatform("paper");
     else if (next === "mod" && PLATFORMS[platform].kind !== "mod") choosePlatform("fabric");
     setContentType(next);

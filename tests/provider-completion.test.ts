@@ -57,7 +57,7 @@ test("empty, malformed JSON and valid JSON with bad source produce different saf
     payload = { status: "completed", output_text: text + "x".repeat(400_001) };
     await assert.rejects(provider.generate(request), /Service response exceeds the size limit/);
     const tooLarge = shaderPackFixture();
-    tooLarge.files.push({ path: "shaders/lib/large.glsl", content: "x".repeat(40_001) });
+    tooLarge.files.push({ path: "shaders/lib/large.glsl", content: "x".repeat(80_001) });
     payload = { status: "completed", output_text: JSON.stringify(tooLarge) };
     await assert.rejects(provider.generate(request), /Shader pack structure check failed: Source files must be text/);
   } finally { restore(); }

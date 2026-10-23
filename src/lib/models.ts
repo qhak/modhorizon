@@ -243,3 +243,9 @@ export function reasoningFor(modelId: string): { levels: ReasoningLevel[]; defau
     default: MODEL_DEFAULT[model.id] ?? PROVIDER_DEFAULT[model.provider],
   };
 }
+
+/** Prefer deliberate source generation for shaders without overriding an explicit choice. */
+export function defaultReasoningForArtifact(modelId: string, artifactType?: string): ReasoningLevel {
+  const options = reasoningFor(modelId);
+  return artifactType === "shader_pack" && options?.levels.includes("high") ? "high" : options?.default ?? DEFAULT_REASONING_EFFORT;
+}

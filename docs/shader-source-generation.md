@@ -1,5 +1,21 @@
 # Full shader-source generation
 
+## More implementation room - v0.11.1
+
+Pipeline steps may contain up to 2,000 characters (previously 300), with 1-16
+steps. Goal/technique/limitations allow 2,000 characters and reference summaries
+4,000. Shader projects may use 60 files, each up to 80,000 characters, within
+the existing 150 KB total source boundary. Other artifacts retain their limits.
+
+New shader selections and API requests without an explicit effort use High
+reasoning when supported. Users may choose another level; quoting/reservations
+reflect it. High effort routes up to four relevant engineering modules. The
+model is encouraged to implement the full requested combination and audit its
+interfaces, rather than stopping after one or two visual layers. No code padding,
+forced delay, new provider passes or preset substitution is introduced. The
+32,000 output-token ceiling is unchanged and includes reasoning where applicable.
+The earlier 30-file descriptions below are historical.
+
 ## Local compiler and optional repair - v0.11.0
 
 Configured Windows local preview checks source with a native driver before
