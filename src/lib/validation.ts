@@ -13,6 +13,7 @@ import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, RE
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 import { validateAttachments } from "./reference-attachments";
 import { readShaderReport, stripShaderComments } from "./shader-report";
+import { maskShaderComments, normalizeShaderMatrices } from "./shader-normalization";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -225,8 +226,12 @@ function validateShaderPack(files: Files) {
   }
   for (const file of files.filter((file) => /\.(vsh|fsh|glsl)$/.test(file.path))) {
     const code = stripShaderComments(file.content);
-    if (/\b(?:uniform|attribute|varying)\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+gl_\w+/.test(code))
-      throw new InputError(`${file.path} redeclares a reserved gl_ input; use the compatibility built-in without declaring it.`);
+    const masked = maskShaderComments(file.content);
+    const reserved = /\b(?:uniform|attribute|varying)\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+(gl_\w+)/.exec(masked);
+    if (reserved) {
+      const line = masked.slice(0, reserved.index).split("\n").length;
+      throw new InputError(`${file.path}:${line} redeclares reserved gl_ input ${reserved[1]}. Use an available compatibility built-in without declaring it, or rename a custom input and supply it through the target's supported interface.`);
+    }
     if (/^\s*#\s*(?:if|elif)\b[^\n]*(?:\b\d+\.\d*|\.\d+)\b/m.test(code))
       throw new InputError(`${file.path} uses a floating-point preprocessor condition. #if/#elif require integer expressions; use shader arithmetic for float settings.`);
     for (const match of code.matchAll(/^\s*#include\s+"([^"]+)"/gm)) {
@@ -264,7 +269,7 @@ export function validateProject(
   const code = artifactType === "plugin" || artifactType === "mod";
   const seen = new Set<string>();
   let bytes = 0;
-  const files = project.files.map((file: unknown) => {
+  let files = project.files.map((file: unknown) => {
     if (!file || typeof file !== "object") throw new InputError("Invalid source file.");
     const { path, content } = file as Record<string, unknown>;
     if (typeof path !== "string" || path.length > 200 || path.includes("..") || path.startsWith("/") || path.includes("\\") || !allowedPath(path, artifactType))
@@ -280,6 +285,12 @@ export function validateProject(
     return { path, content };
   });
 
+  const repairs: string[] = [];
+  if (artifactType === "shader_pack" && !options.allowIncompleteShader) {
+    const normalized = normalizeShaderMatrices(files);
+    files = normalized.files;
+    repairs.push(...normalized.repairs);
+  }
   if (artifactType === "resource_pack") validateResourcePack(files);
   else if (artifactType === "shader_pack") {
     if (!options.allowIncompleteShader) validateShaderPack(files);
@@ -290,7 +301,10 @@ export function validateProject(
       throw new InputError(`A ${PLATFORMS[target].label} project needs Java source.`);
     validateDescriptor(files, target, version ?? PLATFORMS[target].versions[0]);
   }
-  const message = cleanMessage(project.message);
+  const originalMessage = cleanMessage(project.message);
+  const message = repairs.length
+    ? cleanMessage(`Automatic compatibility cleanup: ${repairs.length} redundant built-in matrix declaration(s) removed. GLSL compilation and appearance remain unverified.\n\n${originalMessage || ""}`)
+    : originalMessage;
   return { name: project.name, files, ...(message ? { message } : {}),
     ...(artifactType === "shader_pack" && !options.allowIncompleteShader ? { shaderReport: readShaderReport(files) } : {}) };
 }

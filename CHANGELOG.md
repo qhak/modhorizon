@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.6.1 — 2026-10-23
+
+- Automatically remove standalone, correctly typed redundant built-in matrix uniform declarations in GLSL 110/120 stages before shader validation. Preserve uses and line numbers and disclose the cleanup in the response; no additional model call.
+- Keep core/modern profiles, shared includes, mismatched types, unknown reserved names and complex declarations unchanged. Remaining reserved-input failures now identify the variable and source line.
+- Strengthen generation guidance with a concrete built-in declaration example. This is a narrow compatibility cleanup, not GLSL compilation or a guarantee of visual quality.
+
+Validation: all 98 tests and TypeScript checks passed, including single-call packaging after cleanup, idempotence, source preservation and unsupported-case rejection. Cloudflare build and live smoke checked before release. The user's rejected source was not retained, so its exact variable could not be recovered; another generation is needed for the real acceptance test.
+
 ## v0.6.0 — 2026-10-23
 
 - Shader generation now uses focused sky, lighting/shadow, water/reflection and atmosphere modules, plus reference interpretation and follow-up preservation guidance.

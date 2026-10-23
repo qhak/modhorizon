@@ -5,6 +5,7 @@ import { estimateProviderInputTokens } from "../src/lib/ai-provider";
 import { generateArtifact } from "../src/lib/generation";
 import { selectShaderModules, shaderGenerationContext } from "../src/lib/shader-context";
 import { readShaderReport } from "../src/lib/shader-report";
+import { normalizeShaderMatrices } from "../src/lib/shader-normalization";
 import { validateProject, validateRequest } from "../src/lib/validation";
 import { shaderPackFixture } from "./fixtures/shader-pack";
 
@@ -78,8 +79,58 @@ test("honest approximations and omissions remain visible in one-call generation"
 test("known GLSL hazards are rejected without banning legitimate built-in expressions", () => {
   const fixture = shaderPackFixture();
   const inject = (extra: string) => ({ ...fixture, files: fixture.files.map(file => file.path === "shaders/gbuffers_terrain.vsh" ? { ...file, content: file.content + extra } : file) });
-  assert.throws(() => validate(inject("\nuniform mat4 gl_ModelViewMatrix;")), /reserved gl_/);
+  assert.throws(() => validate(inject("\nuniform mat4 gl_UnknownMatrix;")), /reserved gl_ input gl_UnknownMatrix/);
   assert.throws(() => validate(inject("\n#if HAZE_STRENGTH > 0.0\n#endif")), /floating-point/);
   assert.doesNotThrow(() => validate(inject("\n// uniform mat4 gl_ModelViewMatrix;\n#if SHADOWS == 1\n#endif")));
   assert.doesNotThrow(() => validate(inject("\nvec4 position() { return gl_ModelViewMatrix * gl_Vertex; }")));
+});
+
+test("legacy built-in matrix cleanup preserves uses, comments, line numbers and one-call packaging", async () => {
+  const fixture = shaderPackFixture();
+  const source = `#version 120
+// uniform mat4 gl_UnknownMatrix;
+uniform mat4 gl_ModelViewMatrix; // redundant
+uniform mat3 gl_NormalMatrix;
+uniform mat4 gl_TextureMatrix[gl_MaxTextureCoords];
+void main() { gl_Position = gl_ModelViewMatrix * gl_Vertex; }
+`;
+  fixture.files = fixture.files.map(file => file.path === "shaders/gbuffers_terrain.vsh" ? { ...file, content: source } : file);
+  const cleaned = validate(fixture);
+  const output = cleaned.files.find(file => file.path === "shaders/gbuffers_terrain.vsh")!.content;
+  assert.match(output, /gl_Position = gl_ModelViewMatrix \* gl_Vertex/);
+  assert.match(output, /\/\/ redundant/);
+  assert.match(output, /\/\/ uniform mat4 gl_UnknownMatrix;/);
+  assert.doesNotMatch(output, /^uniform/m);
+  assert.equal(output.split("\n").length, source.split("\n").length);
+  assert.equal(fixture.files.find(file => file.path === "shaders/gbuffers_terrain.vsh")!.content, source);
+  assert.match(cleaned.message!, /3 redundant/);
+  assert.deepEqual(validate(cleaned), cleaned);
+  let calls = 0;
+  const project = await generateArtifact(request, { name: "Fixture", async generate() { calls++; return fixture; } });
+  assert.equal(calls, 1);
+  assert.equal(project.status, "success");
+  assert.equal(project.artifactAvailable, true);
+  assert.match(project.message!, /Automatic compatibility cleanup/);
+});
+
+test("cleanup leaves unsupported declarations and profiles for explicit rejection", () => {
+  const bodies = [
+    "#version 330 core\nuniform mat4 gl_ModelViewMatrix;",
+    "#version 150 compatibility\nuniform mat4 gl_ModelViewMatrix;",
+    "#version 120\nuniform mat3 gl_ModelViewMatrix;",
+    "#version 120\nuniform mat4 gl_UnknownMatrix;",
+    "#version 120\nuniform mat4 gl_ModelViewMatrix, customMatrix;",
+    "#version 120\nuniform mat4 gl_ModelViewMatrix = mat4(1.0);",
+    "#version 120\n#define gl_ModelViewMatrix myMatrix\nuniform mat4 gl_ModelViewMatrix;",
+    "#version 120\n/* uniform mat4 gl_ModelViewMatrix; */\nvoid main() {}",
+  ];
+  for (const content of bodies) {
+    const files = [{ path: "shaders/composite.fsh", content }];
+    assert.deepEqual(normalizeShaderMatrices(files), { files, repairs: [] });
+  }
+  const include = [{ path: "shaders/shared.glsl", content: "uniform mat4 gl_ModelViewMatrix;" }];
+  assert.deepEqual(normalizeShaderMatrices(include), { files: include, repairs: [] });
+  const fixture = shaderPackFixture();
+  fixture.files.push({ path: "shaders/shared.glsl", content: "/* first\nsecond */\nuniform mat4 gl_Unknown;" });
+  assert.throws(() => validate(fixture), /shaders\/shared.glsl:3.*gl_Unknown/);
 });
