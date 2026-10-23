@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.11.0 — 2026-10-23
+
+- Check generated shader stages and links with a private Windows raw-driver service during configured local preview, before ZIP packaging. Failed checks retain source and diagnostics with failed status and no installable ZIP.
+- Offer one optional compiler repair, off by default. Show the extra credit limit before submission and enforce the actual repair reservation against that limit before any paid call. Recompile once; no further repair, preset fallback or retry on compiler infrastructure failure.
+- Launch the loopback checker with an ephemeral server-only token, source validation, bounded requests/output, one active job and a separate compiler process with a deadline and no provider credentials. Public/production compilation remains disabled.
+- Display local compiler availability and explicit in-game testing limits. Hosted generation remains static-check-only. Native compilation is not evidence of realism, correct Iris bindings or acceptable FPS.
+
+Validation: 126 automated tests and TypeScript pass. The actual original Emberlake source fails with its missing functions/duplicate uniform/missing varying; the separate manual repair passes 20 stages and 10 links through the new service runner. Cloudflare build and mocked desktop/mobile controls pass; localhost reports the compiler configured and Luna available. No paid model call or new visual acceptance was performed.
+
 ## v0.10.1 â€” 2026-10-23
 
 - Increase shader output budgets from 16,000 to 32,000 tokens using one shared provider/credit-reservation ceiling. Other artifacts remain at 16,000. The displayed maximum hold grows for shaders; actual-usage settlement and failed-attempt refunds are unchanged.

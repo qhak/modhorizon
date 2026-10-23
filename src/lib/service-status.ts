@@ -1,3 +1,4 @@
+import { shaderCompilerConfigured } from "./shader-compiler";
 import { modelChoices, preferredModelId } from "./models";
 
 /** Public configuration flags only. Never return credentials or endpoint values. */
@@ -8,6 +9,7 @@ export function serviceStatus(env: NodeJS.ProcessEnv = process.env) {
   return {
     generationAvailable,
     artifactTypes: ["plugin", "mod", "resource_pack", "shader_pack"],
+    shaderCompilerConfigured: shaderCompilerConfigured(env),
     buildConfigured: Boolean(env.BUILD_SERVICE_URL && env.BUILD_SERVICE_TOKEN),
     choices,
     testingRestricted: env.AI_TESTING_MODE !== "false",

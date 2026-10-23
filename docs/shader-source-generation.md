@@ -1,4 +1,18 @@
-# Full shader-source generation — v0.10.0
+# Full shader-source generation
+
+## Local compiler and optional repair - v0.11.0
+
+Configured Windows local preview checks source with a native driver before
+packaging. A failed result retains source and errors, with no ZIP. One optional
+paid repair can be enabled with an extra credit limit; it is off by default.
+The real repair reservation must fit that limit and the current balance before
+calling the provider. A revised project is rechecked once. Compiler outages do
+not trigger model calls. Hosted production still uses static checks.
+See [setup, protocol and limitations](local-shader-compiler.md).
+
+The one-pass descriptions below describe initial source generation. There are
+still no automatic retries for provider JSON/structure failures. A successful
+native compile does not establish correct Iris rendering or reference fidelity.
 
 ## Completion handling update — v0.10.1
 

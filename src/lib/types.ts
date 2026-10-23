@@ -42,6 +42,8 @@ export type Project = {
   error?: string;
 };
 export type GenerateRequest = {
+  /** Explicit maximum reservation for a single optional shader repair; zero disables it. */
+  shaderRepairCredits?: number;
   /** Transient references for this model pass; never copied into stored projects. */
   attachments?: ReferenceAttachment[];
   prompt: string;

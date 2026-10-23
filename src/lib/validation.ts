@@ -339,11 +339,15 @@ export function validateRequest(value: unknown): GenerateRequest {
     throw new InputError("Choose a supported reasoning level.");
   if (reasoning && !reasoning.levels.includes(reasoningEffort as ReasoningEffort))
     throw new InputError("That reasoning level is not supported by the selected model.");
+  const shaderRepairCredits = data.shaderRepairCredits ?? 0;
+  if (!Number.isInteger(shaderRepairCredits) || (shaderRepairCredits as number) < 0 || (shaderRepairCredits as number) > 1000 || (kind !== "shader_pack" && shaderRepairCredits !== 0))
+    throw new InputError("Shader repair budget must be an integer from 0 to 1,000 credits, for shaders only.");
   let attachments: GenerateRequest["attachments"] = undefined;
   try { attachments = data.attachments === undefined ? undefined : validateAttachments(data.attachments); }
   catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid reference attachments."); }
   if (attachments?.length && modelId === "demo") throw new InputError("Reference attachments need a connected AI model; the local example cannot read them.");
   return {
+    shaderRepairCredits: shaderRepairCredits as number,
     ...(attachments?.length ? { attachments } : {}),
     reasoningEffort: reasoningEffort as ReasoningEffort,
     prompt: data.prompt.trim(),

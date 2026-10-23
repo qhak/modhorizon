@@ -919,6 +919,7 @@ export default function Home() {
   const [services, setServices] = useState<{
     generationAvailable: boolean;
     buildConfigured: boolean;
+    shaderCompilerConfigured?: boolean;
     message: string;
     choices: Record<string, boolean>;
     preferred: string;
@@ -946,6 +947,9 @@ export default function Home() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [readingAttachments, setReadingAttachments] = useState(false);
+  const [shaderRepairEnabled, setShaderRepairEnabled] = useState(false);
+  const [shaderRepairCredits, setShaderRepairCredits] = useState(10);
+  const isShaderRequest = (project?.artifactType ?? contentType) === "shader_pack";
   const [referenceQuote, setReferenceQuote] = useState<{ estimatedCredits: number; reservedCredits: number } | null>(null);
   const [referenceQuoteError, setReferenceQuoteError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -954,6 +958,7 @@ export default function Home() {
   const [showFiles, setShowFiles] = useState(true);
   // The exact same body is used for estimates and submission, including follow-up references.
   const generationBody = JSON.stringify({
+    shaderRepairCredits: isShaderRequest && services?.shaderCompilerConfigured && shaderRepairEnabled ? shaderRepairCredits : 0,
     prompt: prompt.trim(), artifactType: project?.artifactType ?? contentType,
     target: project?.target ?? PACK_TARGETS[contentType] ?? platform,
     version: project?.version ?? version, modelId: selectedModel,
@@ -964,7 +969,7 @@ export default function Home() {
   useEffect(() => {
     setReferenceQuote(null);
     setReferenceQuoteError("");
-    if (!attachments.length || !signedIn || prompt.trim().length < 12 || busy) return;
+    if ((!attachments.length && !isShaderRequest) || !signedIn || prompt.trim().length < 12 || busy) return;
     if (new TextEncoder().encode(generationBody).length > 200_000) {
       setReferenceQuoteError("This message and its references exceed 200 KB. Remove a file or use a smaller image.");
       return;
@@ -977,8 +982,17 @@ export default function Home() {
         .catch(error => { if (!controller.signal.aborted) setReferenceQuoteError(error instanceof Error ? error.message : "Credit estimate unavailable."); });
     }, 400);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [generationBody, attachments.length, signedIn, prompt, busy]);
-  const referenceEstimate = attachments.length > 0 ? <p className="reference-note" role="status">{referenceQuoteError || (referenceQuote ? `Estimated ${referenceQuote.estimatedCredits} credits; reserves ${referenceQuote.reservedCredits} for this pass. Unused reserved credits are returned.` : prompt.trim().length >= 12 && signedIn ? "Estimating credits including references…" : "Add your prompt and sign in to see a credit estimate including references.")}</p> : null;
+  }, [generationBody, attachments.length, isShaderRequest, signedIn, prompt, busy]);
+  const referenceEstimate = attachments.length > 0 || isShaderRequest ? <p className="reference-note" role="status">{referenceQuoteError || (referenceQuote ? `Estimated ${referenceQuote.estimatedCredits} credits; reserves ${referenceQuote.reservedCredits} for this pass. Unused reserved credits are returned.` : prompt.trim().length >= 12 && signedIn ? "Estimating credits including references…" : "Add your prompt and sign in to see a credit estimate including references.")}</p> : null;
+
+  const shaderCompilerOptions = isShaderRequest ? <div className="reference-note shader-compiler-options">
+    <p>{services?.shaderCompilerConfigured ? "Local GLSL compilation runs before download. In-game appearance still needs testing." : "Static shader checks only. A local compiler is not configured."}</p>
+    {services?.shaderCompilerConfigured && <>
+      <label><input type="checkbox" checked={shaderRepairEnabled} disabled={busy} onChange={event => setShaderRepairEnabled(event.target.checked)} /> Allow one paid compiler repair if needed</label>
+      {shaderRepairEnabled && <label> Extra credit limit: <input aria-label="Shader repair credit limit" type="number" style={{ width: "5rem" }} min="1" max="1000" value={shaderRepairCredits} disabled={busy} onChange={event => setShaderRepairCredits(Math.max(1, Math.min(1000, Number(event.target.value) || 1)))} /></label>}
+      <p>{shaderRepairEnabled ? `One optional repair may reserve up to ${shaderRepairCredits} extra credits. It is skipped if its required hold exceeds this limit or your balance; unused credits are returned.` : "No paid repair will run unless you enable it."}</p>
+    </>}
+  </div> : null;
 
   useEffect(() => {
     // Retire saved accent palettes so returning workspaces use the graphite identity.
@@ -1481,6 +1495,7 @@ export default function Home() {
               >
                 <ReferenceList files={attachments} busy={busy} onRemove={id => setAttachments(current => current.filter(file => file.id !== id))} />
                 {referenceEstimate}
+                {shaderCompilerOptions}
                 <textarea
                   ref={input}
                   aria-label={`Describe your Minecraft ${contentLabel.toLowerCase()}`}
@@ -1723,6 +1738,7 @@ export default function Home() {
                 )}
                 <ReferenceList files={attachments} busy={busy} onRemove={id => setAttachments(current => current.filter(file => file.id !== id))} />
                 {referenceEstimate}
+                {shaderCompilerOptions}
                 <textarea
                   onKeyDown={(event) => {
                     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void generate(); }

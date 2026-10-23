@@ -1,6 +1,6 @@
 # ModHorizon
 
-Current release: **v0.10.1**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
+Current release: **v0.11.0**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
 
 ## Configured local testing
 
@@ -14,6 +14,13 @@ and keeps the testing model restriction enabled. Open
 If no other provider configuration is present, only the fixed demo model will be
 available. `/api/status` reports model availability without revealing credentials.
 Do not commit `.dev.vars`, local account databases or credit grants.
+
+On Windows, this launcher also starts a private raw GLSL compiler when the bundled
+Python is present. Set `SHADER_COMPILER_PYTHON` to an absolute Python executable
+path if needed. Shader ZIPs then require a compiler pass. One optional paid repair
+is **off by default** and has an explicit extra credit limit in the create form.
+This checks native stages/links, not Iris integration or visual quality. See
+[local compiler behavior and limits](docs/local-shader-compiler.md).
 
 Release commits include their version, a change summary, validation and remaining
 limitations. Matching annotated tags and dated entries in CHANGELOG.md identify

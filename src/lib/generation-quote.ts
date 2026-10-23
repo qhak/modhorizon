@@ -29,5 +29,14 @@ export function quoteGeneration(account: QuoteAccount, request: GenerateRequest,
     affordable: account.credits >= reservedCredits,
     scope: "one_model_pass" as const,
     repairsIncluded: false,
+    optionalShaderRepairCredits: request.artifactType === "shader_pack" ? request.shaderRepairCredits || 0 : 0,
+    // Repair source and diagnostics are unknown until compilation; this is an explicit extra cap.
+    maximumAuthorizedCredits: reservedCredits + (request.artifactType === "shader_pack" ? request.shaderRepairCredits || 0 : 0),
   };
+}
+
+/** Enforced before reserving credits or issuing any repair provider request. */
+export function assertShaderRepairBudget(request: GenerateRequest, reserved: number, errors?: string[]) {
+  if (request.artifactType === "shader_pack" && errors?.length && reserved > (request.shaderRepairCredits || 0))
+    throw new BillingError(`Shader repair needs a reservation of ${reserved} credits, above your authorized ${request.shaderRepairCredits || 0}-credit repair budget. Source retained; no repair call made.`, 402);
 }
