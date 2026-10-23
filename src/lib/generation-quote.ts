@@ -16,7 +16,7 @@ export function quoteGeneration(account: QuoteAccount, request: GenerateRequest,
     throw new BillingError("Upgrade to a paid plan to use this model. Economy models are available on Free.", 402);
   // Include repair diagnostics as well as source and instruction overhead in the hold.
   const inputTokens = estimateProviderInputTokens(request, errors);
-  const reservedCredits = reserveCreditsForGeneration(model.id, inputTokens, request.reasoningEffort);
+  const reservedCredits = reserveCreditsForGeneration(model.id, inputTokens, request.reasoningEffort, request.artifactType);
   const estimatedCredits = model.provider === "demo" ? 0 : estimateCreditsForModel(model.id, inputTokens, 5_000, request.reasoningEffort);
   if (reservedCredits === null || estimatedCredits === null)
     throw new BillingError("Credit estimate is unavailable for this model.");

@@ -1,5 +1,28 @@
 # Full shader-source generation — v0.10.0
 
+## Completion handling update — v0.10.1
+
+Shader requests now allow 32,000 output tokens; other artifact types retain 16,000.
+The same helper configures all provider requests and the maximum credit hold
+shown before generation. Actual-usage settlement and existing failed-pass refunds
+are unchanged. This budget includes provider reasoning where applicable; it is
+not a guarantee of a particular source length or model-supported effect.
+
+Explicit incomplete/length stops and refusals are checked before parsing, even
+when returned text happens to form valid JSON. OpenAI response text segments are
+joined in order, excluding reasoning/tool blocks. Empty text, malformed project
+JSON, response-envelope errors and source validation now have distinct messages.
+No automatic paid retry, truncation repair or preset fallback occurs. The outer
+provider response is bounded at 400,000 bytes; generated source still has the
+existing 30-file/150 KB limits. Raw provider bodies/source/images are not logged.
+
+The owner's first full-source test failed with a generic JSON error after about
+2.3 minutes. Its raw response was not retained, so truncation is a plausible cause,
+not an established diagnosis. Tests of completion handling do not prove that a
+new real generation will succeed. See [OpenAI structured-output edge cases](https://developers.openai.com/api/docs/guides/structured-outputs),
+[Claude stop reasons](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons)
+and [Gemini interaction status](https://ai.google.dev/api/interactions-api), checked 23 October 2026.
+
 ## Goal and scope
 
 Generate different shaders from instructions and reference images, including

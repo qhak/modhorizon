@@ -1,6 +1,6 @@
 import { serviceFetch } from "./service-fetch";
 import { MockProvider } from "./mock-provider";
-import { DEFAULT_REASONING_EFFORT, MAX_GENERATION_OUTPUT_TOKENS, findModel, modelChoices, providerReasoningEffort } from "./models";
+import { DEFAULT_REASONING_EFFORT, generationOutputTokenLimit, findModel, modelChoices, providerReasoningEffort } from "./models";
 import { InputError, validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { artifactSystemPrompt, selectArtifactSkills, usesBukkitApi } from "./artifact-experts";
@@ -210,22 +210,54 @@ export function normalizedUsage(value: unknown): TokenUsage | undefined {
 }
 
 function parseGeneratedProject(content: string | undefined, request: GenerateRequest, usage?: TokenUsage): GeneratedProject {
-  if (!content)
-    throw new Error("AI provider returned no project. Try a more specific request.");
+  if (typeof content !== "string" || !content.trim())
+    throw new Error("AI provider returned no project text. No automatic retry was made.");
+  let parsed: unknown;
+  try { parsed = JSON.parse(content); }
+  catch {
+    // Never expose JSON.parse messages: newer runtimes can include raw source text.
+    if (process.env.NODE_ENV !== "production") console.warn("[generation] Rejected provider JSON", { model: request.modelId, outputCharacters: content.length, outputTokenLimit: generationOutputTokenLimit(request.artifactType) });
+    throw new Error("AI provider returned malformed or incomplete project JSON without reporting a token-limit stop. No automatic retry was made; try fewer effects in one pass or a lower reasoning level.");
+  }
   try {
-    const parsed = JSON.parse(content);
     const project = validateProject(parsed, request.artifactType || "plugin", request.target || "paper", request.version);
     // Measure the actual provider text, including full source, when usage is missing.
     const outputTokens = usage?.outputTokens ?? Math.ceil(content.length / 3.5);
     const inputTokens = usage?.inputTokens ?? estimateProviderInputTokens(request);
     return { ...project, usage: { inputTokens, outputTokens } };
   } catch (error) {
-    if (request.artifactType === "shader_pack" && error instanceof InputError)
-      throw new Error(`Shader pack structure check failed: ${error.message}`);
-    throw new Error(
-      "AI provider returned invalid project JSON or unsupported source paths.",
-    );
+    if (error instanceof InputError) throw new Error(`${request.artifactType === "shader_pack" ? "Shader pack structure check failed" : "Generated project validation failed"}: ${error.message}`);
+    throw new Error("Generated project could not be validated because of an internal error. No automatic retry was made.");
   }
+}
+
+const MAX_PROVIDER_RESPONSE_BYTES = 400_000;
+async function providerJson(response: Response): Promise<unknown> {
+  try {
+    const data = await limitedJson(response, MAX_PROVIDER_RESPONSE_BYTES);
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("AI provider returned an unsupported response envelope.");
+    const objectArray = (value: unknown): Record<string, unknown>[] => {
+      if (!Array.isArray(value) || value.some(item => !item || typeof item !== "object" || Array.isArray(item)))
+        throw new Error("AI provider returned an unsupported response envelope.");
+      return value;
+    };
+    for (const key of ["output", "choices", "content", "steps"]) {
+      const value = (data as Record<string, unknown>)[key];
+      if (value !== undefined) for (const item of objectArray(value)) {
+        if (item.content !== undefined) objectArray(item.content);
+      }
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error("AI provider returned an invalid JSON response envelope. No automatic retry was made.");
+    throw error;
+  }
+}
+function outputLimitError(request: GenerateRequest): Error {
+  return new Error(`AI provider reached the ${generationOutputTokenLimit(request.artifactType).toLocaleString("en-US")}-token output budget before completing the project. Try fewer effects in this pass or a lower reasoning level. No automatic retry was made.`);
+}
+function refusalError(): Error {
+  return new Error("AI provider declined or filtered this request; no complete project was generated. No automatic retry was made.");
 }
 
 class OpenAIProvider implements AIProvider {
@@ -261,7 +293,7 @@ class OpenAIProvider implements AIProvider {
         legacyCompatible
           ? {
               model: this.modelId,
-              max_tokens: MAX_GENERATION_OUTPUT_TOKENS,
+              max_tokens: generationOutputTokenLimit(request.artifactType),
               reasoning_effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai"),
               response_format: { type: "json_object" },
               messages: [
@@ -271,7 +303,7 @@ class OpenAIProvider implements AIProvider {
             }
           : {
               model: this.modelId,
-              max_output_tokens: MAX_GENERATION_OUTPUT_TOKENS,
+              max_output_tokens: generationOutputTokenLimit(request.artifactType),
               store: false,
               reasoning: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai") },
               input: [
@@ -294,17 +326,30 @@ class OpenAIProvider implements AIProvider {
       throw new Error(
         `OpenAI request failed (HTTP ${response.status}). Check provider access and configuration.`,
       );
-    const data = (await limitedJson(response, 250_000)) as {
+    const data = (await providerJson(response)) as {
+      status?: string;
+      incomplete_details?: { reason?: string };
       output_text?: string;
       output?: { type?: string; content?: { type?: string; text?: string }[] }[];
-      choices?: { message?: { content?: string } }[];
+      choices?: { finish_reason?: string; message?: { content?: string; refusal?: string } }[];
       usage?: Record<string, unknown>;
     };
+    if (legacyCompatible) {
+      const choice = data.choices?.[0];
+      if (choice?.finish_reason === "length") throw outputLimitError(request);
+      if (choice?.finish_reason === "content_filter" || choice?.message?.refusal) throw refusalError();
+      if (choice?.finish_reason && choice.finish_reason !== "stop") throw new Error("AI provider stopped before returning a complete project. No automatic retry was made.");
+    } else {
+      if (data.status === "incomplete" && data.incomplete_details?.reason === "max_output_tokens") throw outputLimitError(request);
+      if (data.incomplete_details?.reason === "content_filter" || data.output?.some(item => item.content?.some(part => part.type === "refusal"))) throw refusalError();
+      if (data.status && data.status !== "completed") throw new Error("AI provider did not complete project generation. No automatic retry was made.");
+    }
     const content = legacyCompatible
       ? data.choices?.[0]?.message?.content
       : data.output_text || data.output
-          ?.flatMap((item) => item.content || [])
-          .find((part) => part.type === "output_text")?.text;
+          ?.filter(item => item.type === "message" || item.type === undefined)
+          .flatMap((item) => item.content || [])
+          .filter((part) => part.type === "output_text").map(part => part.text || "").join("");
     return parseGeneratedProject(content, request, normalizedUsage(data.usage));
   }
 }
@@ -335,7 +380,7 @@ class AnthropicProvider implements AIProvider {
       },
       body: JSON.stringify({
         model: this.modelId,
-        max_tokens: MAX_GENERATION_OUTPUT_TOKENS,
+        max_tokens: generationOutputTokenLimit(request.artifactType),
         thinking: { type: "adaptive" },
         output_config: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "anthropic") },
         system: systemPrompt(request),
@@ -346,10 +391,14 @@ class AnthropicProvider implements AIProvider {
       throw new Error(
         `Anthropic request failed (HTTP ${response.status}). Check provider access and configuration.`,
       );
-    const data = (await limitedJson(response, 250_000)) as {
+    const data = (await providerJson(response)) as {
+      stop_reason?: string;
       content?: { type?: string; text?: string }[];
       usage?: Record<string, unknown>;
     };
+    if (data.stop_reason === "max_tokens") throw outputLimitError(request);
+    if (data.stop_reason === "refusal") throw refusalError();
+    if (data.stop_reason && !["end_turn", "stop_sequence"].includes(data.stop_reason)) throw new Error("Anthropic generation stopped before completing the project. No automatic retry was made.");
     const content = data.content
       ?.filter((part) => part.type === "text")
       .map((part) => part.text || "")
@@ -392,7 +441,7 @@ class GeminiProvider implements AIProvider {
           schema: PROJECT_SCHEMA,
         },
         generation_config: {
-          max_output_tokens: MAX_GENERATION_OUTPUT_TOKENS,
+          max_output_tokens: generationOutputTokenLimit(request.artifactType),
           thinking_level: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "google"),
         },
         store: false,
@@ -402,14 +451,16 @@ class GeminiProvider implements AIProvider {
       throw new Error(
         `Google Gemini request failed (HTTP ${response.status}). Check Google AI API access and configuration.`,
       );
-    const data = (await limitedJson(response, 250_000)) as {
+    const data = (await providerJson(response)) as {
       status?: string;
       steps?: { type?: string; content?: { type?: string; text?: string }[] }[];
       usage?: Record<string, unknown>;
       usageMetadata?: Record<string, unknown>;
     };
+    if (data.status === "incomplete")
+      throw new Error("Google Gemini returned an incomplete project, possibly because its output budget was reached. No automatic retry was made.");
     if (data.status && data.status !== "completed")
-      throw new Error(`Google Gemini generation ended with status: ${data.status}.`);
+      throw new Error("Google Gemini did not complete project generation. No automatic retry was made.");
     const content = data.steps
       ?.filter((step) => step.type === "model_output")
       .flatMap((step) => step.content || [])

@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.10.1 — 2026-10-23
+
+- Increase shader output budgets from 16,000 to 32,000 tokens using one shared provider/credit-reservation ceiling. Other artifacts remain at 16,000. The displayed maximum hold grows for shaders; actual-usage settlement and failed-attempt refunds are unchanged.
+- Handle explicit incomplete, length-limit and refusal/filter results before project parsing. Join OpenAI response text segments in order rather than parsing only the first segment; keep reasoning/tool blocks out of project JSON.
+- Distinguish empty text, malformed project JSON, unsupported response envelopes, source-check failures and internal validation errors. Avoid raw source/body leakage in diagnostics; development warnings contain only model ID, character count and configured limit.
+- Raise the bounded provider-envelope limit to 400 KB in bytes while retaining the 30-file/150 KB source limits. Do not add hidden retries or recover incomplete code into a downloadable artifact.
+
+Validation: 121 tests and TypeScript pass, including all adapter output caps versus quotes/reservations, valid-looking truncated responses, split output, refusals, safe diagnostics and byte-size rejection. Cloudflare build passes. The owner's previous generic JSON failure ran about 2.3 minutes; its response was not retained, so its exact cause remains unconfirmed. No paid retry or new shader visual acceptance was performed.
+
 ## v0.10.0 — 2026-10-23
 
 - Restore complete GLSL project generation for all shader requests and historical foundation follow-ups. Remove automatic eight-control schema/input/parser routing and fixed-source substitution; old projects send their full current source and remain editable.

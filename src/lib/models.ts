@@ -143,6 +143,10 @@ export function findModel(id: string | undefined) {
 // is 80% before Stripe fees, hosting, taxes, and support.
 export const PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT = 5_000;
 export const MAX_GENERATION_OUTPUT_TOKENS = 16_000;
+export const MAX_SHADER_OUTPUT_TOKENS = 32_000;
+export function generationOutputTokenLimit(artifactType?: string) {
+  return artifactType === "shader_pack" ? MAX_SHADER_OUTPUT_TOKENS : MAX_GENERATION_OUTPUT_TOKENS;
+}
 
 export function creditsForUsage(modelId: string, inputTokens: number, outputTokens: number) {
   if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 || !Number.isSafeInteger(outputTokens) || outputTokens < 0)
@@ -155,8 +159,8 @@ export function creditsForUsage(modelId: string, inputTokens: number, outputToke
   return Math.max(1, Math.ceil(providerCostMicroUsd / PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT));
 }
 
-export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT) {
-  const base = creditsForUsage(modelId, estimatedInputTokens, MAX_GENERATION_OUTPUT_TOKENS);
+export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT, artifactType?: string) {
+  const base = creditsForUsage(modelId, estimatedInputTokens, generationOutputTokenLimit(artifactType));
   // Low effort is an estimate, not a provider output limit. Never discount the hold
   // below the configured output ceiling; settlement refunds unused credits.
   return base === null ? null : Math.ceil(base * Math.max(1, reasoningEstimateMultiplier(effort)));
