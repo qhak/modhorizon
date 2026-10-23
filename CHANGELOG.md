@@ -1,5 +1,12 @@
 # Change notes
 
+## v0.7.1 — 2026-10-23
+
+- Fix Aurora Horizon's RGBA16F declarations using Iris's documented block-comment metadata form. Preserve candidate 01 and package candidate 02 separately.
+- Remove automatic format-token definitions from the native GLSL checker; they masked the exact undefined-name error observed in Iris. Add two native-driver regression tests covering the failure and corrected form.
+
+Validation: strict native compilation/linking passes all 22 stages/11 programs without injected definitions; synthetic lighting still passes. All 100 TypeScript tests, TypeScript checks and candidate packaging pass. Candidate 02 still requires an actual Iris render test; the renderer remains outside live AI generation.
+
 ## v0.7.0 — 2026-10-23
 
 - Add Aurora Horizon candidate 01, an original experimental Iris 1.21.11 shader foundation with directional block lighting, filtered cast shadows, long-range screen-space water reflections, procedural sky/clouds, depth haze/contact shading and HDR highlight bloom.

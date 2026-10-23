@@ -12,7 +12,7 @@ test("the original foundation fits the live source contract and packages without
     return entry.isDirectory() ? collect(path) : [{ path: relative(root, path).replaceAll("\\", "/"), content: readFileSync(path, "utf8") }];
   });
   const files = collect(root);
-  const project = validateProject({ name: "AuroraHorizonCandidate01", files }, "shader_pack", "iris", "1.21.11");
+  const project = validateProject({ name: "AuroraHorizonCandidate02", files }, "shader_pack", "iris", "1.21.11");
   assert.deepEqual(project.files, files, "Validation must not repair or alter the authored foundation");
   assert.equal(project.message, undefined);
   assert.deepEqual(project.shaderReport!.features.flatMap(feature => feature.warnings || []), []);

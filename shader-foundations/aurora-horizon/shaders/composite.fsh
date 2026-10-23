@@ -6,9 +6,12 @@ uniform sampler2D colortex1;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 varying vec2 vUV;
+// Iris reads these directives from a block comment; RGBA16F is not a GLSL name.
+/*
 const int colortex0Format = RGBA16F;
 const int colortex1Format = RGBA16F;
 const int colortex4Format = RGBA16F;
+*/
 const bool colortex1Clear = true;
 const vec4 colortex1ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const float ambientOcclusionLevel = 1.0;

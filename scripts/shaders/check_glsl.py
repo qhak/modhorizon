@@ -5,8 +5,10 @@ Accepts either the pack directory or its shaders directory. Uses only Python's
 standard library, opens no visible window, and does not attach to Minecraft.
 This is raw compatibility-driver compilation, NOT Iris patcher, engine, buffer
 routing, or rendered-appearance verification. Iris includes are expanded with
-path/cycle guards. Explicit format-token preamble shims are reported; source is
-otherwise compiled unchanged. Requires Windows with a working OpenGL driver.
+path/cycle guards. No format-token definitions or other compatibility shims are
+injected: undefined names fail as they would in real GLSL. Iris-only metadata
+must be written in the source's documented block-comment form or explicitly
+defined by the pack itself. Requires Windows with a working OpenGL driver.
 """
 
 import ctypes as C
@@ -100,12 +102,6 @@ class HiddenContext:
 
 
 INCLUDE = re.compile(r'^\s*#\s*include\s+"([^"]+)"\s*(?://.*)?$')
-FORMATS = {"RGBA8": 0x8058, "RGBA16F": 0x881A, "RGBA32F": 0x8814,
-    "RGB8": 0x8051, "RGB16F": 0x881B, "RGB32F": 0x8815,
-    "RG8": 0x822B, "RG16F": 0x822F, "RG32F": 0x8230,
-    "R8": 0x8229, "R16F": 0x822D, "R32F": 0x822E}
-
-
 def expand(path, root, chain=()):
     path = path.resolve()
     if not path.is_relative_to(root):
@@ -124,21 +120,6 @@ def expand(path, root, chain=()):
         else:
             result.append(line)
     return "\n".join(result) + "\n"
-
-
-def source_with_shims(source, label):
-    # Iris parses these symbolic const-int format assignments independently.
-    needed = sorted(set(re.findall(r'\b\w+Format\s*=\s*([A-Z][A-Z0-9_]*)\s*;', source)))
-    shims = [name for name in needed if name in FORMATS and not
-        re.search(r'^\s*#\s*define\s+' + re.escape(name) + r'\b', source, re.M)]
-    if not shims:
-        return source
-    lines = source.splitlines(keepends=True)
-    version = next((i for i, line in enumerate(lines) if re.match(r'^\s*#\s*version\b', line)), None)
-    insertion = version + 1 if version is not None else 0
-    lines[insertion:insertion] = [f"#define {name} {FORMATS[name]}\n" for name in shims]
-    print(f"  Preamble shims {label}: {', '.join(shims)}")
-    return "".join(lines)
 
 
 def check(root):
@@ -182,7 +163,7 @@ def check(root):
             try:
                 for suffix, token in ((".vsh", 0x8B31), (".fsh", 0x8B30)):
                     path = stem.with_suffix(suffix)
-                    source = source_with_shims(expand(path, root), path.name).encode("utf-8")
+                    source = expand(path, root).encode("utf-8")
                     shader = create(token)
                     shaders.append(shader)
                     pointer, length = C.c_char_p(source), C.c_int(len(source))

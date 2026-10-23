@@ -1,6 +1,6 @@
 # Aurora Horizon: original reference-inspired renderer
 
-Status: candidate 01, 23 October 2026. Experimental, not yet promoted into the
+Status: candidate 02, 23 October 2026. Experimental, not yet promoted into the
 ModHorizon AI generation path. The source is in `shader-foundations/aurora-horizon`.
 Target: Minecraft Java 1.21.11 with Iris 1.10.8. OptiFine is not supported by this
 candidate because its early background uses Iris's `begin` pass.
@@ -40,7 +40,9 @@ AI outputs distinct. Do not call hand-authored repairs successful AI generations
 | composite | 0, 1, depthtex0/1 | colortex0 | Layer composition, contact occlusion, distance haze, screen-space shafts |
 | final | colortex0 HDR | display | Highlight bloom and a single exposure/filmic/gamma transform |
 
-Attachments 0, 1 and 4 use RGBA16F. Attachment 1 has an explicit GLSL transparent
+Attachments 0, 1 and 4 use RGBA16F. Format declarations are inside a block comment,
+as Iris reads this metadata from source and the symbolic name is not built into
+GLSL. Attachment 1 has an explicit GLSL transparent
 clear colour with all four components. Each fragment stage declares its outputs;
 `gl_FragData[0]` means the first selected attachment, not always attachment zero.
 Only composite-style passes rely on Iris ping-pong when reading/writing logical
@@ -105,7 +107,7 @@ The packager uses the application's real 30-file/150-KB validation and ZIP write
 It refuses to replace a different existing output candidate. The Python tools use
 only the standard library and an invisible WGL compatibility context; they do not
 control Minecraft or install anything. Compile/link tests use the actual GPU driver,
-with explicitly reported symbolic-format preamble shims. These tests establish GLSL
+without injected symbolic-format definitions or compatibility shims. These tests establish GLSL
 syntax/types/linking, not Iris integration or visual fidelity. The synthetic lighting
 probe is a controlled shader-function test, not an in-game screenshot.
 
@@ -120,8 +122,9 @@ fallback. Nether/End, entity overlays, rain and full transparency need game test
 - 30 files package through the live validator and ZIP writer, with no source
   normalisation and no report warnings; ZIP size 16,544 bytes.
 - Native RTX 3070 / NVIDIA 610.88 driver compiles 22 GLSL stages and links 11
-  programs without failures. The reported RGBA16F symbolic-format shim stands
-  in for Iris's parser define; no invalid GLSL is stripped from the source.
+  programs without failures only after the old checker injected an RGBA16F define.
+  The owner then hit undefined RGBA16F errors in Iris. That shim masked a real
+  integration error; the candidate-01 compile result was too permissive.
 - The offscreen lighting probe executes the actual shared lighting source.
   Sun-facing RGB is approximately (.251,.245,.223), reverse-facing
   (.00594,.00750,.01002), occluded (.01098,.01410,.01914). In a dark case,
@@ -133,6 +136,16 @@ fallback. Nether/End, entity overlays, rain and full transparency need game test
   packaged SHA256: 1CA3D84AADBED01C5C271C30098B312212408F9EC5FE4A43BF3D6DD32B6A1B0A.
 
 No actual Iris runtime or reference-quality pass is claimed by those checks.
+
+### Candidate 02 correction
+
+The format declarations now use the documented block-comment form, and the native
+checker no longer inserts any format definitions. The strict checker compiles all
+22 stages and links 11 programs, and the synthetic lighting probe still passes.
+Two native regression tests ensure that an un-commented undefined format name
+fails while the documented metadata form passes. Run them with
+`python tests/test_shader_driver.py` on Windows. Original candidate 01 is preserved;
+candidate 02 needs a new Iris test before any visual-quality claim.
 
 ## Primary implementation references
 

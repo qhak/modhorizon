@@ -1,9 +1,13 @@
-# Aurora Horizon — candidate 01
+# Aurora Horizon — candidate 02
 
 Original ModHorizon shader foundation for Minecraft Java 1.21.11 / Iris 1.10.8.
 Visual target: the owner's golden forest/lake and sunset village/water references.
 No code from the depicted shader packs was copied. This is an experimental
 candidate, not a verified equivalent to the reference images.
+
+Candidate 02 corrects the Iris format metadata syntax that prevented candidate 01
+from compiling. Format declarations are block-comment metadata; the driver checker
+now compiles the source without supplying missing format definitions.
 
 ## Implemented source
 
@@ -22,7 +26,7 @@ does not establish correct Iris uniforms, buffer ordering, materials or appearan
 
 ## Install and first test
 
-Select AuroraHorizon-candidate-01.zip in the isolated ModHorizon Shader Test
+Select AuroraHorizon-candidate-02.zip in the isolated ModHorizon Shader Test
 profile. Keep the older generated and repaired packs for comparison.
 
 1. First inspect a tree beside grass/stone at ground level, with the sun to one
