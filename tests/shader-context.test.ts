@@ -53,13 +53,38 @@ test("feature plans are required for output but old packs remain editable", () =
   assert.deepEqual(report.features[0].files, ["shaders/gbuffers_terrain.fsh", "shaders/gbuffers_clouds.fsh"]);
 });
 
-test("feature plans reject invalid states, missing source and fake shadow/reflection dependencies", () => {
+test("feature plans reject invalid schemas but flag unsupported claims without discarding shader source", () => {
   assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], status: "verified" }] }))), /valid kind/);
-  assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], files: ["shaders/missing.fsh"] }] }))), /missing or non-shader/);
-  assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], files: [] }] }))), /must cite source/);
-  assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], kind: "shadows" }] }))), /no shadow program/);
-  assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], kind: "reflections" }] }))), /scene colour\/depth/);
+  const warningsFor = (edit: Parameters<typeof changePlan>[0]) => validate(changePlan(edit)).shaderReport!.features[0].warnings!.join("\n");
+  assert.match(warningsFor(plan => ({ ...plan, features: [{ ...plan.features[0], files: ["shaders/missing.fsh"] }] })), /Unresolved source citation: shaders\/missing.fsh/);
+  assert.match(warningsFor(plan => ({ ...plan, features: [{ ...plan.features[0], files: [] }] })), /No executable shader source/);
+  assert.match(warningsFor(plan => ({ ...plan, features: [{ ...plan.features[0], kind: "shadows" }] })), /no conventional shadow program/);
+  assert.match(warningsFor(plan => ({ ...plan, features: [{ ...plan.features[0], kind: "reflections" }] })), /scene colour\/depth/);
   assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [...plan.features, plan.features[0]] }))), /unique/);
+});
+
+test("report source citations accept supporting properties and expose broken references without extra model calls", async () => {
+  const fixture = changePlan(plan => ({ ...plan, features: [{ ...plan.features[0],
+    files: ["shaders/gbuffers_terrain.fsh", "shaders/block.properties", "shaders/not-generated.fsh", "README.md"],
+  }] }));
+  fixture.files.push({ path: "shaders/block.properties", content: "block.100=minecraft:water" });
+  const clean = validate(fixture);
+  const feature = clean.shaderReport!.features[0];
+  assert.deepEqual(feature.files, ["shaders/gbuffers_terrain.fsh", "shaders/block.properties"]);
+  assert.equal(feature.warnings!.length, 2);
+  assert.match(feature.warnings!.join("\n"), /not-generated.fsh/);
+  assert.deepEqual(validate(clean), clean);
+  let calls = 0;
+  const project = await generateArtifact(request, { name: "Fixture", async generate() { calls++; return fixture; } });
+  assert.equal(calls, 1);
+  assert.equal(project.status, "success");
+  assert.equal(project.artifactAvailable, true);
+  assert.deepEqual(project.files.find(file => file.path === "shader-plan.json"), fixture.files.find(file => file.path === "shader-plan.json"));
+  assert.ok(project.logs.some(line => /Feature report warning.*not-generated.fsh/.test(line)));
+  // Citation tolerance never relaxes actual runtime source/include validation.
+  const broken = { ...fixture, files: fixture.files.map(file => file.path.endsWith("terrain.fsh")
+    ? { ...file, content: file.content + '\n#include "not-generated.glsl"' } : file) };
+  assert.throws(() => validate(broken), /includes a missing/);
 });
 
 test("honest approximations and omissions remain visible in one-call generation", async () => {

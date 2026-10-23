@@ -65,7 +65,8 @@ export async function generateArtifact(
       if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
       if (artifactType === "shader_pack") {
         const features = generated.shaderReport!.features;
-        project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Source links checked; effects are not runtime-verified.`);
+        project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Effects are not runtime-verified.`);
+        for (const feature of features) for (const warning of feature.warnings || []) project.logs.push(`Feature report warning (${feature.name}): ${warning}`);
         project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
       }
       saveArtifact(project, packaged.artifact);

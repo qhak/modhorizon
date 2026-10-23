@@ -18,7 +18,7 @@ export type ShaderReport = {
   goal: string;
   referenceSummary: string;
   pipeline: string[];
-  features: { name: string; kind: string; priority: number; status: "implemented" | "approximation" | "omitted"; technique: string; files: string[]; limitations: string }[];
+  features: { name: string; kind: string; priority: number; status: "implemented" | "approximation" | "omitted"; technique: string; files: string[]; limitations: string; warnings?: string[] }[];
 };
 export type Project = {
   shaderReport?: ShaderReport;

@@ -29,19 +29,29 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
     if (typeof item.kind !== "string" || !kinds.has(item.kind) || !["implemented", "approximation", "omitted"].includes(String(item.status))
       || !Number.isInteger(item.priority) || Number(item.priority) < 1 || Number(item.priority) > 3)
       throw new Error(`Shader plan feature ${name} needs a valid kind, priority (1-3) and status.`);
-    if (!Array.isArray(item.files) || item.files.length > 20 || item.files.some(path => typeof path !== "string" || !paths.has(path) || !/\.(vsh|fsh|glsl)$/.test(path)))
-      throw new Error(`Shader feature ${name} cites missing or non-shader source.`);
-    if ((item.status === "omitted") !== (item.files.length === 0))
-      throw new Error(`Shader feature ${name} must cite source when implemented/approximated and no files when omitted.`);
+    if (!Array.isArray(item.files) || item.files.length > 20 || item.files.some(path => typeof path !== "string" || path.length > 200))
+      throw new Error(`Shader feature ${name} needs up to 20 source path strings (200 characters each).`);
+    // A report citation is metadata, not a GLSL include. Do not discard usable
+    // source because the model named a nonexistent file or a supporting property file.
+    const warnings: string[] = [];
+    const sourceFiles = [...new Set(item.files as string[])].filter(path => {
+      if (paths.has(path) && /^shaders\/.*\.(vsh|fsh|glsl|properties)$/.test(path)) return true;
+      warnings.push(`Unresolved source citation: ${path}`);
+      return false;
+    });
+    if (item.status !== "omitted" && !sourceFiles.some(path => /\.(vsh|fsh|glsl)$/.test(path)))
+      warnings.push("No executable shader source is cited for this feature; its implementation claim is unsubstantiated.");
+    if (item.status === "omitted" && item.files.length)
+      warnings.push("The model marked this feature omitted but also cited source; the report is inconsistent.");
     return { name, kind: item.kind, priority: Number(item.priority), status: item.status,
-      technique: text(item.technique, "technique", 500), files: item.files as string[], limitations: text(item.limitations, "limitations", 600, item.status === "implemented") } as ShaderReport["features"][number];
+      technique: text(item.technique, "technique", 500), files: sourceFiles, limitations: text(item.limitations, "limitations", 600, item.status === "implemented"), ...(warnings.length ? { warnings } : {}) } as ShaderReport["features"][number];
   });
   const code = files.filter(file => /\.(vsh|fsh|glsl)$/.test(file.path)).map(file => stripShaderComments(file.content)).join("\n");
   for (const feature of features.filter(feature => feature.status === "implemented")) {
     if (feature.kind === "shadows" && !files.some(file => /(?:^|\/)shadow\.vsh$/.test(file.path)))
-      throw new Error("Cast shadows are reported implemented but no shadow program is supplied. Implement shadow mapping or report an approximation/omission.");
+      (feature.warnings ??= []).push("Cast shadows are reported implemented but no conventional shadow program is supplied; the claim is unsubstantiated.");
     if (feature.kind === "reflections" && (!/\b(?:colortex\d+|gcolor)\b/.test(code) || !/\bdepthtex\d+\b/.test(code)))
-      throw new Error("Scene reflections are reported implemented without scene colour/depth dependencies. Implement the supported reflection pipeline or report the sky/tint approximation honestly.");
+      (feature.warnings ??= []).push("Scene reflections are reported implemented without the supported scene colour/depth dependencies; the claim is unsubstantiated.");
   }
   return { goal: text(parsed.goal, "goal", 500), referenceSummary: text(parsed.referenceSummary, "reference summary", 900), pipeline: parsed.pipeline.map((step: unknown) => text(step, "pipeline step", 300)), features };
 }

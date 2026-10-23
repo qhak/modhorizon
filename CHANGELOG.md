@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.6.2 — 2026-10-23
+
+- Treat shader feature citations as report metadata: existing shaders/*.properties files are valid supporting citations, and missing/unsupported citations produce visible warnings instead of discarding the generated pack.
+- Display "Claim needs review · untested" for implemented claims with report warnings. Missing conventional shadow/reflection prerequisites also become report warnings; executable source/include/path checks remain blocking.
+- Preserve the original plan in source/ZIP and rederive warnings from files, including restored projects. No additional model request or automated paid retry.
+
+Validation: 99 tests, TypeScript, isolated desktop/mobile browser checks and Cloudflare build passed. Checked one-call packaging, supporting files, unresolved paths, warning visibility and unchanged rejection of missing executable includes. No paid generation or GPU test was performed.
+
 ## v0.6.1 — 2026-10-23
 
 - Automatically remove standalone, correctly typed redundant built-in matrix uniform declarations in GLSL 110/120 stages before shader validation. Preserve uses and line numbers and disclose the cleanup in the response; no additional model call.
