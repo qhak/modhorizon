@@ -1,5 +1,12 @@
 # Full shader-source generation
 
+## Local High-reasoning timeout - v0.11.2
+
+Configured localhost allows up to ten minutes per shader model pass, with local
+HTTP/proxy limits aligned to avoid cutting it off sooner. Hosted requests keep
+four minutes. No automatic provider retry, larger output budget or new repair
+authorization is introduced. See [transport details](local-shader-compiler.md).
+
 ## More implementation room - v0.11.1
 
 Pipeline steps may contain up to 2,000 characters (previously 300), with 1-16

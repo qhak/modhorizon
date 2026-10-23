@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url";
+import { resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
@@ -7,6 +9,9 @@ env.NODE_ENV = "development";
 env.APP_ORIGIN = "http://127.0.0.1:3215";
 env.MODHORIZON_LOCAL_ORIGIN = env.APP_ORIGIN;
 env.AI_TESTING_MODE = "true";
+env.MODHORIZON_LOCAL_HTTP = "true";
+// Inherited by the Next worker as well as its parent; no provider code is bundled.
+env.NODE_OPTIONS = `${env.NODE_OPTIONS || ""} --import=${pathToFileURL(resolve("scripts/local-http-runtime.mjs")).href}`.trim();
 let compiler;
 const python = env.SHADER_COMPILER_PYTHON || `${process.env.USERPROFILE}/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe`;
 if (process.platform === "win32" && existsSync(python)) {

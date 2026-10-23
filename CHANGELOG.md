@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.11.2 - 2026-10-23
+
+- Allow each shader provider pass up to 600 seconds in configured localhost development, following the owner's 240-second timeout on High reasoning. Hosted shader requests retain 240 seconds and other artifact deadlines are unchanged.
+- Preload a development-only non-retrying HTTP dispatcher so a lower native fetch headers/body timer cannot undercut the local shader deadline. Request AbortSignals still enforce shorter service deadlines. Give the local Next proxy and generation route declaration 1,500 seconds for two bounded passes plus compiler checks; hosting may enforce lower limits.
+- Keep output budgets, per-pass credit settlement/refunds and explicit optional repair authorization unchanged. No automatic retry or paid generation is added.
+
+Validation: Cloudflare build, local restart/status and create-page checks pass. 131 tests and TypeScript pass, including all provider deadlines, no retry on timeout, delayed HTTP headers, shorter explicit aborts, and Node child-worker preload. No paid retry or completed High-reasoning shader result was produced by Codex.
+
 ## v0.11.1 - 2026-10-23
 
 - Raise shader pipeline descriptions from 300 to 2,000 characters each and allow up to 16 steps. Expand goal, reference-summary, technique and limitation text so detailed planning does not hit the former small caps.

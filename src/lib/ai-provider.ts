@@ -12,7 +12,8 @@ import { shaderExampleContext } from "./shader-examples";
 
 /** Shader pipelines can need longer to generate than small gameplay projects. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
-  const timeoutMs = request.artifactType === "shader_pack" ? 240_000 : defaultTimeoutMs;
+  const local = process.env.NODE_ENV === "development" && process.env.MODHORIZON_LOCAL_ORIGIN === "http://127.0.0.1:3215";
+  const timeoutMs = request.artifactType === "shader_pack" ? (local ? 600_000 : 240_000) : defaultTimeoutMs;
   const signal = AbortSignal.timeout(timeoutMs);
   try {
     return await serviceFetch(url, { ...init, signal });

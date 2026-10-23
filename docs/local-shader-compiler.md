@@ -78,3 +78,27 @@ supported; explicit choices and the optional repair credit limit remain under
 user control. These defaults can increase reservations/cost or elapsed time; the
 quote uses the actual selected effort. The compiler service must be restarted
 with local preview to load changed validation limits.
+
+## v0.11.2 local timeouts
+
+The owner's High-reasoning retry reached the application's240-second provider
+cutoff before a completed project was received. Its result is unavailable; this
+is not evidence of a shader compile failure or a provider token-limit stop.
+Configured localhost development now allows600 seconds per shader provider pass.
+Hosted shaders retain240 seconds and other artifact deadlines stay unchanged.
+
+The local launcher preloads a non-retrying Undici dispatcher into the Next parent
+and child workers, overriding lower headers/body timers to650 seconds. Explicit
+per-service AbortSignals still bound calls sooner. The local Next proxy and route
+maxDuration declaration allow1,500 seconds, covering two model passes plus native
+checks. The declaration does not override hosting-provider limits. Long public
+jobs still need a durable background-job design rather than relying on an HTTP
+request remaining open.
+
+This change does not increase the32,000 output-token ceiling or credit cap, add a
+provider retry, recover a timed-out project, or establish that High reasoning will
+finish within ten minutes. Existing failed-pass reservation refunds remain; a
+client abort is not proof that upstream computation stopped. No paid model retry
+was run for validation.
+
+Transport reference checked23 October2026: [Undici dispatcher documentation](https://undici.nodejs.org/).

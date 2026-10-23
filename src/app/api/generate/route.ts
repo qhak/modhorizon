@@ -13,7 +13,8 @@ import { hasAllowedOrigin } from "@/lib/request-origin";
 import { accountFromRequest, BillingError, refundGenerationCredits, reserveGenerationCredits, settleGenerationCredits } from "@/lib/billing-service";
 
 export const runtime = "nodejs";
-export const maxDuration = 900;
+// Hosting platforms may impose a lower limit; long hosted jobs need a durable queue.
+export const maxDuration = 1500;
 // Process-local guard only. Public deployments require authenticated quotas and a durable job queue.
 let active = 0;
 

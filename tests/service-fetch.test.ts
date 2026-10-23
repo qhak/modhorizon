@@ -45,8 +45,8 @@ test("AI providers and builder reject redirects without sending credentials to a
   }
 });
 
-test("shader requests get four minutes across providers, retain other deadlines and never auto-retry timeouts", async t => {
-  const values = { AI_TESTING_MODE: "false", OPENAI_API_KEY: "fixture", ANTHROPIC_API_KEY: "fixture", GEMINI_FREE_API_KEY: "fixture" };
+test("shader deadlines distinguish configured localhost from hosted requests without automatic retries", async t => {
+  const values = { AI_TESTING_MODE: "false", OPENAI_API_KEY: "fixture", ANTHROPIC_API_KEY: "fixture", GEMINI_FREE_API_KEY: "fixture", NODE_ENV: "test", MODHORIZON_LOCAL_ORIGIN: "" };
   const previous = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
   Object.assign(process.env, values);
   const deadlines: number[] = [];
@@ -69,7 +69,13 @@ test("shader requests get four minutes across providers, retain other deadlines 
       await assert.rejects(provider.generate(request), new RegExp(`timed out after ${normalDeadline / 1000} seconds`));
       assert.equal(deadlines.at(-1), normalDeadline);
     }
-    assert.equal(calls, 6);
+    Object.assign(process.env, { NODE_ENV: "development" });
+    process.env.MODHORIZON_LOCAL_ORIGIN = "http://127.0.0.1:3215";
+    for (const model of ["gpt-6-luna", "claude-sonnet-5-5", "gemini-3-flash-preview"]) {
+      await assert.rejects(createAIProvider(model).generate({ ...request, artifactType: "shader_pack", target: "iris" }), /timed out after 600 seconds/);
+      assert.equal(deadlines.at(-1), 600_000);
+    }
+    assert.equal(calls, 9);
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
