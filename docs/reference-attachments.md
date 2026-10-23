@@ -1,4 +1,4 @@
-# Reference images and text — v0.4.0
+# Reference images and text — v0.5.0
 
 Previously the create form previewed attachments but validation discarded them, and follow-ups did not send them. New projects and follow-ups now use the same request body for quotes and generation. The follow-up composer exposes the same attach/remove controls. Files apply to the current message; the owner must reattach them on later turns.
 

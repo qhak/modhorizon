@@ -1,6 +1,6 @@
 # Change notes
 
-## v0.4.0 — 2026-10-23
+## v0.5.0 — 2026-10-23
 
 - Reference images and supported text files now reach the selected model for new projects and follow-up edits; the follow-up composer has attachment controls and previews.
 - Validate upload names/types, inline image headers/dimensions, file count and byte budgets. References are transient, treated as untrusted data and excluded from stored project history and downloads.
