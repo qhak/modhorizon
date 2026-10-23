@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.3.3 — 2026-10-23
+
+- Expanded shader generation context using WarmHorizon runtime-test findings: explicit terrain/cloud coverage, texture/lightmap/alpha handling, deliberate fallback programs, correct settings placement and preservation checks for the rest of the world.
+- Reject incomplete shader output before ZIP download with specific diagnostics for missing baseline programs, orphan stages, invented names, missing entry declarations and unresolved includes. Older failed projects remain editable; regenerated output must pass the new rules.
+- Added shader regressions and provider-to-ZIP coverage. No automatic model retries or additional billable passes were added. Static validation does not establish GPU correctness; a fresh generation and in-game acceptance remain required.
+
+Validation: all 84 automated tests, TypeScript checks and the Cloudflare production build passed. No paid generation was replayed; a fresh model-generated pack still requires in-game acceptance. See docs/shader-quality.md for scope and limitations.
+
 ## v0.3.2 — 2026-10-22
 
 - Fixed private-preview sign-in using the hosted return address from Cloudflare development bindings. The local launcher now provides a separate development-only origin, checked against the actual loopback Host and port even when Next normalizes the request URL.

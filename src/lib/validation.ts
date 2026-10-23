@@ -199,11 +199,37 @@ function validateResourcePack(files: Files) {
 }
 
 function validateShaderPack(files: Files) {
-  const shaders = files.filter((file) => /^shaders\/.*\.(vsh|fsh|glsl)$/.test(file.path));
-  if (!shaders.some((file) => file.path.endsWith(".vsh")) || !shaders.some((file) => file.path.endsWith(".fsh")))
-    throw new InputError("A shader pack preview needs at least one .vsh vertex shader and one .fsh fragment shader under shaders/.");
-  if (!shaders.some((file) => /^\s*#version\s+\d+/m.test(file.content)))
-    throw new InputError("Shader source needs an explicit GLSL #version directive.");
+  if (files.some((file) => file.path === "shaders.properties"))
+    throw new InputError("Move shader settings to shaders/shaders.properties, not the ZIP root.");
+  const entries = files.filter((file) => /\.(vsh|fsh)$/.test(file.path));
+  const paths = new Set(files.map((file) => file.path));
+  // Product baseline policy: runtime fallback alone was insufficient in Test 002.
+  for (const program of ["gbuffers_terrain", "gbuffers_clouds"])
+    for (const stage of ["vsh", "fsh"])
+      if (!paths.has(`shaders/${program}.${stage}`))
+        throw new InputError(`Shader packs need shaders/${program}.${stage} for explicit terrain and vanilla-cloud coverage; composite-only output is incomplete.`);
+  const gbuffers = "basic|line|textured|textured_lit|skybasic|skytextured|clouds|terrain|terrain_solid|terrain_cutout|damagedblock|block|block_translucent|beaconbeam|entities|entities_glowing|entities_translucent|item|armor_glint|spidereyes|hand|hand_water|weather|water|particles|particles_translucent|lightning";
+  const programPath = new RegExp(`^shaders/(?:world(?:-1|0|1)/)?(?:gbuffers_(?:${gbuffers})|shadow|(?:composite|deferred|shadowcomp|prepare|begin)\\d*|final)\\.(vsh|fsh)$`);
+  for (const file of entries) {
+    if (!programPath.test(file.path))
+      throw new InputError(`Unrecognised shader program ${file.path}; use runtime program names such as gbuffers_terrain, composite or final.`);
+    const sibling = file.path.replace(/\.(vsh|fsh)$/, file.path.endsWith(".vsh") ? ".fsh" : ".vsh");
+    if (!paths.has(sibling)) throw new InputError(`Shader program ${file.path} is missing its paired stage ${sibling}.`);
+    const code = file.content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    if (!/^\s*#version\s+\d+\b/.test(code))
+      throw new InputError(`${file.path} needs its own leading GLSL #version directive.`);
+    if (!/\bvoid\s+main\s*\(\s*(?:void\s*)?\)/.test(code))
+      throw new InputError(`${file.path} needs a main() entrypoint.`);
+  }
+  for (const file of files.filter((file) => /\.(vsh|fsh|glsl)$/.test(file.path))) {
+    const code = file.content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    for (const match of code.matchAll(/^\s*#include\s+"([^"]+)"/gm)) {
+      const include = match[1];
+      const resolved = include.startsWith("/") ? `shaders${include}` : file.path.slice(0, file.path.lastIndexOf("/") + 1) + include;
+      if (include.includes("..") || include.includes("\\") || !paths.has(resolved))
+        throw new InputError(`${file.path} includes a missing or unsupported file: ${include}.`);
+    }
+  }
 }
 
 /** Keeps the model's note readable: text only, no control characters, bounded length. */
@@ -219,6 +245,7 @@ export function validateProject(
   artifactType: ArtifactType = "plugin",
   target: ArtifactTarget = "paper",
   version?: string,
+  options: { allowIncompleteShader?: boolean } = {},
 ): GeneratedProject {
   if (!value || typeof value !== "object") throw new InputError("The provider did not return a project object.");
   const project = value as Record<string, unknown>;
@@ -246,7 +273,9 @@ export function validateProject(
   });
 
   if (artifactType === "resource_pack") validateResourcePack(files);
-  else if (artifactType === "shader_pack") validateShaderPack(files);
+  else if (artifactType === "shader_pack") {
+    if (!options.allowIncompleteShader) validateShaderPack(files);
+  }
   else {
     if (!isPlatformId(target)) throw new InputError("Choose a supported platform.");
     if (!files.some((file) => file.path.endsWith(".java")))
@@ -293,6 +322,7 @@ export function validateRequest(value: unknown): GenerateRequest {
     artifactType: kind,
     target: target as ArtifactTarget,
     modelId,
-    ...(data.project === undefined ? {} : { project: validateProject(data.project, kind, target as ArtifactTarget, data.version) }),
+    // Older failed shaders remain editable; all path/size checks still apply.
+    ...(data.project === undefined ? {} : { project: validateProject(data.project, kind, target as ArtifactTarget, data.version, { allowIncompleteShader: true }) }),
   };
 }

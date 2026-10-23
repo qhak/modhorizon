@@ -6,6 +6,7 @@ import { generateArtifact } from "../src/lib/generation";
 import { MockProvider } from "../src/lib/mock-provider";
 import { getArtifact } from "../src/lib/project-store";
 import { validateRequest } from "../src/lib/validation";
+import { shaderPackFixture } from "./fixtures/shader-pack";
 
 test("pack generation retains reasoning, billable provider usage and chat replies", async () => {
   const input = validateRequest({
@@ -24,10 +25,7 @@ test("pack generation retains reasoning, billable provider usage and chat replie
     assert.match(body.input[0].content, /shader/i);
     assert.equal(JSON.parse(body.input[1].content).target, "iris");
     return Response.json({
-      output_text: JSON.stringify({ name: "WarmSky", message: "/reference shaders/world.fsh", files: [
-        { path: "shaders/world.vsh", content: "#version 120\nvoid main() { gl_Position = ftransform(); }" },
-        { path: "shaders/world.fsh", content: "#version 120\nvoid main() { gl_FragColor = vec4(1.0); }" },
-      ] }),
+      output_text: JSON.stringify(shaderPackFixture()),
       usage: { input_tokens: 120, output_tokens: 240 },
     });
   };
@@ -43,7 +41,7 @@ test("pack generation retains reasoning, billable provider usage and chat replie
     });
     assert.equal(calls, 1);
     assert.equal(project.status, "success");
-    assert.equal(project.message, "/reference shaders/world.fsh");
+    assert.equal(project.message, "/reference shaders/gbuffers_terrain.fsh");
     assert.equal(project.target, "iris");
     assert.equal(project.artifactAvailable, true);
     assert.ok(getArtifact(project.id));
@@ -73,6 +71,31 @@ test("billing denial on repair preserves generated source without a fake artifac
   assert.deepEqual(project.files, fixture.files);
   assert.equal(project.artifactAvailable, false);
   assert.match(project.error!, /Insufficient credits/);
+});
+
+test("provider shader structure errors explain missing rendering coverage without extra calls", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "test-credential";
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return Response.json({ output_text: JSON.stringify({ name: "Incomplete", files: [
+      { path: "shaders/composite.vsh", content: "#version 330 compatibility\nvoid main() {}" },
+      { path: "shaders/composite.fsh", content: "#version 330 compatibility\nvoid main() {}" },
+    ] }), usage: { input_tokens: 120, output_tokens: 240 } });
+  };
+  try {
+    const project = await generateArtifact({ prompt: "Create a warm Iris shader pack.", artifactType: "shader_pack", target: "iris", version: "1.21.11", modelId: "gpt-6-luna" }, createAIProvider("gpt-6-luna"));
+    assert.equal(project.status, "failed");
+    assert.equal(project.artifactAvailable, false);
+    assert.match(project.error!, /Shader pack structure check failed:.*gbuffers_terrain/);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalKey;
+  }
 });
 
 test("legacy platform requests and redesigned artifact targets share validation", () => {

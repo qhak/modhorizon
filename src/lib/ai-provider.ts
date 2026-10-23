@@ -1,7 +1,7 @@
 import { serviceFetch } from "./service-fetch";
 import { MockProvider } from "./mock-provider";
 import { DEFAULT_REASONING_EFFORT, MAX_GENERATION_OUTPUT_TOKENS, findModel, modelChoices, providerReasoningEffort } from "./models";
-import { validateProject } from "./validation";
+import { InputError, validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { artifactSystemPrompt, selectArtifactSkills, usesBukkitApi } from "./artifact-experts";
 import { replyInstructions } from "./chat-commands";
@@ -157,7 +157,9 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
     const outputTokens = usage?.outputTokens ?? Math.ceil(JSON.stringify(project).length / 3.5);
     const inputTokens = usage?.inputTokens ?? Math.ceil((systemPrompt(request).length + projectInput(request, []).length) / 3.5);
     return { ...project, usage: { inputTokens, outputTokens } };
-  } catch {
+  } catch (error) {
+    if (request.artifactType === "shader_pack" && error instanceof InputError)
+      throw new Error(`Shader pack structure check failed: ${error.message}`);
     throw new Error(
       "AI provider returned invalid project JSON or unsupported source paths.",
     );
