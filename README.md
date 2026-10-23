@@ -1,6 +1,6 @@
 # ModHorizon
 
-Current release: **v0.2.0**. See [change notes](CHANGELOG.md) for version history.
+Current release: **v0.2.4**. See [change notes](CHANGELOG.md) for version history.
 
 A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 

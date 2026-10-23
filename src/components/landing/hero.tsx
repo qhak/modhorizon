@@ -6,7 +6,7 @@ import { ArrowRight, CalendarRange, Gamepad2, Layers } from "lucide-react";
 import { SITE_MEDIA } from "@/lib/site-media";
 import { VideoSlot } from "./media-slot";
 
-const WORDS = ["plugins", "mods", "shaders", "texture packs", "datapacks"] as const;
+const WORDS = ["plugins", "mods", "shaders", "resource packs"] as const;
 
 /** Types, holds, deletes and cycles through words; static under reduced motion. */
 function useTypewriter(words: readonly string[]) {
@@ -61,7 +61,7 @@ export function Hero({ stats }: { stats: { value: string; label: string; icon: k
               <span className="typed-word">{typed}</span>
               <span className="cursor" />
             </span>
-            <span className="sr-only">plugins, mods, shaders, texture packs and datapacks</span>
+            <span className="sr-only">plugins, mods, shaders and resource packs</span>
             <span className="hero-title-rest">from a prompt.</span>
           </h1>
 
@@ -71,7 +71,7 @@ export function Hero({ stats }: { stats: { value: string; label: string; icon: k
 
           <div className="hero-cta">
             <Link href="/create" className="btn-primary-hero">
-              Open the workspace <ArrowRight size={18} aria-hidden="true" />
+              Start creating <ArrowRight size={18} aria-hidden="true" />
             </Link>
             <a href="#versions" className="btn-ghost-hero"><Layers size={17} aria-hidden="true" /> Supported versions</a>
           </div>

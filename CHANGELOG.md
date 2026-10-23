@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.2.4 — 2026-10-23
+
+- Replaced the homepage carousel with four visible creation cards, distinct category icons and real Minecraft screenshots sourced from Wikimedia Commons and Modrinth, with author and licence links. Existing hero and closing videos are unchanged; no generated artwork was added.
+- Consolidated repeated platform lists into the compatibility section, reduced the feature grid to three benefits and grouped extra example prompts under an expandable panel.
+- Simplified navigation and creation actions, improved mobile heading sizes and keyboard focus, and removed the unsupported datapack creation link and claim.
+- Regenerated the standalone HTML preview and preserved its local image, video and credit links.
+
+Validation: all 67 automated tests, TypeScript, production Next.js, Cloudflare and standalone HTML builds passed. Local HTTP checks passed for the homepage, creation/account/pricing pages, all four category images, existing video and image credits; homepage IDs are unique. Source images were visually inspected. Browser layout review was unavailable because this session has no connected browser. No deployment performed.
+
 ## v0.2.2 — 2026-10-22
 
 - Preserved the teammate release as the functional baseline while keeping the redesign: restored the interactive homepage version checker, the expanded dashboard release list and reasoning credit-estimate guidance.

@@ -4,21 +4,18 @@ import {
   Blocks,
   CircleHelp,
   Lightbulb,
-  Zap,
   Code2,
-  Coffee,
   FileCode2,
   FileText,
   FolderOpen,
   Layers,
-  MessageSquareText,
   Network,
-  Play,
   Plus,
   Server,
-  ShieldCheck,
   Sparkles,
   Wrench,
+  WandSparkles,
+  UserRound,
 } from "lucide-react";
 import {
   MINECRAFT_RELEASES,
@@ -31,7 +28,7 @@ import { Hero } from "@/components/landing/hero";
 import { VideoSlot } from "@/components/landing/media-slot";
 import { UseCaseTabs } from "@/components/landing/use-case-tabs";
 import { VersionChecker } from "@/components/landing/version-checker";
-import { ContentSlider } from "@/components/landing/content-slider";
+import { ContentGallery } from "@/components/landing/content-gallery";
 import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
 import { VoidBackdrop } from "@/components/void-backdrop";
 import { BrandMark } from "@/components/brand-mark";
@@ -51,14 +48,6 @@ const faqs = [
   {
     q: "Do I need to know how to code?",
     a: "No. Pick a loader and a version, say what the project should do, and check every file before you use it.",
-  },
-  {
-    q: "Which loaders and versions are supported?",
-    a: `${PLATFORM_IDS.map((id) => PLATFORMS[id].label).join(", ")}, on Minecraft ${coveredReleases.at(-1)} to ${coveredReleases[0]}.`,
-  },
-  {
-    q: "What if a loader doesn't support my version?",
-    a: "The workspace tells you, and the Why? button explains the reason.",
   },
   {
     q: "Do I get a .jar?",
@@ -93,11 +82,12 @@ function Logo() {
   );
 }
 
-function SectionHeading({ title, icon: Icon }: { title: string; icon: typeof Sparkles }) {
+function SectionHeading({ title, description, icon: Icon }: { title: string; description?: string; icon: typeof Sparkles }) {
   return (
     <div className="section-head">
       <span className="section-icon" aria-hidden="true"><Icon size={18} /></span>
       <h2 className="section-heading">{title}</h2>
+      {description && <p className="section-subheading">{description}</p>}
     </div>
   );
 }
@@ -111,14 +101,15 @@ export default function Landing() {
         <div className="lp-nav-inner">
           <Logo />
           <nav aria-label="Primary">
-            <a className="nav-link" href="#features">Features</a>
-            <a className="nav-link" href="#versions">Versions</a>
-            <a className="nav-link" href="#examples">Examples</a>
+            <a className="nav-link" href="#create">Explore</a>
+            <a className="nav-link" href="#features">How it works</a>
+            <a className="nav-link" href="#versions">Compatibility</a>
             <Link className="nav-link" href="/pricing">Pricing</Link>
-            <Link className="nav-link" href="/account">Account</Link>
-            <a className="nav-link" href="#faq">FAQ</a>
           </nav>
-          <Link href="/create" className="nav-cta">Open workspace <ArrowRight size={15} aria-hidden="true" /></Link>
+          <div className="nav-actions">
+            <Link href="/account" className="nav-account" aria-label="Account"><UserRound size={17} aria-hidden="true" /><span>Account</span></Link>
+            <Link href="/create" className="nav-cta">Start creating <ArrowRight size={15} aria-hidden="true" /></Link>
+          </div>
         </div>
       </header>
 
@@ -126,16 +117,20 @@ export default function Landing() {
         <Hero stats={stats} />
 
         <section id="create" className="lp-section" data-reveal>
-          <SectionHeading title="What you can make" icon={Sparkles} />
-          <ContentSlider />
+          <SectionHeading title="Make it your Minecraft." description="Choose a starting point. Bring your own idea." icon={Blocks} />
+          <ContentGallery />
+          <details className="more-examples" id="examples">
+            <summary><Lightbulb size={18} aria-hidden="true" />Need an idea? Explore more prompts<Plus size={16} aria-hidden="true" /></summary>
+            <UseCaseTabs />
+          </details>
         </section>
 
         <section id="features" className="lp-section" data-reveal>
-          <SectionHeading title="Features" icon={Zap} />
+          <SectionHeading title="Your idea. A real project." description="Describe it, review the source, and build when your service is connected." icon={WandSparkles} />
           <div className="bento-grid">
-            <article className="bento-card bento-large">
+            <article className="bento-card">
               <span className="bento-badge">Core</span>
-              <Sparkles className="bento-icon" aria-hidden="true" />
+              <span className="feature-icon feature-icon-blue"><WandSparkles size={23} aria-hidden="true" /></span>
               <h3 className="bento-title">One prompt, a full project</h3>
               <p className="bento-description">ModHorizon writes the full project for your loader: the main class, listeners and the plugin or mod file.</p>
               <div className="mock mock-composer" aria-hidden="true">
@@ -148,23 +143,8 @@ export default function Landing() {
             </article>
 
             <article className="bento-card">
-              <span className="bento-badge bento-badge-green">12 loaders</span>
-              <Layers className="bento-icon" aria-hidden="true" />
-              <h3 className="bento-title">Every loader</h3>
-              <p className="bento-description">Plugins, proxies and mods.</p>
-              <div className="mock mock-loaders" aria-hidden="true">
-                {PLATFORM_GROUPS.map((group) => (
-                  <div key={group.kind}>
-                    <small>{group.label}</small>
-                    <span>{group.ids.map((id) => PLATFORMS[id].label).join(" · ")}</span>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="bento-card">
               <span className="bento-badge">Builds</span>
-              <Wrench className="bento-icon" aria-hidden="true" />
+              <span className="feature-icon feature-icon-amber"><Wrench size={23} aria-hidden="true" /></span>
               <h3 className="bento-title">Automatic fixes</h3>
               <p className="bento-description">If a build fails, the errors go back to the model. Up to three retries.</p>
               <div className="mock mock-log" aria-hidden="true">
@@ -175,9 +155,9 @@ export default function Landing() {
               </div>
             </article>
 
-            <article className="bento-card bento-large">
+            <article className="bento-card">
               <span className="bento-badge">Source</span>
-              <Code2 className="bento-icon" aria-hidden="true" />
+              <span className="feature-icon feature-icon-green"><Code2 size={23} aria-hidden="true" /></span>
               <h3 className="bento-title">Readable source</h3>
               <p className="bento-description">Every file is shown before you download anything.</p>
               <div className="mock mock-ide" aria-hidden="true">
@@ -198,67 +178,42 @@ export default function Landing() {
                 </pre>
               </div>
             </article>
-
-            <div className="bento-small-row">
-              <div className="bento-small">
-                <Coffee aria-hidden="true" />
-                <h4 className="bento-title-small">Java 8 to 25</h4>
-                <p className="bento-description-small">Picked for your version.</p>
-              </div>
-              <div className="bento-small">
-                <MessageSquareText aria-hidden="true" />
-                <h4 className="bento-title-small">Follow-up edits</h4>
-                <p className="bento-description-small">Change it in the same chat.</p>
-              </div>
-              <div className="bento-small">
-                <ShieldCheck aria-hidden="true" />
-                <h4 className="bento-title-small">Safe file types</h4>
-                <p className="bento-description-small">No build scripts or binaries.</p>
-              </div>
-              <div className="bento-small">
-                <Play aria-hidden="true" />
-                <h4 className="bento-title-small">Testing guide</h4>
-                <p className="bento-description-small">Steps for servers, proxies and clients.</p>
-              </div>
-            </div>
           </div>
         </section>
 
         <section id="versions" className="lp-section" data-reveal>
-          <SectionHeading title="Supported versions" icon={Layers} />
+          <SectionHeading title="Find your perfect fit." description="Check your loader and Minecraft version before you start." icon={Layers} />
           <VersionChecker />
-          <div className="loader-table">
-            {PLATFORM_GROUPS.map((group) => {
-              const GroupIcon = GROUP_ICONS[group.kind];
-              return (
-                <div key={group.kind} className="loader-group">
-                  <h3><GroupIcon size={15} aria-hidden="true" /> {group.label}</h3>
-                  <ul>
-                    {group.ids.map((id) => {
-                      const { label, summary, versions, kind } = PLATFORMS[id];
-                      return (
-                        <li key={id}>
-                          <div>
-                            <strong>{label}</strong>
-                            <span>{summary}</span>
-                          </div>
-                          <code>
-                            {kind === "proxy" ? `API ${versions.at(-1)} – ${versions[0]}` : `${versions.at(-1)} – ${versions[0]}`}
-                            <small>{versions.length} versions</small>
-                          </code>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section id="examples" className="lp-section" data-reveal>
-          <SectionHeading title="Examples" icon={Lightbulb} />
-          <UseCaseTabs />
+          <details className="platform-directory">
+            <summary>Browse all loaders and version ranges <Plus size={16} aria-hidden="true" /></summary>
+            <div className="loader-table">
+              {PLATFORM_GROUPS.map((group) => {
+                const GroupIcon = GROUP_ICONS[group.kind];
+                return (
+                  <div key={group.kind} className="loader-group">
+                    <h3><GroupIcon size={15} aria-hidden="true" /> {group.label}</h3>
+                    <ul>
+                      {group.ids.map((id) => {
+                        const { label, summary, versions, kind } = PLATFORMS[id];
+                        return (
+                          <li key={id}>
+                            <div>
+                              <strong>{label}</strong>
+                              <span>{summary}</span>
+                            </div>
+                            <code>
+                              {kind === "proxy" ? `API ${versions.at(-1)} – ${versions[0]}` : `${versions.at(-1)} – ${versions[0]}`}
+                              <small>{versions.length} versions</small>
+                            </code>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
         </section>
 
         <section id="faq" className="lp-section faq-section" data-reveal>
@@ -284,9 +239,8 @@ export default function Landing() {
               <h2 className="cta-heading">Make your first project</h2>
               <div className="cta-actions">
                 <Link href="/create" className="btn-cta-primary">
-                  Open the workspace <ArrowRight size={18} aria-hidden="true" />
+                  Start creating <ArrowRight size={18} aria-hidden="true" />
                 </Link>
-                <a href="#versions" className="btn-cta-secondary"><Layers size={18} aria-hidden="true" /> Supported versions</a>
               </div>
             </div>
             <footer className="footer-content">
@@ -300,11 +254,9 @@ export default function Landing() {
                   <Link className="footer-link" href="/pricing">Pricing</Link>
                   <span className="footer-separator">·</span>
                   <a className="footer-link" href="#faq">FAQ</a>
+                  <span className="footer-separator">·</span>
+                  <a className="footer-link" href="/media/types/CREDITS.md">Image credits</a>
                 </div>
-              </div>
-              <div className="ft-platforms">
-                <span className="ft-platforms-label">Platforms</span>
-                {PLATFORM_IDS.map((id) => <span key={id} className="ft-platform">{PLATFORMS[id].label}</span>)}
               </div>
               <p className="footer-copyright">© {new Date().getFullYear()} ModHorizon · Not affiliated with Mojang Studios or Microsoft</p>
             </footer>
