@@ -2,6 +2,7 @@ import { BillingError } from "./billing-errors";
 import type { PlanId } from "./billing-catalog";
 import { estimateCreditsForModel, findModel, reserveCreditsForGeneration } from "./models";
 import type { GenerateRequest } from "./types";
+import { estimateProviderInputTokens } from "./ai-provider";
 
 type QuoteAccount = { plan: PlanId; subscriptionStatus: string; credits: number };
 
@@ -14,7 +15,7 @@ export function quoteGeneration(account: QuoteAccount, request: GenerateRequest,
   if (model.provider !== "demo" && model.group !== "Economy" && !paid)
     throw new BillingError("Upgrade to a paid plan to use this model. Economy models are available on Free.", 402);
   // Include repair diagnostics as well as source and instruction overhead in the hold.
-  const inputTokens = Math.ceil((JSON.stringify(request).length + JSON.stringify(errors ?? []).length + 8_000) / 3);
+  const inputTokens = estimateProviderInputTokens(request, errors);
   const reservedCredits = reserveCreditsForGeneration(model.id, inputTokens, request.reasoningEffort);
   const estimatedCredits = model.provider === "demo" ? 0 : estimateCreditsForModel(model.id, inputTokens, 5_000, request.reasoningEffort);
   if (reservedCredits === null || estimatedCredits === null)

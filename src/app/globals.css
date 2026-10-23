@@ -354,6 +354,7 @@ textarea::placeholder { color: var(--secondary); opacity: 1; }
 .attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-list button { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--secondary); }
 .attachment-list button:hover:not(:disabled) { background: var(--elevated); color: var(--foreground); }
+.reference-note { margin: 6px 12px; color: var(--secondary); font-size: 12px; line-height: 1.5; }
 @media (max-width: 700px) {
   .welcome { padding: 48px 16px 170px; }
   .workspace-home-heading { margin-bottom: 28px; }

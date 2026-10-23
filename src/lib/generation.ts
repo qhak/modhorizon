@@ -35,6 +35,8 @@ export async function generateArtifact(
   };
   try {
     const model = `${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}`;
+    if (request.attachments?.length)
+      project.logs.push(`Using ${request.attachments.length} reference attachment(s) for this generation pass. References are not retained with project history.`);
     project.logs.push(
       isPlatformId(target)
         ? `Generating ${describeTarget(target, request.version)} source using ${model}.`

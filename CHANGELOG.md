@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.4.0 — 2026-10-23
+
+- Reference images and supported text files now reach the selected model for new projects and follow-up edits; the follow-up composer has attachment controls and previews.
+- Validate upload names/types, inline image headers/dimensions, file count and byte budgets. References are transient, treated as untrusted data and excluded from stored project history and downloads.
+- Quote the composed context plus image allowance, show attachment-inclusive estimates and retain provider-reported usage for settlement. No additional model pass, automatic retry or pricing change.
+- Image guidance converts visible features into a prioritised brief and distinguishes observations, approximations and omissions, following the supplied shader research.
+
+Validation: 90 automated tests, TypeScript checks and the Cloudflare production build passed. Isolated browser checks passed for create/follow-up images, quotes, resizing, history exclusion and mobile layout. No paid model call made; live image interpretation and shader fidelity remain unverified. See docs/reference-attachments.md.
+
 ## v0.3.4 — 2026-10-23
 
 - Shader provider requests now allow four minutes for generation instead of the 90-second OpenAI/Anthropic or three-minute Gemini deadlines. Other artifact deadlines are unchanged.

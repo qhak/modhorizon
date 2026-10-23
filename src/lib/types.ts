@@ -13,6 +13,7 @@ export type TokenUsage = { inputTokens: number; outputTokens: number };
 export type ReasoningLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 export type ReasoningEffort = ReasoningLevel;
 export type GeneratedFile = { path: string; content: string };
+export type ReferenceAttachment = { name: string; type: string; data: string };
 export type Project = {
   id: string;
   name: string;
@@ -33,6 +34,8 @@ export type Project = {
   error?: string;
 };
 export type GenerateRequest = {
+  /** Transient references for this model pass; never copied into stored projects. */
+  attachments?: ReferenceAttachment[];
   prompt: string;
   version: MinecraftVersion;
   /** Omitted by legacy callers; validated API requests always provide both fields. */

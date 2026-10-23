@@ -11,6 +11,7 @@ import {
 } from "./platforms";
 import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
+import { validateAttachments } from "./reference-attachments";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -315,7 +316,12 @@ export function validateRequest(value: unknown): GenerateRequest {
     throw new InputError("Choose a supported reasoning level.");
   if (reasoning && !reasoning.levels.includes(reasoningEffort as ReasoningEffort))
     throw new InputError("That reasoning level is not supported by the selected model.");
+  let attachments: GenerateRequest["attachments"] = undefined;
+  try { attachments = data.attachments === undefined ? undefined : validateAttachments(data.attachments); }
+  catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid reference attachments."); }
+  if (attachments?.length && modelId === "demo") throw new InputError("Reference attachments need a connected AI model; the local example cannot read them.");
   return {
+    ...(attachments?.length ? { attachments } : {}),
     reasoningEffort: reasoningEffort as ReasoningEffort,
     prompt: data.prompt.trim(),
     version: data.version,
