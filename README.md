@@ -1,6 +1,23 @@
 # ModHorizon
 
-Current release: **v0.3.1**. See [change notes](CHANGELOG.md) for version history.
+Current release: **v0.9.1**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and shader foundation reuse in [the foundation guide](docs/aurora-horizon-foundation.md).
+
+## Configured local testing
+
+From this repository, use `npm run local:preview` when testing with the provider
+credentials and Cloudflare bindings already configured in the ignored `.dev.vars`.
+This launcher loads the settings into the Next.js server, sets the loopback origin
+and keeps the testing model restriction enabled. Open
+[the create page](http://127.0.0.1:3215/create).
+
+`npm run dev` alone does not load `.dev.vars` provider keys into `process.env`.
+If no other provider configuration is present, only the fixed demo model will be
+available. `/api/status` reports model availability without revealing credentials.
+Do not commit `.dev.vars`, local account databases or credit grants.
+
+Release commits include their version, a change summary, validation and remaining
+limitations. Matching annotated tags and dated entries in CHANGELOG.md identify
+each version; preserve previously published history.
 
 A standalone Next.js prototype for creating Paper plugins for Minecraft 1.21.x. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 

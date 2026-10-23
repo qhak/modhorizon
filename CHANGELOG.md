@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.9.1 — 2026-10-23
+
+- Document `npm run local:preview` as the configured local launcher: it loads ignored provider settings from `.dev.vars`, whereas bare `npm run dev` can expose only demo mode when no provider environment is loaded.
+- Require versioned release commit titles and bodies describing changes, validation and limitations, alongside the existing dated changelog and annotated tags. Preserve already-pushed history.
+- Update the README release pointer and distinguish historical prototype notes from current guides. Local credentials, account balances and credit grants remain outside Git.
+
+Validation: TypeScript passes; local `/api/status` confirms Luna enabled and the AI connection ready after using the configured launcher. Documentation/workflow release only; no application runtime change or new production deployment.
+
 ## v0.9.0 — 2026-10-23
 
 - New Iris 1.21.11 requests interpret reference images into eight bounded look controls, then assemble the pinned original AuroraHorizon candidate03 renderer. All four provider adapters use the same one-pass specification, capability context and evidence limits; no renderer rewrite or automatic retry is needed.
