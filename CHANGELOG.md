@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.7.0 — 2026-10-23
+
+- Add Aurora Horizon candidate 01, an original experimental Iris 1.21.11 shader foundation with directional block lighting, filtered cast shadows, long-range screen-space water reflections, procedural sky/clouds, depth haze/contact shading and HDR highlight bloom.
+- Include a documented pass/buffer/colour-space contract, bounded look controls, explicit limitations and an in-game promotion checklist. Keep the candidate separate from live AI generation until runtime acceptance.
+- Add reproducible ZIP packaging through the existing source validator, hidden native-driver GLSL compile/link tooling and a synthetic GPU lighting probe using Python's standard library. No provider request, visible helper window or third-party compiler install.
+
+Validation: 100 tests and TypeScript pass; the 30-file candidate packages without source normalisation or report warnings. RTX 3070 driver compiles all 22 stages and links 11 programs; a controlled offscreen probe confirms directional lighting, shadow attenuation and retained blocklight. Iris integration, actual scene appearance, material preservation and FPS remain pending owner testing. This release adds offline source/tools; it does not deploy or automatically inject the experimental renderer into provider context.
+
 ## v0.6.3 — 2026-10-23
 
 - Teach explicit fragment output routing and GLSL buffer-clear declarations after StillwaterGloam rendered a white screen in the owner's Iris test.

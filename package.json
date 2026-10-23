@@ -1,6 +1,6 @@
 {
   "name": "modhorizon",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3215",
@@ -8,6 +8,7 @@
     "start": "next start --hostname 127.0.0.1 --port 3215",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "package:shader-foundation": "tsx scripts/shaders/package-foundation.ts",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "npm run build:cloudflare && opennextjs-cloudflare preview",
     "db:migrate:local": "wrangler d1 migrations apply modhorizon-billing --local",
