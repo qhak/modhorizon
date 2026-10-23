@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.10.0 — 2026-10-23
+
+- Restore complete GLSL project generation for all shader requests and historical foundation follow-ups. Remove automatic eight-control schema/input/parser routing and fixed-source substitution; old projects send their full current source and remain editable.
+- Supply bounded, target-aware authored engineering examples with dependency/evidence limits. Examples are optional techniques, not a required renderer or visual style. Add focused cel-shading/outline guidance and require plan-first complete source rather than settings-only responses.
+- Reject reachable include cycles and clear literal output-slot/routing mistakes while preserving valid shared includes, composite ping-pong and compiler-dependent conditional/modern outputs. Align spaced include directives with missing-file checks.
+- Keep one paid pass, full image transport, source-linked feature reports and actual-context quotes. No extra automatic repair calls, preset fallback or generated-output GPU-verification claim.
+
+Validation: 116 tests and TypeScript pass, including all four adapters, new/custom GLSL, full historical follow-ups, settings-only/static-failure rejection without extra calls, bounded examples and source contracts. Cloudflare build passes. No paid model generation or new in-game visual acceptance was performed. Native per-output compilation/repair remains a later step.
+
 ## v0.9.1 — 2026-10-23
 
 - Document `npm run local:preview` as the configured local launcher: it loads ignored provider settings from `.dev.vars`, whereas bare `npm run dev` can expose only demo mode when no provider environment is loaded.

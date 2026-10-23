@@ -1,8 +1,10 @@
 # Aurora Horizon: original reference-inspired renderer
 
-Status: candidate 03, 23 October 2026. Experimental foundation available through
-bounded AI look adaptation from v0.9.0. This is not general runtime promotion or
-reference-fidelity acceptance. The source is in `shader-foundations/aurora-horizon`.
+Status: candidate 03, 23 October 2026. From v0.10.0 this is an optional engineering
+reference for full shader-code generation, not a mandatory output template.
+The v0.9.0 bounded adapter is retired from live provider requests. This is not
+general runtime promotion or reference-fidelity acceptance. Source is in
+`shader-foundations/aurora-horizon`. See [current generation workflow](shader-source-generation.md).
 Target: Minecraft Java 1.21.11 with Iris 1.10.8. OptiFine is not supported by this
 candidate because its early background uses Iris's `begin` pass.
 
@@ -86,8 +88,8 @@ The foundation retains vanilla textures; PBR normal/roughness relief is omitted.
 | SURFACE_RELIEF | 0, .035, .065, .09 | Bounded terrain colour-height normal approximation |
 | MATERIAL_HIGHLIGHTS | 0, .5, 1.0, 1.5 | Added terrain material highlights |
 
-From v0.9.0 new Iris 1.21.11 requests use a structured reference interpretation,
-eight numeric enum controls and a list of unmet requests. The server assembles
+Historical v0.9.0 behavior (retired in v0.10.0): new Iris 1.21.11 requests used a structured reference interpretation,
+eight numeric enum controls and a list of unmet requests. The server assembled
 the pinned 30-file candidate03 renderer, changing only the eight macro values.
 All four provider adapters receive capability/evidence context and actual images;
 the complete renderer is not repeatedly generated or sent as input. One model

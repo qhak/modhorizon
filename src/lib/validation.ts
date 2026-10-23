@@ -14,6 +14,7 @@ import { ARTIFACT_EXPERTS } from "./artifact-experts";
 import { validateAttachments } from "./reference-attachments";
 import { readShaderReport, stripShaderComments } from "./shader-report";
 import { maskShaderComments, normalizeShaderMatrices } from "./shader-normalization";
+import { checkShaderSourceContracts } from "./shader-source-checks";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -234,14 +235,14 @@ function validateShaderPack(files: Files) {
     }
     if (/^\s*#\s*(?:if|elif)\b[^\n]*(?:\b\d+\.\d*|\.\d+)\b/m.test(code))
       throw new InputError(`${file.path} uses a floating-point preprocessor condition. #if/#elif require integer expressions; use shader arithmetic for float settings.`);
-    for (const match of code.matchAll(/^\s*#include\s+"([^"]+)"/gm)) {
+    for (const match of code.matchAll(/^[ \t]*#[ \t]*include[ \t]+"([^"]+)"/gm)) {
       const include = match[1];
       const resolved = include.startsWith("/") ? `shaders${include}` : file.path.slice(0, file.path.lastIndexOf("/") + 1) + include;
       if (include.includes("..") || include.includes("\\") || !paths.has(resolved))
         throw new InputError(`${file.path} includes a missing or unsupported file: ${include}.`);
     }
   }
-  try { readShaderReport(files); }
+  try { checkShaderSourceContracts(files); readShaderReport(files); }
   catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid shader feature report."); }
 }
 

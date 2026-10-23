@@ -4,7 +4,6 @@ import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
 import { expertFor, selectArtifactSkills, usesBukkitApi } from "./artifact-experts";
 import { packageMinecraftPack, resourcePackFormat } from "./packager";
-import { recognizedShaderLook } from "./shader-adaptation";
 import { PLATFORMS, describeTarget, isPlatformId } from "./platforms";
 import type {
   AIProvider,
@@ -38,6 +37,7 @@ export async function generateArtifact(
     const model = `${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}`;
     if (request.attachments?.length)
       project.logs.push(`Using ${request.attachments.length} reference attachment(s) for this generation pass. References are not retained with project history.`);
+    if (artifactType === "shader_pack") project.logs.push("Generating complete shader source and a rendering plan in one model pass. Engineering examples are optional; no fixed look-settings template is assembled by the server.");
     project.logs.push(
       isPlatformId(target)
         ? `Generating ${describeTarget(target, request.version)} source using ${model}.`
@@ -68,10 +68,7 @@ export async function generateArtifact(
         const features = generated.shaderReport!.features;
         project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Effects are not runtime-verified.`);
         for (const feature of features) for (const warning of feature.warnings || []) project.logs.push(`Feature report warning (${feature.name}): ${warning}`);
-        if (recognizedShaderLook(generated)) {
-          project.logs.push("Reference interpretation and eight allowed look controls validated. Assembled the pinned AuroraHorizon renderer; source paths and immutable rendering contracts checked.");
-          project.logs.push("Foundation evidence: candidate02 water view accepted by owner; candidate03 terrain is experimental. Base compiled offline on one driver. This adaptation has not been compiled or visually tested in Iris.");
-        }
+        project.logs.push("Static source checks passed: program pairs, includes, reserved declarations and explicit output routing. These checks are not GLSL compilation or visual verification.");
         project.logs.push("ZIP packaging succeeded. This output's GLSL compiler compatibility and GPU runtime behavior have not been checked.");
       }
       saveArtifact(project, packaged.artifact);

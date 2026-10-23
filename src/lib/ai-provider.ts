@@ -8,7 +8,7 @@ import { replyInstructions } from "./chat-commands";
 import { PLATFORMS, isPlatformId, javaVersionFor, mappingsFor, type Mappings, type PlatformFamily, type PlatformId } from "./platforms";
 import type { AIProvider, GenerateRequest, GeneratedProject, TokenUsage } from "./types";
 import { ESTIMATED_IMAGE_INPUT_TOKENS, isImageReference, referenceDescriptions } from "./reference-attachments";
-import { assembleShaderLook, LOOK_SCHEMA, shaderAdaptationContext, shaderAdaptationPrompt, usesShaderFoundation } from "./shader-adaptation";
+import { shaderExampleContext } from "./shader-examples";
 
 /** Shader pipelines can need longer to generate than small gameplay projects. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
@@ -109,7 +109,6 @@ const PLATFORM_SYSTEM_PROMPT = (id: PlatformId, version: string) => {
 
 /** Plugins and mods get platform-specific instructions; packs use the artifact playbooks. */
 function systemPrompt(request: GenerateRequest): string {
-  if (usesShaderFoundation(request)) return shaderAdaptationPrompt();
   const target = request.target || "paper";
   const artifactType = request.artifactType || "plugin";
   const base = (artifactType === "plugin" || artifactType === "mod") && isPlatformId(target)
@@ -143,11 +142,6 @@ const PROJECT_SCHEMA = {
 };
 
 function projectInput(request: GenerateRequest, errors?: string[]) {
-  if (usesShaderFoundation(request)) return JSON.stringify({
-    artifactType: request.artifactType, target: request.target, minecraftVersion: request.version,
-    prompt: request.prompt, ...shaderAdaptationContext(request),
-    ...(request.attachments?.length ? { references: referenceDescriptions(request.attachments) } : {}),
-  });
   const skills = usesBukkitApi(request) ? selectGenerationSkills(request.prompt) : [];
   return JSON.stringify({
     artifactType: request.artifactType || "plugin",
@@ -156,6 +150,7 @@ function projectInput(request: GenerateRequest, errors?: string[]) {
     prompt: request.prompt,
     matchedSkills: skills.map(({ label, guidance }) => ({ label, guidance })),
     specialistSkills: selectArtifactSkills(request),
+    ...(request.artifactType === "shader_pack" ? { shaderEngineeringExamples: shaderExampleContext(request) } : {}),
     currentProject: request.project,
     compilationErrors: errors,
     ...(request.attachments?.length ? { references: referenceDescriptions(request.attachments) } : {}),
@@ -168,12 +163,8 @@ function imageReferences(request: GenerateRequest) {
 
 /** Quotes and missing-usage fallback follow the same composed context as provider requests. */
 export function estimateProviderInputTokens(request: GenerateRequest, errors?: string[]) {
-  return Math.ceil((systemPrompt(request).length + projectInput(request, errors).length + JSON.stringify(responseSchema(request)).length) / 3)
+  return Math.ceil((systemPrompt(request).length + projectInput(request, errors).length + JSON.stringify(PROJECT_SCHEMA).length) / 3)
     + imageReferences(request).length * ESTIMATED_IMAGE_INPUT_TOKENS;
-}
-
-function responseSchema(request: GenerateRequest) {
-  return usesShaderFoundation(request) ? LOOK_SCHEMA : PROJECT_SCHEMA;
 }
 
 function openAIUserContent(request: GenerateRequest, errors: string[] | undefined, legacy: boolean) {
@@ -223,8 +214,8 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
     throw new Error("AI provider returned no project. Try a more specific request.");
   try {
     const parsed = JSON.parse(content);
-    const project = validateProject(usesShaderFoundation(request) ? assembleShaderLook(parsed) : parsed, request.artifactType || "plugin", request.target || "paper", request.version);
-    // Source assembled by the server is not model output and must not inflate billing.
+    const project = validateProject(parsed, request.artifactType || "plugin", request.target || "paper", request.version);
+    // Measure the actual provider text, including full source, when usage is missing.
     const outputTokens = usage?.outputTokens ?? Math.ceil(content.length / 3.5);
     const inputTokens = usage?.inputTokens ?? estimateProviderInputTokens(request);
     return { ...project, usage: { inputTokens, outputTokens } };
@@ -292,7 +283,7 @@ class OpenAIProvider implements AIProvider {
                   type: "json_schema",
                   name: `minecraft_${request.artifactType || "plugin"}_project`,
                   strict: true,
-                  schema: responseSchema(request),
+                  schema: PROJECT_SCHEMA,
                 },
               },
             },
@@ -398,7 +389,7 @@ class GeminiProvider implements AIProvider {
         response_format: {
           type: "text",
           mime_type: "application/json",
-          schema: responseSchema(request),
+          schema: PROJECT_SCHEMA,
         },
         generation_config: {
           max_output_tokens: MAX_GENERATION_OUTPUT_TOKENS,
