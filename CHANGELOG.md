@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.3 - 2026-10-24
+
+- Add BlocksLab04 finer oak/spruce/birch foliage, stronger vein pigment, tufted ground grass/fringe, and original short/tall grass sprites. Tall-grass colour/height/alpha and normals are baked continuously before splitting into block halves.
+- Extend plant material coverage and add restrained, existing-shadow-gated directional vegetation backlighting; this is not true subsurface scattering. Preserve bark, sand, unrelated materials, and water/sky algorithms. Geometry and wind are unchanged.
+- Expose optional foliage detail controls while preserving candidate03 defaults. Add grass/foliage periodicity, cutout/coverage, sampled PNG, tall-grass join/normal and isolation regressions. Document the installed official model path verification and scoped visual checks.
+
+Validation: 157 TypeScript tests/typecheck, five grass/foliage tests and five candidate03 material regressions pass. Candidate04 compiles 22 stages and links 11 programs; archive entries match source before local installation. Appearance, plant shadows and performance still need in-game acceptance. No provider request, deployed binary generation or production deployment.
+
 ## v0.14.2 - 2026-10-24
 
 - Add BlocksLab03: replace oak/spruce/birch barcode-like bark with irregular plates, interrupted fissures and localized knots/scars. Add fine species-specific oak/spruce/birch leaf cutouts with biome tint and correlated surface maps.

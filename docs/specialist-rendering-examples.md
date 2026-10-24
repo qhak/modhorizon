@@ -18,6 +18,37 @@ Aurora's original directory and ZIP remain unchanged.
 
 ## Block test
 
+### Grass and finer foliage candidate04
+
+The owner showed candidate03 in-game: bark stripes were reduced, but leaf forms
+looked too large and flat. The owner authorized finer leaves and grass work.
+Candidate04 reduces each leaf's extent, increases density to retain coverage,
+and strengthens vein pigment detail. Ground turf has finer blade marks and
+irregular darker gaps. Short grass and both tall-grass halves get original 512px
+curved/tapered blade sprites; paths were checked against the installed official
+Minecraft 1.21.11 model JSONs, without copying vanilla image content.
+
+Tall grass is generated as one continuous two-block colour/height/alpha field;
+normal derivatives use the complete image before it is split. The new plant
+material IDs use the same dielectric decoder. A small directional backlighting
+term applies only to leaves/grass and uses the existing shadow-gated incident
+light. This is an approximation, not true subsurface scattering or global light
+transport. There is no wind, extra plant geometry or tessellation.
+
+Use **BlocksLab-materials-04.zip** above older packs and select
+**BlocksLab-candidate-04.zip**. Check the same tree, sun behind/in front of leaves,
+canopy interiors, grassy slopes, short-grass clumps, the tall-grass mid-height
+join, leaf/plant shadows, biome tint and distant shimmer. Brightness at night or
+through an opaque wall is a failure sign. Bark, sand and all other unrelated
+candidate03 material bytes are preserved; water and sky algorithms are unchanged.
+This candidate is not visually accepted yet.
+
+The candidate03 foliage helper now exposes optional detail/density/vein controls;
+its default behavior is preserved and tested against existing candidate03 assets.
+`build-grass-foliage.py` creates candidate04. Tests check periodic fields,
+connected tall-grass halves/normals, finer alpha silhouettes, sampled PNG data,
+neutral colour and rendering/material isolation.
+
 ### Bark and foliage candidate03
 
 Owner's candidate02 screenshot revealed a barcode-like vertical bark pattern;

@@ -1,6 +1,6 @@
 {
   "name": "modhorizon",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3215",

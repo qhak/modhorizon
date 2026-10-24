@@ -64,19 +64,21 @@ def bark(name, u, v):
     return colour, height, .004, .11, 20
 
 
-def foliage(name, u, v):
+def foliage(name, u, v, detail_scale=1.0, density=1.0, vein_boost=1.0):
     species = name.split("_")[0]
     rng = np.random.default_rng({"oak": 1201, "spruce": 1301, "birch": 1401}[species])
     fine = noise(u, v, 128, 1551)
     grey = .79 + .05 * (fine - .5)
     height = np.full_like(u, .45)
     alpha = np.zeros_like(u)
-    count = {"oak": 68, "spruce": 260, "birch": 105}[species]
+    count = int({"oak": 68, "spruce": 260, "birch": 105}[species] * density)
     for _ in range(count):
         cx, cy = rng.random(2)
         angle = rng.uniform(0, 2 * np.pi)
         length = rng.uniform(.085, .13) if species == "oak" else rng.uniform(.07, .12) if species == "spruce" else rng.uniform(.055, .09)
         width = rng.uniform(.035, .065) if species == "oak" else rng.uniform(.007, .014) if species == "spruce" else rng.uniform(.02, .035)
+        length *= detail_scale
+        width *= detail_scale
         dx, dy = torus(u, cx), torus(v, cy)
         a = (dx * np.cos(angle) + dy * np.sin(angle)) / length
         b = (-dx * np.sin(angle) + dy * np.cos(angle)) / width
@@ -86,7 +88,7 @@ def foliage(name, u, v):
         coverage = 1 - smooth(.94, 1.02, radius)
         centre_vein = np.exp(-b * b * 500) * (1 - smooth(.80, 1., np.abs(a)))
         side_vein = np.exp(-np.sin((a + np.abs(b) * .55) * 22) ** 2 * 45) * (1 - smooth(.65, 1, radius))
-        tone = rng.uniform(.65, .96) + .045 * (fine - .5) - .045 * centre_vein - .025 * side_vein
+        tone = rng.uniform(.65, .96) + .045 * (fine - .5) - .045 * centre_vein * vein_boost - .025 * side_vein * vein_boost
         leaf_height = .47 + .08 * np.maximum(1 - radius * radius, 0) + .015 * centre_vein
         grey = grey * (1 - coverage) + tone * coverage
         height = height * (1 - coverage) + leaf_height * coverage
