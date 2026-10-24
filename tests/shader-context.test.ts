@@ -94,6 +94,18 @@ test("feature plans are required for output but old packs remain editable", () =
   assert.deepEqual(report.features[0].files, ["shaders/gbuffers_terrain.fsh", "shaders/gbuffers_clouds.fsh"]);
 });
 
+test("misplaced shadow constants warn without discarding source or mislabeling ordinary properties", () => {
+  const fixture = shaderPackFixture();
+  const properties = fixture.files.find(file => file.path === "shaders/shaders.properties")!;
+  properties.content += "\nshadowMapResolution=2048\nshadowDistance =112.0\nshadowIntervalSize=2.0\nsunPathRotation=0.0\n# shadowMapResolution=4096\nblend.gbuffers_water=off\n";
+  const result = validate(fixture);
+  assert.deepEqual(result.files, fixture.files);
+  assert.match(result.shaderReport!.features[0].warnings!.join("\n"), /Misplaced runtime settings.*shadowMapResolution, shadowDistance, shadowIntervalSize, sunPathRotation/);
+  properties.content = "# shadowMapResolution=4096\nblend.gbuffers_water=off\nsliders=EXPOSURE\n";
+  fixture.files.push({ path: "shaders/lib/metadata.glsl", content: "const int shadowMapResolution=2048; const float shadowDistance=112.0;" });
+  assert.equal(validate(fixture).shaderReport!.features[0].warnings, undefined);
+});
+
 test("feature plans reject invalid schemas but flag unsupported claims without discarding shader source", () => {
   assert.throws(() => validate(changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], status: "verified" }] }))), /valid kind/);
   const warningsFor = (edit: Parameters<typeof changePlan>[0]) => validate(changePlan(edit)).shaderReport!.features[0].warnings!.join("\n");

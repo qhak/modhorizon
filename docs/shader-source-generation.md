@@ -1,5 +1,26 @@
 # Full shader-source generation
 
+## Runtime-setting audit - v0.13.3
+
+The first controlled short-prompt UI retry, SundownReflections, passed 20 stages
+and 10 links and produced a ZIP without manual edits or AI repair. Credit history
+showed twelve reserved and nine returned: three credits used. That is one measured
+native compile success, not visual acceptance or a reliability estimate.
+
+Review still found shadowMapResolution, shadowDistance, shadowIntervalSize and
+sunPathRotation assigned in shaders.properties. They require GLSL const directives;
+the driver does not parse properties. Reports now warn when those four known
+settings appear as assignments, preserving source and triggering no model retry.
+This is a focused lexical audit, not complete Iris property/preprocessor validation.
+Generation guidance explains their proper location/types and the shadow-pass
+matrix convention; skill library 1.0.3 includes the documented option reference
+and measured first-pass case. Detailed instructions remain context, not guaranteed
+model behavior. See [resolution](https://shaders.properties/current/reference/constants/shadowmapresolution/),
+[distance](https://shaders.properties/current/reference/constants/shadowdistance/),
+[interval](https://shaders.properties/current/reference/constants/shadowintervalsize/),
+[sun rotation](https://shaders.properties/current/reference/constants/sunpathrotation/)
+and [matrix conventions](https://shaders.properties/current/reference/uniforms/matrices/).
+
 ## Stage-interface failure lesson - v0.13.2
 
 Generation guidance explicitly separates vertex-only attribute declarations from

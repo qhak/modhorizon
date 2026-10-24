@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "reviewed": "2026-10-24",
   "profile": { "target": "iris", "minecraft": "1.21.11" },
   "references": [
@@ -13,13 +13,15 @@
     { "id": "amber-declarations", "kind": "local-case", "lesson": "Amberwater's paid repair fixed missing declarations but introduced duplicate uniforms in shared includes. A separate manual repair removed three conflicting declarations. Native compilation passed; this did not establish appearance." },
     { "id": "amber-celestial", "kind": "local-case", "lesson": "Amberwater repair-01 showed a black rectangle around the sun. Repair-02 changed celestial sampling/blending, passed five synthetic pixel cases and an owner screenshot showed the rectangle gone. Broader sky acceptance remained incomplete." },
     { "id": "aurora-water", "kind": "local-case", "lesson": "The owner liked authored AuroraHorizon water in a specific scene. Later terrain work was experimental. This is limited visual feedback, not a general benchmark or proof that a copied pipeline fits other styles." },
-    { "id": "ember-stage-interface", "kind": "local-case", "lesson": "EmberlightLake's retained first pass failed six programs: an unconditional shared attribute reached four fragment stages, and bare RGBA16F metadata failed two post passes. Moving attributes into consuming vertex roots and wrapping only format metadata in parsed block comments produced 22 compiled stages and 11 links on the local NVIDIA driver. Rendering remains unverified; this was a manual repair, not a successful first pass." }
+    { "id": "ember-stage-interface", "kind": "local-case", "lesson": "EmberlightLake's retained first pass failed six programs: an unconditional shared attribute reached four fragment stages, and bare RGBA16F metadata failed two post passes. Moving attributes into consuming vertex roots and wrapping only format metadata in parsed block comments produced 22 compiled stages and 11 links on the local NVIDIA driver. Rendering remains unverified; this was a manual repair, not a successful first pass." },
+    { "id": "shadow-options", "url": "https://shaders.properties/current/reference/constants/shadowmapresolution/", "kind": "primary-documentation", "lesson": "shadowMapResolution is a GLSL const int directive. Related documented constants shadowDistance, shadowIntervalSize and sunPathRotation use const float declarations. A shader property with the same spelling does not configure these directives. Match filter texel size to actual map resolution." },
+    { "id": "sundown-first-pass", "kind": "local-case", "lesson": "A fresh short-prompt SundownReflections UI generation with two images passed 20 native stages and 10 links without manual edits or AI repair, using three settled credits. Source review still found misplaced shadow-option properties. Compilation did not establish runtime settings, image fidelity or visual success." }
   ],
   "skills": [
     {
       "id": "pipeline-engineer", "label": "Pipeline engineer", "modules": [],
       "purpose": "Own geometry coverage, interfaces and pass/buffer lifetimes for every shader.",
-      "references": ["geometry", "buffers", "spaces", "matrices", "amber-declarations", "ember-stage-interface"],
+      "references": ["geometry", "buffers", "spaces", "matrices", "amber-declarations", "ember-stage-interface", "shadow-options", "sundown-first-pass"],
       "workflow": ["Name inputs, outputs, clear/format and consumers for each pass before implementation.", "Choose one declaration owner per uniform/helper; audit expanded stages and matching varyings.", "Review terrain, cutouts, hand/entities, weather and glass independently of the requested style."],
       "alternatives": ["Forward surface lighting for a compact shader; preserve geometry attributes through the material pass.", "Deferred lighting for a shared screen-space calculation; explicitly store normals/material data and reconstruct positions. Do not treat scene colour as a normal buffer."],
       "failurePairs": [{ "wrong": "A composite colour grade is described as a full realistic renderer.", "correction": "Implement directional/material lighting in geometry or an adequately populated deferred pipeline; label a grade as a grade." }, { "wrong": "Each library declares all matrices it needs, causing duplicate declarations when combined.", "correction": "Use shared guarded declaration owners; compile every affected expanded vertex/fragment stage." }, { "wrong": "A generated pack uses gbuffers_terrain_cutout_mip as if a render-layer label were a runtime entrypoint.", "correction": "Use the supported program catalog and runtime documentation. Iris 1.10.8 for Minecraft 1.21.11 has terrain_cutout, not terrain_cutout_mip. Review overlapping passes and alpha behavior rather than blindly renaming files." }],
@@ -28,7 +30,7 @@
     {
       "id": "surface-lighting", "label": "Surface lighting specialist", "modules": ["lighting", "stylized"],
       "purpose": "Translate the requested block appearance into a deliberate light/material response.",
-      "references": ["spaces", "matrices", "shadow", "geometry"],
+      "references": ["spaces", "matrices", "shadow", "geometry", "shadow-options"],
       "workflow": ["Separate texture/biome tint, direct light, ambient light and blocklight.", "Bring normals and sun direction into one space; preserve cutout alpha.", "Choose realistic or stylized response from instructions. Do not invent detailed textures or PBR maps absent from the pack."],
       "alternatives": ["Natural diffuse lighting: smooth normal-dependent direct light with retained ambient/blocklight.", "Cel lighting: intentionally quantized direct-light bands with stable normals and independent emissive/blocklight.", "Shadow-mapped direct light: depth visibility, bias, bounded filter and out-of-map fallback; a global darkening is not a cast shadow."],
       "failurePairs": [{ "wrong": "All blocks get the same warm multiply and are called realistic.", "correction": "Make sun-facing and shaded faces respond differently; verify a real occluder's cast shadow separately." }],

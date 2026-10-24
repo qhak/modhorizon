@@ -1,7 +1,8 @@
 # Shader specialist skill library
 
-Library 1.0.2, reviewed 24 October 2026. Introduced in application v0.12.0;
-program-name failure lesson added in v0.12.2, stage-interface case in v0.13.2.
+Library 1.0.3, reviewed 24 October 2026. Introduced in application v0.12.0;
+program-name failure lesson added in v0.12.2, stage-interface case in v0.13.2,
+runtime-setting reference and measured Sundown first pass in v0.13.3.
 
 The model receives structured specialist workflows, alternative approaches,
 failure/correction pairs and acceptance scenes. These are reusable context cards,
@@ -23,6 +24,11 @@ native-driver evidence, not first-pass success or in-game acceptance. The shared
 interface included mc_Entity as an unconditional attribute in fragment stages;
 it now belongs to the consuming vertex roots in the manual copy. Format metadata
 uses Iris-parsed block comments rather than undefined RGBA16F expressions.
+
+Two more records bring the current total to thirteen: documented shadow-option
+location and SundownReflections' native first-pass success with unresolved settings
+placement. Its three settled credits and 20 stages/10 links are measured facts;
+image fidelity, rendered appearance and broader reliability remain unverified.
 
 The documentation sources cover [geometry routing](https://shaders.properties/current/reference/programs/gbuffers/),
 [scene buffers](https://shaders.properties/current/reference/buffers/colortex/),

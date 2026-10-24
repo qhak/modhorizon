@@ -74,6 +74,12 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
       technique: text(item.technique, "technique", 2000), files: sourceFiles, limitations: text(item.limitations, "limitations", 2000, item.status === "implemented"), ...(warnings.length ? { warnings } : {}) } as ShaderReport["features"][number];
   });
   const sources = new Map(files.map(file => [file.path, file.content]));
+  const properties = sources.get("shaders/shaders.properties") || "";
+  const misplaced = [...new Set([...properties.matchAll(/^[ \t]*(shadowMapResolution|shadowDistance|shadowIntervalSize|sunPathRotation)[ \t]*=/gm)].map(match => match[1]))];
+  if (misplaced.length) {
+    const feature = features.find(item => item.kind === "baseline") || features[0];
+    (feature.warnings ??= []).push(`Misplaced runtime settings in shaders/shaders.properties: ${misplaced.join(", ")}. These require GLSL const directives; successful driver compilation does not mean these property assignments configure Iris.`);
+  }
   for (const feature of features.filter(feature => feature.status === "implemented")) {
     const code = featureSource(feature.files, sources);
     if (feature.kind === "shadows" && !files.some(file => /(?:^|\/)shadow\.vsh$/.test(file.path)))

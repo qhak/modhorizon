@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.13.3 - 2026-10-24
+
+- Warn when four known GLSL runtime constants are placed in shaders.properties, without rejecting usable source or triggering paid repairs. Compilation does not establish that property assignments configure Iris.
+- Teach correct shadow-option declaration locations/types and shadow-pass matrix ownership. Skill library 1.0.3 adds option documentation and a measured first-pass case, bringing reference records to thirteen.
+- Record the controlled short-prompt SundownReflections UI pass: 20 stages/10 links, unmodified generated ZIP and three settled credits. Source review still found misplaced options; visual acceptance remains pending.
+
+Validation: 150 tests and TypeScript pass; Cloudflare build passes. Misplaced-setting warnings preserve exact source and ignore comments/ordinary properties. One real Luna High pass succeeded natively without repair; this is not a rendering test or reliability estimate.
+
 ## v0.13.2 - 2026-10-24
 
 - Teach vertex-only attribute ownership versus shared stage varyings and parsed block-comment format metadata. Add the retained EmberlightLake failure as reference eleven in skill library 1.0.2.
