@@ -8,6 +8,7 @@ import { replyInstructions } from "./chat-commands";
 import { PLATFORMS, isPlatformId, javaVersionFor, mappingsFor, type Mappings, type PlatformFamily, type PlatformId } from "./platforms";
 import type { AIProvider, GenerateRequest, GeneratedProject, TokenUsage } from "./types";
 import { ESTIMATED_IMAGE_INPUT_TOKENS, isImageReference, referenceDescriptions } from "./reference-attachments";
+import { shaderSkillContext } from "./shader-skills";
 import { shaderExampleContext } from "./shader-examples";
 import { shaderCompilerRepairContext } from "./shader-context";
 
@@ -152,7 +153,7 @@ function projectInput(request: GenerateRequest, errors?: string[]) {
     prompt: request.prompt,
     matchedSkills: skills.map(({ label, guidance }) => ({ label, guidance })),
     specialistSkills: selectArtifactSkills(request),
-    ...(request.artifactType === "shader_pack" ? { shaderEngineeringExamples: shaderExampleContext(request) } : {}),
+    ...(request.artifactType === "shader_pack" ? { shaderEngineeringExamples: shaderExampleContext(request), shaderSkillLibrary: shaderSkillContext(request) } : {}),
     currentProject: request.project,
     compilationErrors: errors,
     shaderCompilerRepair: shaderCompilerRepairContext(request, errors),

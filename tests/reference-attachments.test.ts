@@ -64,6 +64,10 @@ test("all provider adapters send actual image blocks and untrusted text context 
     const firstText = content[0].text;
     const context = JSON.parse(firstText);
     assert.equal(context.currentProject.name, fixture.name);
+    assert.equal(context.shaderSkillLibrary.version, "1.0.0");
+    assert.equal(context.shaderSkillLibrary.skills.length, 5);
+    assert.equal(context.shaderSkillLibrary.references.length, 10);
+    assert.ok(context.shaderSkillLibrary.skills.some((skill: { id: string }) => skill.id === "water-optics"));
     assert.equal(context.references[1].content, text.data);
     assert.ok(!firstText.includes(png)); // Not masquerading as text tokens.
     const system = mode === "legacy" ? body.messages[0].content : mode === "anthropic" ? body.system : mode === "google" ? body.system_instruction : body.input[0].content;

@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.12.0 - 2026-10-24
+
+- Add a versioned shader specialist library with five roles, ten documented reference records, alternative methods, failure/correction pairs and concrete acceptance scenes.
+- Include selected skill cards and distilled reference lessons in all four provider payloads. Image-led requests receive all five; text requests route relevant cards plus pipeline engineering. Keep exact Iris 1.21.11 profile gating and a 16,000-character whole-card budget.
+- Distinguish reviewed documentation, limited local observations and unverified new output. Count selected context in credit estimates; add no runtime fetches, model agents or extra paid passes.
+- Document how to add annotated visual references, genuinely different styles and measured evidence. This release adds no visual gallery or permanent model training.
+
+Validation: 140 tests and TypeScript pass; Cloudflare build passes. Routing, source provenance, budget, incompatible-profile withholding and all four mocked image/provider payloads are covered. No paid generation or new in-game quality evaluation was performed.
+
 ## v0.11.6 - 2026-10-24
 
 - Give image-led shader requests all five engineering guidance modules even without effect keywords. Explicit constraints override inferred image cues; optional code examples stay text-ranked and bounded.

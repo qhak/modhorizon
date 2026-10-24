@@ -1,5 +1,17 @@
 # Full shader-source generation
 
+## Specialist reference library - v0.12.0
+
+Provider input now includes a versioned skill library with task workflows,
+alternative methods, failure/correction pairs and acceptance scenes. Its ten
+reference records separate primary documentation from limited local evidence.
+Text requests select relevant roles plus pipeline engineering; image-led requests
+receive all five roles within a 16,000-character budget. Detailed cards are
+initially scoped to Iris / Minecraft 1.21.11. Other targets receive an applicability
+warning and catalog, with recipes withheld. Context is included in credit estimates.
+No extra model calls, runtime web access, visual gallery or permanent training is
+introduced. See [library contents, evidence and contribution workflow](shader-skill-library.md).
+
 ## Reference-led design and evidence - v0.11.6
 
 All four adapters send actual image blocks alongside shared guidance and current

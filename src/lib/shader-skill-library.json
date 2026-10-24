@@ -1,0 +1,64 @@
+{
+  "version": "1.0.0",
+  "reviewed": "2026-10-24",
+  "profile": { "target": "iris", "minecraft": "1.21.11" },
+  "references": [
+    { "id": "geometry", "url": "https://shaders.properties/current/reference/programs/gbuffers/", "kind": "primary-documentation", "lesson": "Geometry has distinct programs and fallbacks. skybasic handles sky, stars and void; skytextured handles celestial textures; water handles translucent terrain." },
+    { "id": "buffers", "url": "https://shaders.properties/current/reference/buffers/colortex/", "kind": "primary-documentation", "lesson": "In gbuffers, colortex0-3 sample the atlas rather than scene colour. colortex1 defaults to an opaque-white clear; separate overlays need an intentional clear." },
+    { "id": "spaces", "url": "https://shaders.properties/current/how-to/coordinate_spaces/", "kind": "primary-documentation", "lesson": "Track every position and direction through named coordinate spaces. Matrix order and whether a value is a point or direction matter." },
+    { "id": "matrices", "url": "https://shaders.properties/current/reference/uniforms/matrices/", "kind": "primary-documentation", "lesson": "Use the documented matrix and inverse for the intended pass. Shared names alone do not prove that inputs are in the matching space." },
+    { "id": "blending", "url": "https://shaders.properties/current/reference/shadersproperties/rendering/", "kind": "primary-documentation", "lesson": "Rendering properties control separate RGB/alpha blend factors and buffer flips. Geometry and composite passes have different read/write behavior." },
+    { "id": "shadow", "url": "https://shaders.properties/current/reference/programs/shadow/", "kind": "primary-documentation", "lesson": "The shadow program renders world geometry from the sun or moon perspective into shadow buffers; consumers must compare matching coordinates." },
+    { "id": "materials", "url": "https://shaders.properties/current/reference/attributes/mc_entity/", "kind": "primary-documentation", "lesson": "mc_Entity.x carries assigned block IDs. Its y component identifies fluids, including both water and lava; it is not a water-only mask." },
+    { "id": "amber-declarations", "kind": "local-case", "lesson": "Amberwater's paid repair fixed missing declarations but introduced duplicate uniforms in shared includes. A separate manual repair removed three conflicting declarations. Native compilation passed; this did not establish appearance." },
+    { "id": "amber-celestial", "kind": "local-case", "lesson": "Amberwater repair-01 showed a black rectangle around the sun. Repair-02 changed celestial sampling/blending, passed five synthetic pixel cases and an owner screenshot showed the rectangle gone. Broader sky acceptance remained incomplete." },
+    { "id": "aurora-water", "kind": "local-case", "lesson": "The owner liked authored AuroraHorizon water in a specific scene. Later terrain work was experimental. This is limited visual feedback, not a general benchmark or proof that a copied pipeline fits other styles." }
+  ],
+  "skills": [
+    {
+      "id": "pipeline-engineer", "label": "Pipeline engineer", "modules": [],
+      "purpose": "Own geometry coverage, interfaces and pass/buffer lifetimes for every shader.",
+      "references": ["geometry", "buffers", "spaces", "matrices", "amber-declarations"],
+      "workflow": ["Name inputs, outputs, clear/format and consumers for each pass before implementation.", "Choose one declaration owner per uniform/helper; audit expanded stages and matching varyings.", "Review terrain, cutouts, hand/entities, weather and glass independently of the requested style."],
+      "alternatives": ["Forward surface lighting for a compact shader; preserve geometry attributes through the material pass.", "Deferred lighting for a shared screen-space calculation; explicitly store normals/material data and reconstruct positions. Do not treat scene colour as a normal buffer."],
+      "failurePairs": [{ "wrong": "A composite colour grade is described as a full realistic renderer.", "correction": "Implement directional/material lighting in geometry or an adequately populated deferred pipeline; label a grade as a grade." }, { "wrong": "Each library declares all matrices it needs, causing duplicate declarations when combined.", "correction": "Use shared guarded declaration owners; compile every affected expanded vertex/fragment stage." }],
+      "acceptance": ["Toggle shaders in a scene containing leaves, glass, entities and the player's hand; no category may disappear.", "Compile all stages and links, then test in Iris; neither packaging nor native compilation proves runtime bindings."]
+    },
+    {
+      "id": "surface-lighting", "label": "Surface lighting specialist", "modules": ["lighting", "stylized"],
+      "purpose": "Translate the requested block appearance into a deliberate light/material response.",
+      "references": ["spaces", "matrices", "shadow", "geometry"],
+      "workflow": ["Separate texture/biome tint, direct light, ambient light and blocklight.", "Bring normals and sun direction into one space; preserve cutout alpha.", "Choose realistic or stylized response from instructions. Do not invent detailed textures or PBR maps absent from the pack."],
+      "alternatives": ["Natural diffuse lighting: smooth normal-dependent direct light with retained ambient/blocklight.", "Cel lighting: intentionally quantized direct-light bands with stable normals and independent emissive/blocklight.", "Shadow-mapped direct light: depth visibility, bias, bounded filter and out-of-map fallback; a global darkening is not a cast shadow."],
+      "failurePairs": [{ "wrong": "All blocks get the same warm multiply and are called realistic.", "correction": "Make sun-facing and shaded faces respond differently; verify a real occluder's cast shadow separately." }],
+      "acceptance": ["Compare perpendicular stone faces, tree-shadow edges, foliage and torch-lit shade at a fixed time.", "Keep night readable and avoid applying direct sunlight to every ambient/blocklight contribution."]
+    },
+    {
+      "id": "water-optics", "label": "Water and reflections specialist", "modules": ["water"],
+      "purpose": "Implement the requested water surface while preserving other translucent materials.",
+      "references": ["materials", "buffers", "blending", "spaces", "aurora-water"],
+      "workflow": ["Assign an explicit water material; preserve glass and distinguish lava.", "Choose reflection inputs, position reconstruction, animated surface normals, view-angle weighting and transparent composition as one contract.", "Use bounded depth-tested scene tracing when recognizable landscape reflection is requested; document unavailable off-screen geometry."],
+      "alternatives": ["Sky reflection only: efficient environmental colour/specular response; explicitly approximate landscape reflections.", "Screen-space reflection: scene snapshot plus depth trace, intersection rejection and edge/sky fallback. Nearby visible trees/buildings must contribute.", "Clear shallow water: combine depth-aware transmission with reflection rather than making the whole surface uniformly opaque or invisible."],
+      "failurePairs": [{ "wrong": "A procedural sky gradient is claimed to reflect nearby trees.", "correction": "Trace actual scene colour/depth or report landscape reflections omitted." }, { "wrong": "An unwritten translucent layer composites opaque white over the world.", "correction": "Set a transparent clear and audit no-water frames and alpha conventions." }],
+      "acceptance": ["Place a recognizable object beside water; move the camera and verify its reflection follows geometry.", "Check grazing/downward views, shallows, underwater, glass overlap and frames without translucent geometry."]
+    },
+    {
+      "id": "sky-weather", "label": "Sky and weather specialist", "modules": ["sky"],
+      "purpose": "Create a coherent sky without corrupting stars, celestial textures or cloud controls.",
+      "references": ["geometry", "spaces", "blending", "amber-celestial"],
+      "workflow": ["Separate background sky, stars, celestial textures and vanilla/procedural cloud paths.", "Keep sun, view and world-up conventions consistent with the visible sun.", "Choose a cloud representation and expose a meaningful toggle; turning vanilla clouds off must not be described as disabling procedural clouds."],
+      "alternatives": ["Vanilla cloud geometry with deliberate lighting/tint for a restrained look.", "Procedural cloud layer with bounded noise and horizon fade; label it a layer, not volumetric cloud transport.", "A richer volumetric approach requires its own sampling, density, lighting and performance implementation; do not obtain it by relabeling 2D noise."],
+      "failurePairs": [{ "wrong": "Every skybasic primitive is painted with opaque procedural sky.", "correction": "Audit the distinct star/background geometry contracts for the selected runtime; preserve star tint/coverage instead of assuming one full-screen surface." }, { "wrong": "Opaque black texels in a celestial texture replace the background.", "correction": "Choose tested celestial coverage/blending separately from water/glass and verify dark and transparent texels." }],
+      "acceptance": ["Inspect day, sunset and night in every direction for hard horizon seams, coloured star specks and celestial borders.", "Test vanilla and procedural cloud controls independently and explain which one is active."]
+    },
+    {
+      "id": "atmosphere-colour", "label": "Atmosphere and colour specialist", "modules": ["atmosphere"],
+      "purpose": "Match haze, glow and contrast while retaining surface detail.",
+      "references": ["buffers", "matrices", "spaces", "blending"],
+      "workflow": ["Define scene colour space, exposure, one final display transform and the fog/sky colour relationship.", "Reconstruct meaningful distance before fog; isolate bright energy before bloom.", "Preserve close contrast and readable nights; separate depth haze from occlusion-aware shafts."],
+      "alternatives": ["Distance haze for restrained atmosphere, with no claim of volumetric scattering.", "Highlight extraction and bounded blur for bloom; no whole-frame brightness multiply.", "Screen-space rays are an approximation with off-screen/occlusion limitations; shadow-aware scattering requires additional integration."],
+      "failurePairs": [{ "wrong": "Whole-frame brightening is called bloom and washes out blocks.", "correction": "Extract highlights, blur/combine a bounded contribution, and apply exposure/tone mapping once." }],
+      "acceptance": ["Compare nearby blocks and the distant horizon; haze should not erase nearby contrast.", "Check torch highlights, sun clipping, night readability and transparency through post-processing."]
+    }
+  ]
+}
