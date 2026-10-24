@@ -16,6 +16,25 @@ runtime. The block candidate reuses the accepted water architecture; the sky
 candidate changes only `skyRadiance`, so reflected sky colours change with it.
 Aurora's original directory and ZIP remain unchanged.
 
+## Sky shapes candidate06
+
+Candidate05 owner screenshot confirmed coloured sky/clouds, with tiny sun,
+streaky clouds and pale horizon. Owner authorized improving those features.
+Select BlocksLab-candidate-06.zip with unchanged BlocksLab-materials-04.zip.
+The shared helper uses bounded angular dome coordinates rather than near-horizon
+1/y plane projection. Warped noise forms broader clusters; the stylized solar
+radius grows from 0.010 to 0.026 radians. Horizon radiance is lower. Composite
+uses 35% lower base distance fog with reduced golden-hour amplification, keeping
+far-distance fade and underwater fog. Block lighting/exposure, materials and
+water algorithms are unchanged; reflected sky and atmospheric appearance change.
+This is a 2D dome with limited parallax, no stars or volumetric cloud claim.
+
+Three native regressions check actual solar angular footprint, retained background/
+translucency contracts and source isolation. 22 stages/11 links pass. Preview is
+synthetic actual GLSL, not Minecraft. Test same location/time in 05 versus 06,
+then noon/sunset/night/rain; pan up and around the horizon, check reflected cloud
+shapes, cloud motion and terrain silhouettes. Owner visual acceptance pending.
+
 ## Clear sky candidate05
 
 Owner feedback retains candidate04 grass/leaves as the current baseline; the next

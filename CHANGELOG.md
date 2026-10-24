@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.5 - 2026-10-24
+
+- Add BlocksLab06 following candidate05 game feedback: bounded angular cloud coordinates replace the near-horizon planar projection, producing broader cloud clusters. Enlarge the stylized sun disc and reduce horizon radiance and distance haze, with less sunset amplification.
+- Preserve materials04, block lighting/exposure, water algorithms, underwater fog and far-distance fade. Reflections follow the revised sky/atmosphere. Record the feedback and limited 2D technique in generator examples.
+- Add actual-GLSL solar footprint, background/translucency and source-isolation tests; export a labelled synthetic preview. New appearance still needs Minecraft acceptance; clouds are not volumetric and have limited parallax.
+
+Validation: three candidate06 native tests, 22 compiled stages/11 links, 157 TS tests and typecheck pass. ZIP/source integrity checked before local installation. No paid provider request, production deployment or live binary texture generation.
+
 ## v0.14.4 - 2026-10-24
 
 - Add BlocksLab05: explicitly fill clear-depth sky in the opaque snapshot and composite before translucent mixing. A native GPU probe reproduces candidate04 returning white from a white scene input; candidate05 renders its own sky independently of that input.
