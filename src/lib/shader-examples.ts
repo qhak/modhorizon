@@ -11,7 +11,7 @@ export function shaderExampleContext(request: GenerateRequest) {
   const applicable = request.target === "iris" && request.version === "1.21.11";
   const index = {
     role: "Optional engineering examples, not required code, palette, architecture or look controls. Generate complete source for the user's requested shader, including effects absent from these examples. No server assembly occurs.",
-    evidence: "Excerpts from original AuroraHorizon candidate03 for Iris 1.21.11. The base compiled offline on one NVIDIA driver; the owner liked candidate02 water. Candidate03 terrain is experimental. None of this verifies a newly generated shader.",
+    evidence: "Excerpts from original AuroraHorizon candidate03 for Iris 1.21.11. The base compiled offline on one NVIDIA driver. On 2026-10-24 the owner named candidate03 the best water baseline so far; blocks still need realistic texture work. Candidate03 terrain, BlocksLab01 materials and CleanSkyLab01 sky are experimental, not accepted visual references. None of this verifies a newly generated shader.",
     applicability: applicable ? "Exact example target matches; still check all dependencies and interfaces." : "Example runtime differs. Source excerpts withheld; do not assume Iris-only passes or this version's interfaces for the selected target.",
     lessons: [
       "Use compatibility built-ins without redeclaring gl_ names. RGBA16F format metadata belongs inside the runtime's parsed block comment, not an undefined native GLSL expression.",

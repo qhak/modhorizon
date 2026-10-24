@@ -1,0 +1,114 @@
+{
+  "goal": "Separate clean-sky experiment: continuous blue/day and peach/sunset gradients, restrained discs and soft procedural clouds, inherited Aurora geometry/water pipeline.",
+  "referenceSummary": "Owner requests a separate clean-sky example. Aurora candidate03 is the accepted water reference only; this revised sky has no in-game acceptance yet.",
+  "pipeline": [
+    "Early full-screen linear sky background into colortex0; shadow pass writes alpha-tested depth with an unwarped projection.",
+    "Forward geometry writes lit linear HDR to colortex0, with separate direct, ambient and block light.",
+    "Deferred copies opaque colortex0 into colortex4 before translucent rendering.",
+    "Water/glass write colortex1 cleared to transparent; water traces depthtex1 and reads the opaque colortex4 snapshot.",
+    "Composite combines the scene and translucent layer with contact occlusion, depth haze and screen-space shafts.",
+    "Final samples highlights for bloom, applies exposure and tone mapping once, then converts to display gamma."
+  ],
+  "features": [
+    {
+      "name": "Directional lighting on ordinary blocks",
+      "kind": "lighting",
+      "priority": 1,
+      "status": "implemented",
+      "technique": "World-oriented normals and active sun/moon direction, warm direct light, separate ambient skylight and warm block-light channels, biome tint and vertex AO.",
+      "files": [
+        "shaders/gbuffers_terrain.fsh",
+        "shaders/lib/lighting.glsl",
+        "shaders/lib/geometry_fragment.glsl"
+      ],
+      "limitations": "Source implementation only; day/night, entities and material appearance need Iris tests. No global illumination or PBR surface relief."
+    },
+    {
+      "name": "Soft filtered cast shadows",
+      "kind": "shadows",
+      "priority": 1,
+      "status": "implemented",
+      "technique": "2048px unwarped 96-block shadow depth map with cutout alpha, normal offset, slope bias, nine depth comparisons and distance fade; shadows attenuate direct light only.",
+      "files": [
+        "shaders/shadow.vsh",
+        "shaders/shadow.fsh",
+        "shaders/lib/lighting.glsl"
+      ],
+      "limitations": "Finite coverage and fixed PCF softness. Bias/cutout quality needs runtime checking; translucent coloured shadows are omitted."
+    },
+    {
+      "name": "Recognisable landscape water reflections",
+      "kind": "reflections",
+      "priority": 1,
+      "status": "implemented",
+      "technique": "Deferred opaque-scene copy into colortex4, then 48 quadratically spaced view-space ray steps up to roughly 144 blocks using depthtex1, binary refinement, edge fading and a matching procedural sky fallback.",
+      "files": [
+        "shaders/deferred.fsh",
+        "shaders/gbuffers_water.fsh",
+        "shaders/composite.fsh"
+      ],
+      "limitations": "Only scenery visible in the screen buffers is available. No working reflected-object visibility or reference fidelity is claimed before Iris tests."
+    },
+    {
+      "name": "Calm water and transparent shallows",
+      "kind": "water",
+      "priority": 1,
+      "status": "approximation",
+      "technique": "Animated world-anchored normals, Fresnel reflectivity, depth-based absorption and screen-space refraction, with material IDs separating water from glass.",
+      "files": [
+        "shaders/gbuffers_water.fsh",
+        "shaders/block.properties"
+      ],
+      "limitations": "One unblended nearest translucent layer does not accumulate overlapping glass/water. No foam, caustics or displaced waves. Underwater needs testing."
+    },
+    {
+      "name": "Clean sky and soft clouds",
+      "kind": "sky",
+      "priority": 2,
+      "status": "approximation",
+      "technique": "Sun-elevation-dependent horizon/zenith colours, solar and lunar discs and a world-oriented animated soft noise cloud plane, shared with reflection fallback.",
+      "files": [
+        "shaders/begin.fsh",
+        "shaders/lib/common.glsl"
+      ],
+      "limitations": "Soft 2D cloud plane, not volumetric clouds or scattering. No stars in candidate01. Above-cloud views, lower sky and night need visual evaluation."
+    },
+    {
+      "name": "Atmospheric depth and contact shading",
+      "kind": "atmosphere",
+      "priority": 2,
+      "status": "approximation",
+      "technique": "Depth-reconstructed distance haze matching the sky, eight-sample contact occlusion and twelve-sample depth-occluded screen-space sunlight shafts.",
+      "files": [
+        "shaders/composite.fsh"
+      ],
+      "limitations": "No true volumetric scattering or indirect illumination. Occlusion and shafts may have screen-space artefacts."
+    },
+    {
+      "name": "Controlled highlight glow",
+      "kind": "bloom",
+      "priority": 3,
+      "status": "implemented",
+      "technique": "Two-radius highlight-only sampling in linear HDR, followed by one exposure/filmic/display transform.",
+      "files": [
+        "shaders/final.fsh",
+        "shaders/composite.fsh"
+      ],
+      "limitations": "Small fixed sampling kernel, not a multi-resolution bloom pyramid; quality and performance require runtime evaluation."
+    },
+    {
+      "name": "Terrain material highlights and inferred relief",
+      "kind": "other",
+      "priority": 1,
+      "status": "approximation",
+      "technique": "Terrain IDs select roughness/metal response. Shadow-gated GGX-style highlights and small, bounded colour-height surface gradients add near-camera detail while shadow bias uses geometric normals.",
+      "files": [
+        "shaders/lib/geometry_fragment.glsl",
+        "shaders/lib/geometry_vertex.glsl",
+        "shaders/lib/lighting.glsl",
+        "shaders/block.properties"
+      ],
+      "limitations": "Brightness is not measured height. No true PBR texture maps or displaced geometry; category coverage is incomplete. Close-up shimmer, material appearance and performance need in-game comparison."
+    }
+  ]
+}

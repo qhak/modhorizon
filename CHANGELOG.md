@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.0 - 2026-10-24
+
+- Add separate authored BlocksLab01 and CleanSkyLab01 examples; Aurora candidate03 remains the owner's water baseline. Block materials provide original periodic 512px sand, stone and oak-plank albedo/normal/smoothness assets plus a dielectric material decoder. CleanSky changes only the shared sky function, not the inherited water algorithm.
+- Add reproducible asset/candidate builders, isolated shader packaging and a component-specific acceptance guide. Normal/height fields are correlated; other block assets remain vanilla. No POM/displacement, full LabPBR compliance, photo-scan quality or visual acceptance is claimed.
+- Teach the generator that non-pixelated blocks need real material assets, not tone mapping alone. Disclose the text-only live generator boundary and keep experimental examples distinct from owner-accepted water evidence. The live app does not yet generate binary textures.
+
+Validation: 157 TypeScript tests, five material/isolation tests, eight native regressions, typecheck and Cloudflare build pass. Both candidates compile 22 stages and link 11 programs. Material tests check periodicity, stored-channel constraints, deterministic assets and source isolation. In-game appearance and performance remain pending; no paid provider request was made.
+
 ## v0.13.4 - 2026-10-24
 
 - Keep one included uniform owner when a legacy stage redundantly declares the same simple uniform. Cleanup is bounded, preserves source line positions and shared consumers, and is disclosed in the project message. Conditional/macro code, conflicting types, complex declarations, repeated owners and uses before the retained owner remain compiler concerns.

@@ -1,8 +1,10 @@
 # ModHorizon
 
-Current release: **v0.13.4**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
+Current release: **v0.14.0**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
 
 ## Configured local testing
+
+Separate authored block-material and clean-sky candidates, with Aurora candidate03 as the owner's water baseline, are documented in [the specialist example guide](docs/specialist-rendering-examples.md). These local material assets are experimental; the live generator does not yet produce binary textures.
 
 From this repository, use `npm run local:preview` when testing with the provider
 credentials and Cloudflare bindings already configured in the ignored `.dev.vars`.

@@ -11,6 +11,14 @@ import { shaderPackFixture } from "./fixtures/shader-pack";
 
 const request = { prompt: "Create a subtle warm colour grade.", artifactType: "shader_pack" as const, target: "iris" as const, version: "1.21.11", modelId: "gpt-6-luna" };
 const validate = (project: unknown) => validateProject(project, "shader_pack", "iris", "1.21.11");
+
+test("realistic texture requests disclose missing assets and isolate component acceptance", () => {
+  const context = shaderGenerationContext({ ...request, prompt: "Make sand look real with no pixels, keep my water." });
+  assert.match(context, /detailed albedo assets/);
+  assert.match(context, /not generated PNG assets/);
+  assert.match(context, /Keep an accepted water implementation unchanged/);
+  assert.match(context, /not block silhouettes/);
+});
 function changePlan(edit: (plan: ReturnType<typeof readShaderReport>) => unknown) {
   const fixture = shaderPackFixture();
   const plan = readShaderReport(fixture.files);
