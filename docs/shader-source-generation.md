@@ -1,5 +1,40 @@
 # Full shader-source generation
 
+## Required geometry in the response schema - v0.13.0
+
+The provider shader response now has `name`, `message`, `requiredFiles` and `files`.
+`requiredFiles` is a closed object with four exact keys:
+
+- `shaders/gbuffers_terrain.vsh`
+- `shaders/gbuffers_terrain.fsh`
+- `shaders/gbuffers_clouds.vsh`
+- `shaders/gbuffers_clouds.fsh`
+
+Each value is the model's complete GLSL source string. Additional files contain
+the plan, helpers, other programs, properties and README. Required paths must not
+also appear there. Normalization maps these strings to ordinary project files,
+placing shader-plan.json first, without adding renderer code or changing source.
+Storage, compiler, ZIP format and full-source follow-ups retain the normal file list.
+
+OpenAI Responses uses the shader-specific strict schema; Gemini receives the same
+schema. Legacy JSON-mode and Anthropic text responses receive matching instructions
+but do not gain strict provider enforcement from this change. Complete classic
+file-list responses remain readable for legacy/custom providers; static validation
+still enforces the geometry baseline. Incomplete generation is still rejected.
+
+The prior generic array schema could not require particular file paths, even with
+strong prompt instructions. Closed required fields address that omission for
+schema-enforced completions. See [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
+reviewed 24 October 2026. This cannot establish that the required source compiles,
+contains the requested algorithms or renders correctly; existing gates still apply.
+
+Empty/missing values, unsupported keys and duplicate stages fail without filling
+source or adding paid calls. Quotes use the actual artifact-specific schema.
+Non-shader schemas retain their previous shape. Missing-stage diagnostics now
+list all missing paths without assuming the generated project was composite-only.
+The owner's short-prompt error establishes a missing required terrain vertex
+stage; the rest of that rejected response was not retained for diagnosis.
+
 ## Executable filename contract - v0.12.2
 
 Generation now receives the exact executable filename families used by static

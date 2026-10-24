@@ -11,6 +11,7 @@ import { ESTIMATED_IMAGE_INPUT_TOKENS, isImageReference, referenceDescriptions }
 import { shaderSkillContext } from "./shader-skills";
 import { shaderExampleContext } from "./shader-examples";
 import { shaderCompilerRepairContext } from "./shader-context";
+import { projectResponseSchema, normalizeProjectResponse, ShaderEnvelopeError } from "./project-response";
 
 /** Shader pipelines can need longer to generate than small gameplay projects. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
@@ -122,28 +123,6 @@ function systemPrompt(request: GenerateRequest): string {
     : "");
 }
 
-const PROJECT_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    name: { type: "string" },
-    message: { type: "string" },
-    files: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          path: { type: "string" },
-          content: { type: "string" },
-        },
-        required: ["path", "content"],
-      },
-    },
-  },
-  required: ["name", "files", "message"],
-};
-
 function projectInput(request: GenerateRequest, errors?: string[]) {
   const skills = usesBukkitApi(request) ? selectGenerationSkills(request.prompt) : [];
   return JSON.stringify({
@@ -167,7 +146,7 @@ function imageReferences(request: GenerateRequest) {
 
 /** Quotes and missing-usage fallback follow the same composed context as provider requests. */
 export function estimateProviderInputTokens(request: GenerateRequest, errors?: string[]) {
-  return Math.ceil((systemPrompt(request).length + projectInput(request, errors).length + JSON.stringify(PROJECT_SCHEMA).length) / 3)
+  return Math.ceil((systemPrompt(request).length + projectInput(request, errors).length + JSON.stringify(projectResponseSchema(request.artifactType)).length) / 3)
     + imageReferences(request).length * ESTIMATED_IMAGE_INPUT_TOKENS;
 }
 
@@ -224,13 +203,13 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
     throw new Error("AI provider returned malformed or incomplete project JSON without reporting a token-limit stop. No automatic retry was made; try fewer effects in one pass or a lower reasoning level.");
   }
   try {
-    const project = validateProject(parsed, request.artifactType || "plugin", request.target || "paper", request.version);
+    const project = validateProject(normalizeProjectResponse(parsed, request.artifactType), request.artifactType || "plugin", request.target || "paper", request.version);
     // Measure the actual provider text, including full source, when usage is missing.
     const outputTokens = usage?.outputTokens ?? Math.ceil(content.length / 3.5);
     const inputTokens = usage?.inputTokens ?? estimateProviderInputTokens(request);
     return { ...project, usage: { inputTokens, outputTokens } };
   } catch (error) {
-    if (error instanceof InputError) throw new Error(`${request.artifactType === "shader_pack" ? "Shader pack structure check failed" : "Generated project validation failed"}: ${error.message}`);
+    if (error instanceof InputError || error instanceof ShaderEnvelopeError) throw new Error(`${request.artifactType === "shader_pack" ? "Shader pack structure check failed" : "Generated project validation failed"}: ${error.message}`);
     throw new Error("Generated project could not be validated because of an internal error. No automatic retry was made.");
   }
 }
@@ -331,7 +310,7 @@ class OpenAIProvider implements AIProvider {
                   type: "json_schema",
                   name: `minecraft_${request.artifactType || "plugin"}_project`,
                   strict: true,
-                  schema: PROJECT_SCHEMA,
+                  schema: projectResponseSchema(request.artifactType),
                 },
               },
             },
@@ -454,7 +433,7 @@ class GeminiProvider implements AIProvider {
         response_format: {
           type: "text",
           mime_type: "application/json",
-          schema: PROJECT_SCHEMA,
+          schema: projectResponseSchema(request.artifactType),
         },
         generation_config: {
           max_output_tokens: generationOutputTokenLimit(request.artifactType),

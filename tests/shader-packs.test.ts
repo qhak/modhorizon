@@ -70,6 +70,17 @@ test("cloud coverage and paired stages are required, including optional passes",
   assert.doesNotThrow(() => check({ ...fixture, files: [...fixture.files, stage("shaders/world-1/composite.vsh"), stage("shaders/world-1/composite.fsh")] }));
 });
 
+test("missing baseline diagnostics enumerate missing paths without assuming a composite-only architecture", () => {
+  const fixture = shaderPackFixture();
+  const files = fixture.files.filter(file => file.path !== "shaders/gbuffers_terrain.vsh");
+  assert.throws(() => check({ ...fixture, files }), error => {
+    assert.ok(error instanceof Error);
+    assert.match(error.message, /missing required geometry stages: shaders\/gbuffers_terrain.vsh/);
+    assert.doesNotMatch(error.message, /composite-only|gbuffers_clouds.vsh,/);
+    return true;
+  });
+});
+
 test("invented program names and incomplete executable stages are rejected", () => {
   const fixture = shaderPackFixture();
   assert.throws(() => check({ ...fixture, files: [...fixture.files, stage("shaders/world.vsh"), stage("shaders/world.fsh")] }), /Unrecognised shader program/);

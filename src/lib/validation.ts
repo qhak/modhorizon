@@ -16,6 +16,7 @@ import { readShaderReport, stripShaderComments } from "./shader-report";
 import { maskShaderComments, normalizeShaderMatrices } from "./shader-normalization";
 import { checkShaderSourceContracts } from "./shader-source-checks";
 import { SHADER_PROGRAM_PATH } from "./shader-programs";
+import { REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -209,10 +210,9 @@ function validateShaderPack(files: Files) {
   const entries = files.filter((file) => /\.(vsh|fsh)$/.test(file.path));
   const paths = new Set(files.map((file) => file.path));
   // Product baseline policy: runtime fallback alone was insufficient in Test 002.
-  for (const program of ["gbuffers_terrain", "gbuffers_clouds"])
-    for (const stage of ["vsh", "fsh"])
-      if (!paths.has(`shaders/${program}.${stage}`))
-        throw new InputError(`Shader packs need shaders/${program}.${stage} for explicit terrain and vanilla-cloud coverage; composite-only output is incomplete.`);
+  const missing = REQUIRED_SHADER_STAGE_PATHS.filter(path => !paths.has(path));
+  if (missing.length)
+    throw new InputError(`Shader pack is missing required geometry stages: ${missing.join(", ")}. ModHorizon requires explicit root terrain and vanilla-cloud coverage; provide generated GLSL for these paths even if shared helpers or other terrain variants exist.`);
   for (const file of entries) {
     if (!SHADER_PROGRAM_PATH.test(file.path))
       throw new InputError(`Unrecognised shader program ${file.path}; use runtime program names such as gbuffers_terrain, composite or final.${/gbuffers_terrain_cutout_mip(?:ped)?\./.test(file.path) ? " Iris uses gbuffers_terrain_cutout for cutout terrain; review the source before changing filenames or merging passes." : ""}`);

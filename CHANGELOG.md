@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.13.0 - 2026-10-24
+
+- Give shader provider responses four explicit required source fields for the root terrain/cloud vertex and fragment stages. OpenAI strict output and Gemini schema requests now use this shader-specific contract; other response modes receive matching instructions.
+- Normalize model-authored required source into the existing file-list format without inserting a preset or synthesizing missing code. Reject empty/missing values, unknown keys and duplicate required paths. Keep complete classic responses readable for legacy/custom providers and enforce normal validation afterward.
+- Share required paths with validation and count the actual artifact schema in input estimates. Missing-stage errors enumerate all missing paths without assuming a composite-only renderer. Non-shader response formats and paid call counts are unchanged.
+
+Validation: 148 tests and TypeScript pass; Cloudflare build passes. All four mocked adapters round-trip model source for a one-sentence request. Schema requirements, exact source preservation, ordering, duplicate/missing/unsafe fields, old response compatibility and existing shader validation are covered. No paid retry, native rendering or visual acceptance was performed; schema presence is not shader correctness.
+
 ## v0.12.2 - 2026-10-24
 
 - Share the supported executable shader filename catalog between generation guidance and validation, preserving the existing accepted layout.

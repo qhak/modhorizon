@@ -5,9 +5,43 @@ import { quoteGeneration } from "../src/lib/generation-quote";
 import { creditsForUsage, generationOutputTokenLimit, reserveCreditsForGeneration } from "../src/lib/models";
 import { validateRequest } from "../src/lib/validation";
 import { shaderPackFixture } from "./fixtures/shader-pack";
+import { REQUIRED_SHADER_STAGE_PATHS } from "../src/lib/project-response";
 
 const request = validateRequest({ prompt: "Create realistic water and sunlight.", artifactType: "shader_pack", target: "iris", version: "1.21.11", modelId: "gpt-6-luna" });
 const text = JSON.stringify(shaderPackFixture());
+
+test("all adapters normalize model-authored required stages for a one-sentence shader request", async t => {
+  const restore = configure(); let mode = "openai", calls = 0;
+  const fixture = shaderPackFixture();
+  const responseText = JSON.stringify({ name: fixture.name, message: fixture.message,
+    requiredFiles: Object.fromEntries(fixture.files.filter(file => (REQUIRED_SHADER_STAGE_PATHS as readonly string[]).includes(file.path)).map(file => [file.path, file.content])),
+    files: fixture.files.filter(file => !(REQUIRED_SHADER_STAGE_PATHS as readonly string[]).includes(file.path)),
+  });
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    calls++;
+    const body = JSON.parse(String(init?.body));
+    const system = mode === "legacy" ? body.messages[0].content : mode === "anthropic" ? body.system : mode === "google" ? body.system_instruction : body.input[0].content;
+    assert.match(system, /requiredFiles is an object/);
+    assert.doesNotMatch(system, /fields beyond name, files and message/);
+    const schema = mode === "openai" ? body.text.format.schema : mode === "google" ? body.response_format.schema : undefined;
+    if (schema) assert.deepEqual(schema.properties.requiredFiles.required, [...REQUIRED_SHADER_STAGE_PATHS]);
+    if (mode === "legacy") return Response.json({ choices: [{ finish_reason: "stop", message: { content: responseText } }] });
+    if (mode === "anthropic") return Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: responseText }] });
+    if (mode === "google") return Response.json({ status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: responseText }] }] });
+    return Response.json({ status: "completed", output_text: responseText });
+  });
+  try {
+    for (const [adapter, model] of [["openai", "gpt-6-luna"], ["legacy", "gpt-6-luna"], ["anthropic", "claude-sonnet-5-5"], ["google", "gemini-3-flash-preview"]]) {
+      mode = adapter;
+      if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }
+      else process.env.OPENAI_API_KEY = "fixture";
+      const result = await createAIProvider(model).generate({ ...request, prompt: "make me a realistic shader with nice water", modelId: model });
+      assert.deepEqual(result.files, fixture.files);
+      assert.equal("requiredFiles" in result, false);
+    }
+    assert.equal(calls, 4);
+  } finally { restore(); }
+});
 function configure() {
   const values = { AI_TESTING_MODE: "false", OPENAI_API_KEY: "fixture", ANTHROPIC_API_KEY: "fixture", GEMINI_FREE_API_KEY: "fixture" };
   const old = Object.fromEntries([...Object.keys(values), "AI_API_KEY", "AI_MODEL"].map(key => [key, process.env[key]]));
