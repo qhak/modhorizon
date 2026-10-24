@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.2 - 2026-10-24
+
+- Add BlocksLab03: replace oak/spruce/birch barcode-like bark with irregular plates, interrupted fissures and localized knots/scars. Add fine species-specific oak/spruce/birch leaf cutouts with biome tint and correlated surface maps.
+- Extend only the companion material-ID range; preserve alpha-tested geometry/shadows, water/sky/lighting algorithms, sand and unrelated candidate02 assets. Leaves retain cubic geometry; no wind or true subsurface scattering is claimed.
+- Add reproducible bark/foliage builder and tests for periodicity, reduced full-height stripe structure, leaf alpha coverage, neutral/non-black RGB, sampled material/normal agreement and source isolation. Document the target version's See-Through Leaves setting.
+
+Validation: 157 TypeScript tests and typecheck pass; five bark/foliage tests pass. Candidate03 compiles 22 stages and links 11 programs. ZIP/source integrity verified before local installation. New appearance and client rendering remain unverified; no paid AI request or deployment. Live binary texture generation remains unavailable.
+
 ## v0.14.1 - 2026-10-24
 
 - Expand the separate BlocksLab02 resource/shader pair with dirt, coarse dirt, gravel, biome-tinted grass top/side fringe, spruce/birch planks, and oak/spruce/birch log bark/end grain. Include wood blocks and matching plank stairs/slabs in material-ID coverage.

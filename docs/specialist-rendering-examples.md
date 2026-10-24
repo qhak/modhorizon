@@ -18,6 +18,34 @@ Aurora's original directory and ZIP remain unchanged.
 
 ## Block test
 
+### Bark and foliage candidate03
+
+Owner's candidate02 screenshot revealed a barcode-like vertical bark pattern;
+the owner requested more natural bark and new leaves. Candidate03 replaces only
+oak/spruce/birch bark and adds those species' leaf sprites. Jittered anisotropic
+plates, interrupted ridges, cracks and localized knot/scar fields replace the
+full-height sine bars. The original sand, ground, planks and cut ends are preserved.
+
+Leaves use neutral grayscale albedo for Minecraft's biome/species tint and RGBA
+cutouts, with non-black transparent RGB to reduce filtering fringes. Oak/birch
+have distinct broadleaf sizes/shapes; spruce has fine needle forms. Surface maps
+share the material field. Leaf normals use the same matte dielectric decoder;
+there is no leaf wind, true subsurface scattering or new leaf geometry.
+
+Enable **BlocksLab-materials-03.zip** above older resource packs and select
+**BlocksLab-candidate-03.zip**. Check the same tree in sun and shade, rotated logs,
+leaf gaps against bright sky, cutout shadows, canopy interiors, biome tint and
+distance/mip shimmer. New bark/foliage appearance is experimental; native driver
+success is not visual acceptance. Other tree species and plants remain vanilla.
+
+In Minecraft 1.21.11, enable **See-Through Leaves**; Lunar/Sodium UI labels may
+differ. This option is independently configurable in the game's current visual
+settings ([official release notes](https://feedback.minecraft.net/hc/en-us/articles/41809981427213-Minecraft-Java-Edition-1-21-11-Mounts-of-Mayhem), checked 2026-10-24).
+
+`build-bark-leaves.py` rebuilds the material/shader sources. `test_bark_leaves.py`
+checks periodicity, reduction of full-height barcode structure, alpha coverage,
+neutral/non-black RGB, sampled colour/normal consistency and source isolation.
+
 ### Expanded candidate02
 
 The owner reported candidate01 sand "looks clean" with an in-game screenshot.
