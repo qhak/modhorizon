@@ -99,5 +99,33 @@ class StageInterfaceRegression(unittest.TestCase):
         self.assertIn("Link: PASS", log)
 
 
+@unittest.skipUnless(sys.platform == "win32", "Requires a native Windows OpenGL driver")
+class UniformOwnerRegression(unittest.TestCase):
+    def compile_case(self, duplicate):
+        with TemporaryDirectory(prefix=".uniform-owner-test-", dir=REPO) as folder:
+            root = Path(folder).resolve()
+            (root / "lighting.glsl").write_text("uniform sampler2D lightmap;\n", encoding="utf-8")
+            (root / "gbuffers_water.vsh").write_text(
+                "#version 120\nvoid main(){gl_Position=ftransform();}\n", encoding="utf-8")
+            (root / "gbuffers_water.fsh").write_text(
+                '#version 120\n' + ("uniform sampler2D lightmap;\n" if duplicate else "") +
+                '#include "lighting.glsl"\nvoid main(){gl_FragColor=texture2D(lightmap,vec2(0.5));}\n', encoding="utf-8")
+            output = StringIO()
+            with redirect_stdout(output):
+                result = check(root)
+            return result, output.getvalue()
+
+    def test_duplicate_root_and_include_uniform_fails(self):
+        result, log = self.compile_case(True)
+        self.assertNotEqual(result, 0)
+        self.assertIn("lightmap", log)
+        self.assertIn("gbuffers_water.fsh: FAIL", log)
+
+    def test_retaining_the_include_owner_links(self):
+        result, log = self.compile_case(False)
+        self.assertEqual(result, 0, log)
+        self.assertIn("Link: PASS", log)
+
+
 if __name__ == "__main__":
     unittest.main()

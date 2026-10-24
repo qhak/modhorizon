@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.13.4 - 2026-10-24
+
+- Keep one included uniform owner when a legacy stage redundantly declares the same simple uniform. Cleanup is bounded, preserves source line positions and shared consumers, and is disclosed in the project message. Conditional/macro code, conflicting types, complex declarations, repeated owners and uses before the retained owner remain compiler concerns.
+- Teach the concrete root-versus-lighting-include lightmap conflict. Add regression coverage for ownership, preprocessing boundaries, stage independence, idempotence, retained history and native duplicate failure/single-owner success.
+- Two short-prompt, two-image Luna High UI requests cost seven settled credits total: SundownReflections compiled unchanged; GoldenLakeIrisSunset exposed one duplicate uniform. Applying this cleanup offline changes only gbuffers_water.fsh and compiles 22 stages/11 links. No extra provider repair was requested; original failed history remains intact.
+
+Validation: 156 TypeScript tests, eight native driver regressions, TypeScript checking and Cloudflare build pass. The corrected local candidate still needs Iris/in-game visual acceptance; compiler success does not establish reference fidelity or general generation reliability.
+
 ## v0.13.3 - 2026-10-24
 
 - Warn when four known GLSL runtime constants are placed in shaders.properties, without rejecting usable source or triggering paid repairs. Compilation does not establish that property assignments configure Iris.

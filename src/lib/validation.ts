@@ -13,7 +13,7 @@ import { DEFAULT_MODEL_ID, findModel, reasoningFor, defaultReasoningForArtifact,
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 import { validateAttachments } from "./reference-attachments";
 import { readShaderReport, stripShaderComments } from "./shader-report";
-import { maskShaderComments, normalizeShaderMatrices } from "./shader-normalization";
+import { maskShaderComments, normalizeShaderMatrices, normalizeShaderUniformOwners } from "./shader-normalization";
 import { checkShaderSourceContracts } from "./shader-source-checks";
 import { SHADER_PROGRAM_PATH } from "./shader-programs";
 import { PROJECT_NAME_PATTERN, REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
@@ -288,10 +288,13 @@ export function validateProject(
   });
 
   const repairs: string[] = [];
+  const uniformRepairs: string[] = [];
   if (artifactType === "shader_pack" && !options.allowIncompleteShader) {
     const normalized = normalizeShaderMatrices(files);
-    files = normalized.files;
+    const uniforms = normalizeShaderUniformOwners(normalized.files);
+    files = uniforms.files;
     repairs.push(...normalized.repairs);
+    uniformRepairs.push(...uniforms.repairs);
   }
   if (artifactType === "resource_pack") validateResourcePack(files);
   else if (artifactType === "shader_pack") {
@@ -304,8 +307,12 @@ export function validateProject(
     validateDescriptor(files, target, version ?? PLATFORMS[target].versions[0]);
   }
   const originalMessage = cleanMessage(project.message);
-  const message = repairs.length
-    ? cleanMessage(`Automatic compatibility cleanup: ${repairs.length} redundant built-in matrix declaration(s) removed. GLSL compilation and appearance remain unverified.\n\n${originalMessage || ""}`)
+  const cleanup = [
+    ...(repairs.length ? [`${repairs.length} redundant built-in matrix declaration(s) removed.`] : []),
+    ...uniformRepairs,
+  ];
+  const message = cleanup.length
+    ? cleanMessage(`Automatic compatibility cleanup: ${cleanup.join(" ")} GLSL compilation and appearance remain unverified.\n\n${originalMessage || ""}`)
     : originalMessage;
   return { name: project.name, files, ...(message ? { message } : {}),
     ...(artifactType === "shader_pack" && !options.allowIncompleteShader ? { shaderReport: readShaderReport(files) } : {}) };

@@ -168,3 +168,12 @@ from unchanged AI output.
 Primary program reference checked23 October2026: [Iris gbuffers programs](https://shaders.properties/current/reference/programs/gbuffers/).
 
 Blend syntax reference: [Iris rendering directives](https://github.com/IrisShaders/docs/blob/main/src/content/docs/current/Reference/Shaders.Properties/rendering.mdx), checked23 October2026.
+
+
+## Narrow declaration cleanup (v0.13.4)
+
+Before compilation, legacy GLSL 110/120 roots may have one redundant simple uniform declaration removed when an identical declaration has one included owner. Shared headers and other stages remain unchanged, line positions are preserved, and the project message names the retained owner. This is a deterministic compatibility repair, not AI-generated source or evidence of visual quality.
+
+Cleanup skips any macro/conditional/extension directives in the reachable expansion, complex uniform syntax, conflicting types, multiple included owners, missing/cyclic includes, expansion over 300 calls or 1 MB, and any symbol use before the retained owner. Such cases still require compiler diagnosis or an explicitly authorized repair. Historical incomplete source exports bypass cleanup. Native driver compilation still gates the ZIP.
+
+The measured GoldenLakeIrisSunset UI request reproduced a root/include lightmap conflict (22 stages checked, 10 links, one failed program). Offline normalization changed only gbuffers_water.fsh; the result compiled 22 stages and linked 11 programs. Shadow options were correctly declared in shadow.vsh in this output. These observations do not validate rendering or a broad success rate.
