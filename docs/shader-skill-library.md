@@ -1,7 +1,7 @@
 # Shader specialist skill library
 
-Library 1.0.1, reviewed 24 October 2026. Introduced in application v0.12.0;
-program-name failure lesson added in v0.12.2.
+Library 1.0.2, reviewed 24 October 2026. Introduced in application v0.12.0;
+program-name failure lesson added in v0.12.2, stage-interface case in v0.13.2.
 
 The model receives structured specialist workflows, alternative approaches,
 failure/correction pairs and acceptance scenes. These are reusable context cards,
@@ -15,6 +15,14 @@ and atmosphere/colour. Ten reference records: seven primary Iris documentation
 pages and three limited local cases. Each skill cites at least three records.
 The lessons are included in the request; the provider is not expected to browse
 the URLs. Existing authored code excerpts remain optional and separately bounded.
+
+The initial ten records are now supplemented by an eleventh, EmberlightLake's
+stage-interface failure. Its original six failed programs reproduce offline;
+the separate manual repair compiles 22 stages and links 11 programs. This is
+native-driver evidence, not first-pass success or in-game acceptance. The shared
+interface included mc_Entity as an unconditional attribute in fragment stages;
+it now belongs to the consuming vertex roots in the manual copy. Format metadata
+uses Iris-parsed block comments rather than undefined RGBA16F expressions.
 
 The documentation sources cover [geometry routing](https://shaders.properties/current/reference/programs/gbuffers/),
 [scene buffers](https://shaders.properties/current/reference/buffers/colortex/),

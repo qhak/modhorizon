@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.13.2 - 2026-10-24
+
+- Teach vertex-only attribute ownership versus shared stage varyings and parsed block-comment format metadata. Add the retained EmberlightLake failure as reference eleven in skill library 1.0.2.
+- Add native regression cases reproducing a shared attribute leaking into fragment compilation and verifying vertex-owned declarations with matched varyings.
+- Preserve the original generated output and package a separate manual EmberlightLake repair without replacing app history or changing paid repair limits.
+
+Validation: 149 TypeScript tests, six native driver regressions, TypeScript checking and Cloudflare build pass. Original output reproduces six failed programs; manual repair compiles 22 stages and links 11 programs. Validated ZIP installed separately in Downloads and both local shader-pack folders. In-game appearance remains unverified; no paid repair was made.
+
 ## v0.13.1 - 2026-10-24
 
 - Constrain shader response names to the shared project identifier pattern and give matching instructions.

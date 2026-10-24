@@ -1,5 +1,20 @@
 # Full shader-source generation
 
+## Stage-interface failure lesson - v0.13.2
+
+Generation guidance explicitly separates vertex-only attribute declarations from
+shared vertex/fragment varyings and warns against assuming stage macros exist.
+It also gives the parsed block-comment form for Iris format metadata. The retained
+EmberlightLake output reproduced six failed programs; a separate manual copy with
+vertex-owned attributes and block-comment format directives passes 22 stages and
+11 links. Native regressions now cover both shared-attribute failure and corrected
+stage separation. No compiler definitions are injected to hide errors. Iris
+[documents the metadata requirement](https://shaders.properties/current/reference/constants/buffer_format/).
+Manual repair is kept separate from the generated first pass. Native compilation
+does not verify Iris bindings, appearance or FPS. The original optional paid repair
+was skipped because its 12-credit hold exceeded the owner's 10-credit cap; this
+does not authorize changing that cap or adding a paid repair.
+
 ## Shader archive names - v0.13.1
 
 The shader response schema now constrains name to the same 1-48 ASCII identifier

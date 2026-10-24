@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "reviewed": "2026-10-24",
   "profile": { "target": "iris", "minecraft": "1.21.11" },
   "references": [
@@ -12,13 +12,14 @@
     { "id": "materials", "url": "https://shaders.properties/current/reference/attributes/mc_entity/", "kind": "primary-documentation", "lesson": "mc_Entity.x carries assigned block IDs. Its y component identifies fluids, including both water and lava; it is not a water-only mask." },
     { "id": "amber-declarations", "kind": "local-case", "lesson": "Amberwater's paid repair fixed missing declarations but introduced duplicate uniforms in shared includes. A separate manual repair removed three conflicting declarations. Native compilation passed; this did not establish appearance." },
     { "id": "amber-celestial", "kind": "local-case", "lesson": "Amberwater repair-01 showed a black rectangle around the sun. Repair-02 changed celestial sampling/blending, passed five synthetic pixel cases and an owner screenshot showed the rectangle gone. Broader sky acceptance remained incomplete." },
-    { "id": "aurora-water", "kind": "local-case", "lesson": "The owner liked authored AuroraHorizon water in a specific scene. Later terrain work was experimental. This is limited visual feedback, not a general benchmark or proof that a copied pipeline fits other styles." }
+    { "id": "aurora-water", "kind": "local-case", "lesson": "The owner liked authored AuroraHorizon water in a specific scene. Later terrain work was experimental. This is limited visual feedback, not a general benchmark or proof that a copied pipeline fits other styles." },
+    { "id": "ember-stage-interface", "kind": "local-case", "lesson": "EmberlightLake's retained first pass failed six programs: an unconditional shared attribute reached four fragment stages, and bare RGBA16F metadata failed two post passes. Moving attributes into consuming vertex roots and wrapping only format metadata in parsed block comments produced 22 compiled stages and 11 links on the local NVIDIA driver. Rendering remains unverified; this was a manual repair, not a successful first pass." }
   ],
   "skills": [
     {
       "id": "pipeline-engineer", "label": "Pipeline engineer", "modules": [],
       "purpose": "Own geometry coverage, interfaces and pass/buffer lifetimes for every shader.",
-      "references": ["geometry", "buffers", "spaces", "matrices", "amber-declarations"],
+      "references": ["geometry", "buffers", "spaces", "matrices", "amber-declarations", "ember-stage-interface"],
       "workflow": ["Name inputs, outputs, clear/format and consumers for each pass before implementation.", "Choose one declaration owner per uniform/helper; audit expanded stages and matching varyings.", "Review terrain, cutouts, hand/entities, weather and glass independently of the requested style."],
       "alternatives": ["Forward surface lighting for a compact shader; preserve geometry attributes through the material pass.", "Deferred lighting for a shared screen-space calculation; explicitly store normals/material data and reconstruct positions. Do not treat scene colour as a normal buffer."],
       "failurePairs": [{ "wrong": "A composite colour grade is described as a full realistic renderer.", "correction": "Implement directional/material lighting in geometry or an adequately populated deferred pipeline; label a grade as a grade." }, { "wrong": "Each library declares all matrices it needs, causing duplicate declarations when combined.", "correction": "Use shared guarded declaration owners; compile every affected expanded vertex/fragment stage." }, { "wrong": "A generated pack uses gbuffers_terrain_cutout_mip as if a render-layer label were a runtime entrypoint.", "correction": "Use the supported program catalog and runtime documentation. Iris 1.10.8 for Minecraft 1.21.11 has terrain_cutout, not terrain_cutout_mip. Review overlapping passes and alpha behavior rather than blindly renaming files." }],

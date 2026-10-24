@@ -69,5 +69,35 @@ class CelestialBlendRegression(unittest.TestCase):
         self.assertIn("alpha faded texel PASS", log)
 
 
+@unittest.skipUnless(sys.platform == "win32", "Requires a native Windows OpenGL driver")
+class StageInterfaceRegression(unittest.TestCase):
+    def compile_case(self, shared_attribute):
+        with TemporaryDirectory(prefix=".stage-interface-test-", dir=REPO) as folder:
+            root = Path(folder).resolve()
+            (root / "interface.glsl").write_text(
+                ("attribute vec4 mc_Entity;\n" if shared_attribute else "") + "varying float material;\n", encoding="utf-8")
+            (root / "gbuffers_terrain.vsh").write_text(
+                '#version 120\n#include "interface.glsl"\n' +
+                ("" if shared_attribute else "attribute vec4 mc_Entity;\n") +
+                "void main(){material=mc_Entity.x;gl_Position=ftransform();}\n", encoding="utf-8")
+            (root / "gbuffers_terrain.fsh").write_text(
+                '#version 120\n#include "interface.glsl"\nvoid main(){gl_FragColor=vec4(material);}\n', encoding="utf-8")
+            output = StringIO()
+            with redirect_stdout(output):
+                result = check(root)
+            return result, output.getvalue()
+
+    def test_shared_vertex_attribute_fails_fragment_compilation(self):
+        result, log = self.compile_case(True)
+        self.assertNotEqual(result, 0)
+        self.assertIn("attribute", log)
+        self.assertIn("gbuffers_terrain.fsh: FAIL", log)
+
+    def test_vertex_owned_attribute_and_shared_varyings_link(self):
+        result, log = self.compile_case(False)
+        self.assertEqual(result, 0, log)
+        self.assertIn("Link: PASS", log)
+
+
 if __name__ == "__main__":
     unittest.main()
