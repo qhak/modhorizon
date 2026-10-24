@@ -1,0 +1,14 @@
+{
+  "pack": {
+    "pack_format": 75,
+    "min_format": [
+      75,
+      0
+    ],
+    "max_format": [
+      75,
+      0
+    ],
+    "description": "BlocksLab02 - earth, gravel, grass and oak/spruce/birch materials (512px)"
+  }
+}

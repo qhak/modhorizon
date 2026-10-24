@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.1 - 2026-10-24
+
+- Expand the separate BlocksLab02 resource/shader pair with dirt, coarse dirt, gravel, biome-tinted grass top/side fringe, spruce/birch planks, and oak/spruce/birch log bark/end grain. Include wood blocks and matching plank stairs/slabs in material-ID coverage.
+- Preserve candidate01 sand/stone/oak-plank PNGs byte-for-byte and retain water, sky and lighting algorithms. New material fields share correlated normals and smoothness maps; gravel uses rounded pebble masks with finer aggregate gaps.
+- Record positive owner feedback for candidate01 sand separately from unverified new materials. Add reproducible builders, periodicity/encoding/grass-alpha/unique-ID/isolation checks, and candidate02 packaging. Live binary texture generation remains unavailable.
+
+Validation: 157 TypeScript tests, TypeScript checking, five original material tests and five expansion tests pass. BlocksLab02 compiles 22 stages and links 11 programs. Archive/source integrity checked before installation. New materials still require in-game visual acceptance; no paid generation or production deployment.
+
 ## v0.14.0 - 2026-10-24
 
 - Add separate authored BlocksLab01 and CleanSkyLab01 examples; Aurora candidate03 remains the owner's water baseline. Block materials provide original periodic 512px sand, stone and oak-plank albedo/normal/smoothness assets plus a dielectric material decoder. CleanSky changes only the shared sky function, not the inherited water algorithm.

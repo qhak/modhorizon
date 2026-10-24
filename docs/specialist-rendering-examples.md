@@ -18,6 +18,35 @@ Aurora's original directory and ZIP remain unchanged.
 
 ## Block test
 
+### Expanded candidate02
+
+The owner reported candidate01 sand "looks clean" with an in-game screenshot.
+This is positive sand feedback, not acceptance of all materials or a performance
+benchmark. Candidate02 preserves all nine original sand/stone/oak-plank PNGs
+byte-for-byte and adds fourteen texture entries (albedo, normal and surface maps
+for each): dirt, coarse dirt, gravel, grass top/side/biome-tinted cutout fringe,
+spruce/birch planks, and oak/spruce/birch bark/end-grain textures.
+
+Enable **BlocksLab-materials-02.zip** above candidate01 in Resource Packs (or
+disable the old pack), then select **BlocksLab-candidate-02.zip** in Iris. Plank
+stairs/slabs and wood blocks use matching material IDs. Water and sky rendering
+algorithms are unchanged. All other species, stripped wood, leaves, plants and
+ores retain their textures. No extra block geometry is generated.
+
+Check dirt cliffs and biome-tinted grass edges, gravel closeups, oak/spruce/birch
+logs placed vertically and horizontally, cut ends, planks/stairs/slabs, underwater,
+torch/night lighting and distant shimmer. Grass-side alpha is intentionally
+top-to-bottom coverage, not a vertically repeating grass strip. New materials are
+experimental. The local resource ZIP is larger than the live app's text packager
+limit; it is not evidence of binary-asset support in that service.
+
+Rebuild with `scripts/shaders/build-material-expansion.py`, compile the new shader
+with `check_glsl.py`, then run `package-specialists.ts`. Five expansion tests check
+periodic source fields, preserved original bytes, stored images/grass alpha,
+unique block IDs and rendering source isolation.
+
+### Original candidate01 comparison
+
 Enable **BlocksLab-materials-01.zip** in Resource Packs, above other resource
 packs. Select **BlocksLab-candidate-01.zip** in Iris Shader Packs. Use a sand
 beach plus a stone wall and oak-plank wall at a fixed time/camera. Compare:
