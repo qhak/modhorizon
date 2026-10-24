@@ -1,6 +1,7 @@
 # Shader specialist skill library
 
-Library 1.0.0, reviewed 24 October 2026. Application v0.12.0.
+Library 1.0.1, reviewed 24 October 2026. Introduced in application v0.12.0;
+program-name failure lesson added in v0.12.2.
 
 The model receives structured specialist workflows, alternative approaches,
 failure/correction pairs and acceptance scenes. These are reusable context cards,
@@ -30,6 +31,13 @@ Local cases distinguish owner observations, manual repairs, synthetic GPU tests,
 and unfinished visual acceptance. The star-rendering concern remains an audit
 lesson, not a diagnosed or repaired runtime fault. No third-party shader source
 is bundled or claimed to have been tested.
+
+The pipeline failure pairs also record the owner's rejected
+`gbuffers_terrain_cutout_mip` output. Iris documentation lists terrain_cutout;
+the installed `iris-fabric-1.10.8+mc1.21.11.jar` ProgramId constant pool contains
+terrain_cutout and terrain_solid but no terrain_cutout_mip. This check establishes
+the naming mismatch, not that a simple rename preserves the generated source's
+semantics. The original rejected response was not retained as a completed pack.
 
 ## Selection and cost
 

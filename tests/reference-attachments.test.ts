@@ -64,7 +64,7 @@ test("all provider adapters send actual image blocks and untrusted text context 
     const firstText = content[0].text;
     const context = JSON.parse(firstText);
     assert.equal(context.currentProject.name, fixture.name);
-    assert.equal(context.shaderSkillLibrary.version, "1.0.0");
+    assert.equal(context.shaderSkillLibrary.version, "1.0.1");
     assert.equal(context.shaderSkillLibrary.skills.length, 5);
     assert.equal(context.shaderSkillLibrary.references.length, 10);
     assert.ok(context.shaderSkillLibrary.skills.some((skill: { id: string }) => skill.id === "water-optics"));

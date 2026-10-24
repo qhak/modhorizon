@@ -1,5 +1,21 @@
 # Full shader-source generation
 
+## Executable filename contract - v0.12.2
+
+Generation now receives the exact executable filename families used by static
+validation through a shared catalog. This preserves the existing allowlist and
+does not assert that all accepted names apply to every runtime/version. The
+selected runtime's documented interfaces still govern implementation.
+
+The owner's generated gbuffers_terrain_cutout_mip was correctly rejected: the
+installed Iris 1.10.8 / Minecraft 1.21.11 ProgramId class and reviewed
+[Iris program reference](https://shaders.properties/current/reference/programs/gbuffers/)
+support terrain_cutout, not terrain_cutout_mip. Generation is now explicitly told
+not to turn game render-layer labels into invented program entrypoints. Rejection
+provides a concrete hint and the pipeline skill records the failure/correction.
+No automatic filename rewrite, pass merge or extra paid call is introduced.
+This does not recover the prior discarded response or prove the next output runs.
+
 ## Luna reasoning/output headroom - v0.12.1
 
 Luna shader requests now use a 64,000-token output cap rather than 32,000.

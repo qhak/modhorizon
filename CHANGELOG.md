@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.12.2 - 2026-10-24
+
+- Share the supported executable shader filename catalog between generation guidance and validation, preserving the existing accepted layout.
+- Explicitly teach that render-layer labels do not create shader entrypoints. Reject unsupported terrain_cutout_mip/mipped names with a terrain_cutout hint and source-review requirement; never blindly rename or merge passes.
+- Record the owner's failure in pipeline skill library 1.0.1, supported by Iris documentation and the installed Iris 1.10.8 / Minecraft 1.21.11 ProgramId class.
+
+Validation: 143 tests and TypeScript pass; Cloudflare build passes. Every catalog gbuffers name matches validation; invented mip variants fail without rewriting source, packaging an artifact or making another model call. No paid retry or in-game acceptance was run; the original rejected response was not retained as a completed pack.
+
 ## v0.12.1 - 2026-10-24
 
 - Raise Luna shader output headroom to 64,000 tokens for reasoning plus complete source. Keep other shader models at 32,000 and non-shader requests at 16,000; shared model-aware quotes/reservations account for the same ceiling.

@@ -1,4 +1,5 @@
 import type { GenerateRequest } from "./types";
+import { SHADER_PROGRAM_GUIDANCE } from "./shader-programs";
 
 export const SHADER_BASELINE = [
   "Give each shared uniform, macro and helper an explicit owning include. Include required settings/declarations before their use. Audit the expanded include graph of each executable stage: separate guards in two different files do not prevent those files declaring the same uniform twice. Prefer a single guarded declaration header shared by consumers; never blindly add a missing declaration to every stage or library.",
@@ -55,6 +56,7 @@ export function shaderGenerationContext(request: GenerateRequest) {
   return [
     `Shader target: ${request.target || "iris"}, Minecraft ${request.version}. Use the chosen target's documented interfaces; Iris-only features are not assumed for OptiFine.`,
     SHADER_BASELINE,
+    SHADER_PROGRAM_GUIDANCE,
     "SOURCE GENERATION — Write the complete GLSL source needed by this request, including new effects and a different rendering architecture when appropriate. You are not limited to AuroraHorizon, its eight macros, existing effects or golden-hour appearance. Engineering examples in the user payload are optional reference techniques, not a mandatory template or visual preset. A small settings JSON is not a shader project. Choose the architecture from the request, then return the actual files. Never pretend examples were generated or that their tests validate this new output.",
     "WORKFLOW — In this single response, first assess the prompt/reference, prioritise requested visible changes, choose a coherent pass/buffer/material plan, implement it, and audit source against the feature list. Do not stop at a plan or silently substitute a small colour filter for requested lighting/reflections. If scope is too large, implement the highest-priority coherent layer and explicitly mark the rest omitted; suggest the next layer without requiring the user to understand shader engineering.",
     "IMPLEMENTATION DEPTH - Use the selected reasoning budget to check coordinate spaces, helper dependencies, vertex/fragment interfaces, shadow sampling, material masks, buffer lifetimes and colour/alpha conventions before finalising. Implement the actual requested effects rather than choosing minimal code for speed. You may add passes, helpers and algorithms beyond the examples. Match complexity to the request: a simple shader may stay small; a reference with lighting, reflections and atmosphere needs those systems to work together. Do not pad code or claim untested effects work.",

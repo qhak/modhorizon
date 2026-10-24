@@ -5,12 +5,42 @@ import { generateArtifact } from "../src/lib/generation";
 import { getArtifact } from "../src/lib/project-store";
 import { validateProject, validateRequest } from "../src/lib/validation";
 import { shaderPackFixture } from "./fixtures/shader-pack";
+import { SHADER_GBUFFERS_PROGRAMS } from "../src/lib/shader-programs";
 
 const request = { prompt: "Create a warm colour grade and subtle vignette, preserving vanilla rendering.", artifactType: "shader_pack" as const, target: "iris" as const, version: "1.21.11", modelId: "gpt-6-luna" };
 const check = (project: unknown) => validateProject(project, "shader_pack", "iris", request.version);
 const stage = (path: string) => ({ path, content: "#version 330 compatibility\nvoid main() {}" });
 // Test 002's original layout: post-process pair only, with settings at ZIP root.
 const original = { name: "WarmHorizon", files: [stage("shaders/composite.vsh"), stage("shaders/composite.fsh"), { path: "shaders.properties", content: "" }] };
+
+test("generation teaches the exact gbuffers packaging catalog used by validation", () => {
+  const context = artifactSystemPrompt(request);
+  assert.match(context, /SUPPORTED FILENAMES/);
+  for (const name of SHADER_GBUFFERS_PROGRAMS) {
+    assert.ok(context.includes(`gbuffers_${name}`));
+    const fixture = shaderPackFixture();
+    const path = `shaders/world0/gbuffers_${name}`;
+    fixture.files.push(stage(`${path}.vsh`), stage(`${path}.fsh`));
+    assert.doesNotThrow(() => check(fixture), name);
+  }
+});
+
+test("invented cutout mip programs fail with guidance without automatic renaming or extra paid calls", async () => {
+  const context = artifactSystemPrompt(request);
+  assert.match(context, /render-layer label does not create a shader-program entrypoint/);
+  for (const suffix of ["mip", "mipped"]) {
+    const fixture = shaderPackFixture();
+    const path = `shaders/gbuffers_terrain_cutout_${suffix}`;
+    fixture.files.push(stage(`${path}.vsh`), stage(`${path}.fsh`));
+    assert.throws(() => check(fixture), /Unrecognised.*Iris uses gbuffers_terrain_cutout.*review the source/);
+    let calls = 0;
+    const result = await generateArtifact(request, { name: "Fixture", async generate() { calls++; return fixture; } });
+    assert.equal(result.status, "failed");
+    assert.equal(result.artifactAvailable, false);
+    assert.equal(calls, 1);
+    assert.ok(fixture.files.some(file => file.path === `${path}.vsh`));
+  }
+});
 
 test("Test 002 composite-only output never becomes a downloadable success", async () => {
   let calls = 0;

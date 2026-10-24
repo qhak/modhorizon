@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "reviewed": "2026-10-24",
   "profile": { "target": "iris", "minecraft": "1.21.11" },
   "references": [
@@ -21,7 +21,7 @@
       "references": ["geometry", "buffers", "spaces", "matrices", "amber-declarations"],
       "workflow": ["Name inputs, outputs, clear/format and consumers for each pass before implementation.", "Choose one declaration owner per uniform/helper; audit expanded stages and matching varyings.", "Review terrain, cutouts, hand/entities, weather and glass independently of the requested style."],
       "alternatives": ["Forward surface lighting for a compact shader; preserve geometry attributes through the material pass.", "Deferred lighting for a shared screen-space calculation; explicitly store normals/material data and reconstruct positions. Do not treat scene colour as a normal buffer."],
-      "failurePairs": [{ "wrong": "A composite colour grade is described as a full realistic renderer.", "correction": "Implement directional/material lighting in geometry or an adequately populated deferred pipeline; label a grade as a grade." }, { "wrong": "Each library declares all matrices it needs, causing duplicate declarations when combined.", "correction": "Use shared guarded declaration owners; compile every affected expanded vertex/fragment stage." }],
+      "failurePairs": [{ "wrong": "A composite colour grade is described as a full realistic renderer.", "correction": "Implement directional/material lighting in geometry or an adequately populated deferred pipeline; label a grade as a grade." }, { "wrong": "Each library declares all matrices it needs, causing duplicate declarations when combined.", "correction": "Use shared guarded declaration owners; compile every affected expanded vertex/fragment stage." }, { "wrong": "A generated pack uses gbuffers_terrain_cutout_mip as if a render-layer label were a runtime entrypoint.", "correction": "Use the supported program catalog and runtime documentation. Iris 1.10.8 for Minecraft 1.21.11 has terrain_cutout, not terrain_cutout_mip. Review overlapping passes and alpha behavior rather than blindly renaming files." }],
       "acceptance": ["Toggle shaders in a scene containing leaves, glass, entities and the player's hand; no category may disappear.", "Compile all stages and links, then test in Iris; neither packaging nor native compilation proves runtime bindings."]
     },
     {

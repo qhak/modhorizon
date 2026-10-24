@@ -15,6 +15,7 @@ import { validateAttachments } from "./reference-attachments";
 import { readShaderReport, stripShaderComments } from "./shader-report";
 import { maskShaderComments, normalizeShaderMatrices } from "./shader-normalization";
 import { checkShaderSourceContracts } from "./shader-source-checks";
+import { SHADER_PROGRAM_PATH } from "./shader-programs";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -212,11 +213,9 @@ function validateShaderPack(files: Files) {
     for (const stage of ["vsh", "fsh"])
       if (!paths.has(`shaders/${program}.${stage}`))
         throw new InputError(`Shader packs need shaders/${program}.${stage} for explicit terrain and vanilla-cloud coverage; composite-only output is incomplete.`);
-  const gbuffers = "basic|line|textured|textured_lit|skybasic|skytextured|clouds|terrain|terrain_solid|terrain_cutout|damagedblock|block|block_translucent|beaconbeam|entities|entities_glowing|entities_translucent|item|armor_glint|spidereyes|hand|hand_water|weather|water|particles|particles_translucent|lightning";
-  const programPath = new RegExp(`^shaders/(?:world(?:-1|0|1)/)?(?:gbuffers_(?:${gbuffers})|shadow|(?:composite|deferred|shadowcomp|prepare|begin)\\d*|final)\\.(vsh|fsh)$`);
   for (const file of entries) {
-    if (!programPath.test(file.path))
-      throw new InputError(`Unrecognised shader program ${file.path}; use runtime program names such as gbuffers_terrain, composite or final.`);
+    if (!SHADER_PROGRAM_PATH.test(file.path))
+      throw new InputError(`Unrecognised shader program ${file.path}; use runtime program names such as gbuffers_terrain, composite or final.${/gbuffers_terrain_cutout_mip(?:ped)?\./.test(file.path) ? " Iris uses gbuffers_terrain_cutout for cutout terrain; review the source before changing filenames or merging passes." : ""}`);
     const sibling = file.path.replace(/\.(vsh|fsh)$/, file.path.endsWith(".vsh") ? ".fsh" : ".vsh");
     if (!paths.has(sibling)) throw new InputError(`Shader program ${file.path} is missing its paired stage ${sibling}.`);
     const code = file.content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
