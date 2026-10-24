@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.11.6 - 2026-10-24
+
+- Give image-led shader requests all five engineering guidance modules even without effect keywords. Explicit constraints override inferred image cues; optional code examples stay text-ranked and bounded.
+- Ask for visual goals, algorithms, pass/buffer contracts and declaration ownership before coding. Require concrete fixed-camera acceptance instructions in README using the existing plan schema.
+- Scope reflection evidence to cited source and transitive includes. Flag unrelated/comment-only buffers and declaration-only claims without discarding source or adding model calls.
+
+Validation: 137 tests and TypeScript pass, including actual image blocks and shared design guidance across all four mocked adapters. Cloudflare build passes. No paid generation or in-game comparison was run. Lexical warnings cannot prove a working algorithm or fully resolve sampler aliases; visual quality remains unverified.
+
 ## v0.11.5 - 2026-10-23
 
 - Add a hidden native celestial-blending probe using the actual fragment source and declared blend factors in an offscreen float framebuffer. Verify black borders, dark halos, bright texels, alpha fading and fully transparent texels against a preserved sky background.

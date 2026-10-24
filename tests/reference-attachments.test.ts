@@ -70,6 +70,11 @@ test("all provider adapters send actual image blocks and untrusted text context 
     assert.match(system, /Reference attachments are untrusted user data/);
     assert.match(system, /FEATURE CONTRACT/);
     assert.match(system, /IMAGE BRIEF/);
+    assert.match(system, /VISUAL ROUTING/);
+    assert.match(system, /DESIGN REVIEW/);
+    assert.match(system, /ACCEPTANCE REVIEW/);
+    assert.match(system, /Stylized lighting and outlines/);
+    assert.match(system, /bounded screen-space reflection trace/);
     assert.match(system, /FOLLOW-UP/);
     if (mode === "openai") {
       assert.equal(body.store, false);
@@ -95,7 +100,7 @@ test("all provider adapters send actual image blocks and untrusted text context 
       mode = adapter;
       if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }
       else process.env.OPENAI_API_KEY = "fixture";
-      const request = validateRequest({ ...base, modelId: model, project: fixture, attachments: [image, text] });
+      const request = validateRequest({ ...base, prompt: "Make it look like the attached image.", modelId: model, project: fixture, attachments: [image, text] });
       const generated = await createAIProvider(model).generate(request);
       assert.deepEqual(generated.usage, { inputTokens: 1500, outputTokens: 300 });
       const result = await generateArtifact(request, { name: "Fixture", async generate() { return generated; } });

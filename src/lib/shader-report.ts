@@ -3,6 +3,30 @@ import type { GeneratedFile, ShaderReport } from "./types";
 export const SHADER_PLAN_PATH = "shader-plan.json";
 export const stripShaderComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 const kinds = new Set(["baseline", "sky", "lighting", "shadows", "water", "reflections", "atmosphere", "bloom", "other"]);
+
+/** Follow only a feature's citations/includes, never unrelated code elsewhere in the pack.
+ * This is bounded lexical evidence, not proof that a sampled value affects an output.
+ */
+function featureSource(paths: string[], sources: Map<string, string>): string {
+  const visited = new Set<string>();
+  const pending = [...paths];
+  const code: string[] = [];
+  while (pending.length) {
+    const path = pending.pop()!;
+    if (visited.has(path) || !/\.(vsh|fsh|glsl)$/.test(path)) continue;
+    visited.add(path);
+    const source = sources.get(path);
+    if (source === undefined) continue;
+    const stripped = stripShaderComments(source);
+    code.push(stripped);
+    for (const match of stripped.matchAll(/^[ \t]*#[ \t]*include[ \t]+"([^"]+)"/gm)) {
+      const include = match[1];
+      if (include.includes("..") || include.includes("\\")) continue;
+      pending.push(include.startsWith("/") ? `shaders${include}` : path.slice(0, path.lastIndexOf("/") + 1) + include);
+    }
+  }
+  return code.join("\n");
+}
 function text(value: unknown, label: string, max: number, allowEmpty = false): string {
   if (typeof value !== "string" || (!allowEmpty && !value.trim()) || value.length > max || /[\u0000-\u0008\u000b-\u001f\u007f]/.test(value))
     throw new Error(`Shader plan ${label} must be ${allowEmpty ? "0" : "1"}-${max} text characters.`);
@@ -49,12 +73,15 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
     return { name, kind: item.kind, priority: Number(item.priority), status: item.status,
       technique: text(item.technique, "technique", 2000), files: sourceFiles, limitations: text(item.limitations, "limitations", 2000, item.status === "implemented"), ...(warnings.length ? { warnings } : {}) } as ShaderReport["features"][number];
   });
-  const code = files.filter(file => /\.(vsh|fsh|glsl)$/.test(file.path)).map(file => stripShaderComments(file.content)).join("\n");
+  const sources = new Map(files.map(file => [file.path, file.content]));
   for (const feature of features.filter(feature => feature.status === "implemented")) {
+    const code = featureSource(feature.files, sources);
     if (feature.kind === "shadows" && !files.some(file => /(?:^|\/)shadow\.vsh$/.test(file.path)))
       (feature.warnings ??= []).push("Cast shadows are reported implemented but no conventional shadow program is supplied; the claim is unsubstantiated.");
     if (feature.kind === "reflections" && (!/\b(?:colortex\d+|gcolor)\b/.test(code) || !/\bdepthtex\d+\b/.test(code)))
-      (feature.warnings ??= []).push("Scene reflections are reported implemented without the supported scene colour/depth dependencies; the claim is unsubstantiated.");
+      (feature.warnings ??= []).push("Scene reflections are reported implemented without the supported scene colour/depth dependencies in the cited source or its includes; the claim is unsubstantiated.");
+    else if (feature.kind === "reflections" && !/\b(?:texture\w*|texelFetch\w*)\s*\(\s*(?:colortex\d+|gcolor)\b/.test(code))
+      (feature.warnings ??= []).push("The cited reflection source declares scene buffers but has no direct scene colour texture lookup. Trace the sampler/helper data flow manually; declarations alone do not substantiate landscape reflections.");
   }
   return { goal: text(parsed.goal, "goal", 2000), referenceSummary: text(parsed.referenceSummary, "reference summary", 4000), pipeline: parsed.pipeline.map((step: unknown) => text(step, "pipeline step", 2000)), features, ...(unfulfilledRequests ? { unfulfilledRequests } : {}) };
 }

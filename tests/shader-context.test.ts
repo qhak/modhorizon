@@ -3,7 +3,7 @@ import test from "node:test";
 import { artifactSystemPrompt } from "../src/lib/artifact-experts";
 import { estimateProviderInputTokens } from "../src/lib/ai-provider";
 import { generateArtifact } from "../src/lib/generation";
-import { selectShaderModules, shaderGenerationContext } from "../src/lib/shader-context";
+import { selectShaderModules, shaderGenerationContext, shaderGuidanceModules } from "../src/lib/shader-context";
 import { readShaderReport } from "../src/lib/shader-report";
 import { normalizeShaderMatrices } from "../src/lib/shader-normalization";
 import { validateProject, validateRequest } from "../src/lib/validation";
@@ -35,12 +35,53 @@ test("image context routes observed techniques and follow-ups preserve accepted 
   assert.match(context, /FOLLOW-UP/);
   assert.match(context, /Retain prior feature entries/);
   assert.doesNotMatch(shaderGenerationContext(request), /IMAGE BRIEF|FOLLOW-UP/);
-  assert.ok(context.length < 12_000);
+  assert.ok(context.length < 22_000);
   assert.ok(estimateProviderInputTokens(imageRequest) > estimateProviderInputTokens(request));
   const prompt = artifactSystemPrompt(imageRequest);
   assert.match(prompt, /single response/);
   assert.match(prompt, /shader-plan.json as the FIRST file/);
   assert.equal(prompt.match(/ModHorizon requires explicit root/g)?.length, 1);
+});
+
+test("image-only briefs receive engineering guidance without changing text-ranked example selection", () => {
+  const imageRequest = { ...request, prompt: "Make it look like this. No bloom or water changes.",
+    attachments: [{ name: "look.png", type: "image/png", data: "fixture" }] };
+  const guidance = shaderGuidanceModules(imageRequest);
+  assert.equal(new Set(guidance.map(module => module.id)).size, 5);
+  assert.ok(guidance.some(module => module.id === "lighting"));
+  assert.ok(guidance.some(module => module.id === "stylized"));
+  assert.ok(selectShaderModules(imageRequest).length <= 2);
+  assert.deepEqual(shaderGuidanceModules(request), selectShaderModules(request));
+  assert.deepEqual(shaderGuidanceModules({ ...request, attachments: [{ name: "brief.txt", type: "text/plain", data: "text" }] }), selectShaderModules(request));
+  const context = shaderGenerationContext(imageRequest);
+  assert.match(context, /Explicit constraints.*take priority/);
+  assert.match(context, /DESIGN REVIEW/);
+  assert.match(context, /ACCEPTANCE REVIEW/);
+  assert.match(context, /fixed-camera shader on\/off/);
+  assert.ok(estimateProviderInputTokens(imageRequest) > estimateProviderInputTokens(request));
+});
+
+test("reflection evidence cannot borrow unrelated buffers or comment-only texture lookups", () => {
+  const fixture = changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], kind: "reflections" }] }));
+  fixture.files.push({ path: "shaders/unrelated.glsl", content: "uniform sampler2D colortex4; uniform sampler2D depthtex1;" });
+  let report = readShaderReport(fixture.files);
+  assert.match(report.features[0].warnings!.join("\n"), /in the cited source or its includes/);
+  fixture.files = fixture.files.map(file => file.path === "shaders/gbuffers_terrain.fsh" ? { ...file,
+    content: file.content + '\n#include "/lib/reflection.glsl"' } : file);
+  fixture.files.push({ path: "shaders/lib/reflection.glsl", content: '#include "buffers.glsl"\n// texture2D(colortex4, uv);' });
+  fixture.files.push({ path: "shaders/lib/buffers.glsl", content: "uniform sampler2D colortex4; uniform sampler2D depthtex1;" });
+  report = readShaderReport(fixture.files);
+  assert.match(report.features[0].warnings!.join("\n"), /no direct scene colour texture lookup/);
+  fixture.files[fixture.files.length - 2].content += "\nvec3 lookup(vec2 uv) { return texture2D(colortex4, uv).rgb; }";
+  assert.equal(readShaderReport(fixture.files).features[0].warnings, undefined);
+});
+
+test("feature evidence traversal terminates on cycles and missing includes without hiding source validation", () => {
+  const fixture = changePlan(plan => ({ ...plan, features: [{ ...plan.features[0], kind: "reflections", files: ["shaders/a.glsl"] }] }));
+  fixture.files.push({ path: "shaders/a.glsl", content: '#include "b.glsl"\n#include "missing.glsl"' });
+  fixture.files.push({ path: "shaders/b.glsl", content: '#include "a.glsl"' });
+  assert.match(readShaderReport(fixture.files).features[0].warnings!.join("\n"), /unsubstantiated/);
+  assert.throws(() => validate(fixture), /includes a missing|cycle/);
 });
 
 test("feature plans are required for output but old packs remain editable", () => {

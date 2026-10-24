@@ -1,5 +1,30 @@
 # Full shader-source generation
 
+## Reference-led design and evidence - v0.11.6
+
+All four adapters send actual image blocks alongside shared guidance and current
+source on edits. Previously detailed guidance depended on prompt keywords: "like
+this image" could receive no detailed water or lighting guidance. Image requests
+now receive all five technique modules as a toolbox, with explicit constraints
+taking priority. This does not require every effect or a realistic/sunset style.
+Text-only routing and bounded, text-ranked code examples retain their behavior.
+
+The design review maps visual goals to algorithms, passes, declaration owners and
+buffer contracts using the existing plan format. README acceptance instructions
+must describe expected outcomes and failure signs at fixed camera/time/weather.
+This is in-call planning, not a separate planner, fine-tuning or screenshot eval.
+
+Reflection warnings inspect cited shader files and reachable includes instead of
+borrowing scene/depth tokens from unrelated files. Comments are ignored. Missing
+direct scene-colour lookups produce advisory warnings; sampler aliases and helper
+data flow need manual review. Lexical evidence cannot prove correct algorithms,
+bindings or reference fidelity. Warnings preserve source and trigger no paid call.
+Native compile checks and the optional authorized compiler repair remain separate.
+
+The shared input estimator counts the expanded guidance, so image-led input
+estimates and credit holds can rise. Output budgets and call counts are unchanged.
+No paid generation or new in-game visual result validates this release.
+
 ## Response transport room - v0.11.3
 
 Shader provider envelopes now allow2,000,000 bytes, separate from150 KB total
