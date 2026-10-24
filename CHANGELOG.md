@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.4 - 2026-10-24
+
+- Add BlocksLab05: explicitly fill clear-depth sky in the opaque snapshot and composite before translucent mixing. A native GPU probe reproduces candidate04 returning white from a white scene input; candidate05 renders its own sky independently of that input.
+- Add bluer daytime, soft 2D clouds and continuous warm sunset. Preserve current BlocksLab04 material assets, block lighting and exposure. Water algorithms are unchanged; reflected sky/fog colours follow the revised helper.
+- Teach explicit sky ownership to generator context and add four native regression tests plus a synthetic day/sunset/night preview. Owner retains current grass/leaves; new sky needs Minecraft acceptance.
+
+Validation: 157 TypeScript tests/typecheck and four native sky tests pass; 22 stages compile/11 programs link. Archive/source integrity checked before local installation. Synthetic GL evidence is not an Iris trace, visual acceptance or performance proof. No paid request or deployment. Live binary texture generation remains unavailable.
+
 ## v0.14.3 - 2026-10-24
 
 - Add BlocksLab04 finer oak/spruce/birch foliage, stronger vein pigment, tufted ground grass/fringe, and original short/tall grass sprites. Tall-grass colour/height/alpha and normals are baked continuously before splitting into block halves.

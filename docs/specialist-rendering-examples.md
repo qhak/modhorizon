@@ -16,6 +16,31 @@ runtime. The block candidate reuses the accepted water architecture; the sky
 candidate changes only `skyRadiance`, so reflected sky colours change with it.
 Aurora's original directory and ZIP remain unchanged.
 
+## Clear sky candidate05
+
+Owner feedback retains candidate04 grass/leaves as the current baseline; the next
+requested change is its pale sky. Select **BlocksLab-candidate-05.zip**, keeping
+**BlocksLab-materials-04.zip** enabled. No new resource pack is required.
+
+The old composite trusted scene colour for clear-depth background despite an
+early begin sky pass. A native GPU test of its actual stages reproduces white sky
+from white scene input. Candidate05 fills depth==1 in the opaque snapshot and
+composite before translucent mixing. Geometry and test overlays are preserved.
+This demonstrates input dependency, not an Iris clear trace.
+
+Sky changes provide blue daytime, soft 2D clouds, continuous warm sunset and
+restrained sun/moon. Non-sky common code, block lighting, exposure and material
+bytes are preserved. Reflected sky/fog colours change naturally; water algorithms
+are unchanged. No stars or volumetric clouds; above-cloud views remain incomplete.
+
+Four native tests cover the old defect, background independence, geometry,
+translucency, day/night and source isolation. Candidate05 compiles 22 stages and
+links 11 programs. Its actual-GLSL synthetic preview uses current filmic/exposure
+without bloom; it is not a Minecraft screenshot or visual acceptance.
+Test fixed-camera day/sunset/night/rain, pan around sun/horizon, and check sky
+behind water/glass, terrain edges and cloud visibility. Record sky feedback
+separately from current material feedback. No paid request or deployment.
+
 ## Block test
 
 ### Grass and finer foliage candidate04
@@ -41,7 +66,8 @@ canopy interiors, grassy slopes, short-grass clumps, the tall-grass mid-height
 join, leaf/plant shadows, biome tint and distant shimmer. Brightness at night or
 through an opaque wall is a failure sign. Bark, sand and all other unrelated
 candidate03 material bytes are preserved; water and sky algorithms are unchanged.
-This candidate is not visually accepted yet.
+Later owner feedback retains this grass/leaves baseline; this is scoped feedback,
+not approval of every material or lighting condition.
 
 The candidate03 foliage helper now exposes optional detail/density/vein controls;
 its default behavior is preserved and tested against existing candidate03 assets.
