@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.13.1 - 2026-10-24
+
+- Constrain shader response names to the shared project identifier pattern and give matching instructions.
+- Convert ordinary shader titles into safe bounded archive labels before validation, including classic provider replies. Preserve all source/path bytes and leave plugin/mod names and classes untouched.
+- Keep unusable, control-containing and excessive titles invalid; reject trailing whitespace in project identifiers. Do not fabricate missing code or make another paid call for title conversion.
+
+Validation: 149 tests and TypeScript pass; Cloudflare build passes. All four mocked providers handle human-readable titles. Coverage includes accents, numeric prefixes, length limits, valid-name preservation, source equality, immutability, invalid titles and non-shader isolation. No paid retry or visual acceptance was performed; previous discarded source is not recovered.
+
 ## v0.13.0 - 2026-10-24
 
 - Give shader provider responses four explicit required source fields for the root terrain/cloud vertex and fragment stages. OpenAI strict output and Gemini schema requests now use this shader-specific contract; other response modes receive matching instructions.

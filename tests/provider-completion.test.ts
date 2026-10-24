@@ -13,7 +13,7 @@ const text = JSON.stringify(shaderPackFixture());
 test("all adapters normalize model-authored required stages for a one-sentence shader request", async t => {
   const restore = configure(); let mode = "openai", calls = 0;
   const fixture = shaderPackFixture();
-  const responseText = JSON.stringify({ name: fixture.name, message: fixture.message,
+  const responseText = JSON.stringify({ name: "Golden Hour Water", message: fixture.message,
     requiredFiles: Object.fromEntries(fixture.files.filter(file => (REQUIRED_SHADER_STAGE_PATHS as readonly string[]).includes(file.path)).map(file => [file.path, file.content])),
     files: fixture.files.filter(file => !(REQUIRED_SHADER_STAGE_PATHS as readonly string[]).includes(file.path)),
   });
@@ -36,6 +36,7 @@ test("all adapters normalize model-authored required stages for a one-sentence s
       if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }
       else process.env.OPENAI_API_KEY = "fixture";
       const result = await createAIProvider(model).generate({ ...request, prompt: "make me a realistic shader with nice water", modelId: model });
+      assert.equal(result.name, "Golden-Hour-Water");
       assert.deepEqual(result.files, fixture.files);
       assert.equal("requiredFiles" in result, false);
     }

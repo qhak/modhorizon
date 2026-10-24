@@ -1,5 +1,23 @@
 # Full shader-source generation
 
+## Shader archive names - v0.13.1
+
+The shader response schema now constrains name to the same 1-48 ASCII identifier
+pattern used by project validation. Matching instructions give an example.
+Shader response normalization also converts ordinary human-readable titles into
+archive-safe labels before validation, for both classic and requiredFiles replies.
+For example, Golden Hour Water becomes Golden-Hour-Water. Accents are decomposed,
+separators become hyphens, numeric-leading labels get Shader-, and labels are
+bounded to 48 characters. Already-valid identifiers remain unchanged.
+
+The conversion changes only project metadata, never GLSL, resource paths, helper
+references or plugin/mod names and classes. Unusable, control-containing or
+over-200-character names still fail validation; no generic name or renderer is
+invented. Validation also rejects trailing whitespace, including a final newline.
+All existing source and compiler checks still run. No extra model call or paid
+repair is needed for the name conversion. This does not recover a prior response
+already discarded at validation or establish the rest of that source was valid.
+
 ## Required geometry in the response schema - v0.13.0
 
 The provider shader response now has `name`, `message`, `requiredFiles` and `files`.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeProjectResponse, projectResponseSchema, projectResponseInstructions, REQUIRED_SHADER_STAGE_PATHS } from "../src/lib/project-response";
+import { normalizeProjectResponse, projectResponseSchema, projectResponseInstructions, REQUIRED_SHADER_STAGE_PATHS, PROJECT_NAME_PATTERN } from "../src/lib/project-response";
 import { validateProject } from "../src/lib/validation";
 import { shaderPackFixture } from "./fixtures/shader-pack";
 
@@ -55,4 +55,23 @@ test("required-stage transport never invents source, resolves duplicate conflict
   const broken = envelope();
   broken.requiredFiles[REQUIRED_SHADER_STAGE_PATHS[0]] = "not GLSL";
   assert.throws(() => validateProject(normalizeProjectResponse(broken, "shader_pack"), "shader_pack", "iris", "1.21.11"), /#version/);
+});
+
+test("shader title normalization changes only the archive label for classic and required-stage responses", () => {
+  assert.equal(projectResponseSchema("shader_pack").properties.name.pattern, PROJECT_NAME_PATTERN);
+  const cases = [["Golden Hour Water", "Golden-Hour-Water"], ["2026 Sunset!", "Shader-2026-Sunset"],
+    ["Café Water", "Cafe-Water"], ["  WarmSky  ", "WarmSky"], ["A".repeat(60), "A".repeat(48)], ["Warm_Sky-2", "Warm_Sky-2"]];
+  for (const [name, expected] of cases) {
+    for (const input of [{ ...shaderPackFixture(), name }, { ...envelope(), name }]) {
+      const before = structuredClone(input);
+      const normalized = validateProject(normalizeProjectResponse(input, "shader_pack"), "shader_pack", "iris", "1.21.11");
+      assert.equal(normalized.name, expected);
+      assert.deepEqual(normalized.files, shaderPackFixture().files);
+      assert.deepEqual(input, before);
+      assert.equal(normalizeProjectResponse(input, "plugin"), input);
+    }
+  }
+  for (const name of ["", "!!!", "---", "bad\nname", "BadName\n", "A".repeat(201)]) {
+    assert.throws(() => validateProject(normalizeProjectResponse({ ...shaderPackFixture(), name }, "shader_pack"), "shader_pack", "iris", "1.21.11"), /Project names must/);
+  }
 });

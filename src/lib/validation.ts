@@ -16,7 +16,7 @@ import { readShaderReport, stripShaderComments } from "./shader-report";
 import { maskShaderComments, normalizeShaderMatrices } from "./shader-normalization";
 import { checkShaderSourceContracts } from "./shader-source-checks";
 import { SHADER_PROGRAM_PATH } from "./shader-programs";
-import { REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
+import { PROJECT_NAME_PATTERN, REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -262,7 +262,7 @@ export function validateProject(
 ): GeneratedProject {
   if (!value || typeof value !== "object") throw new InputError("The provider did not return a project object.");
   const project = value as Record<string, unknown>;
-  if (typeof project.name !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(project.name))
+  if (typeof project.name !== "string" || project.name !== project.name.trim() || !new RegExp(PROJECT_NAME_PATTERN).test(project.name))
     throw new InputError("Project names must use 1–48 letters, numbers, underscores, or hyphens and start with a letter.");
   const maxFileCount = artifactType === "shader_pack" ? 60 : MAX_FILE_COUNT;
   const maxFileChars = artifactType === "shader_pack" ? 80_000 : MAX_FILE_CHARS;
