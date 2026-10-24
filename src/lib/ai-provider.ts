@@ -220,7 +220,7 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
   try { parsed = JSON.parse(content); }
   catch {
     // Never expose JSON.parse messages: newer runtimes can include raw source text.
-    if (process.env.NODE_ENV !== "production") console.warn("[generation] Rejected provider JSON", { model: request.modelId, outputCharacters: content.length, outputTokenLimit: generationOutputTokenLimit(request.artifactType) });
+    if (process.env.NODE_ENV !== "production") console.warn("[generation] Rejected provider JSON", { model: request.modelId, outputCharacters: content.length, outputTokenLimit: generationOutputTokenLimit(request.artifactType, request.modelId) });
     throw new Error("AI provider returned malformed or incomplete project JSON without reporting a token-limit stop. No automatic retry was made; try fewer effects in one pass or a lower reasoning level.");
   }
   try {
@@ -261,8 +261,16 @@ async function providerJson(response: Response, request: GenerateRequest): Promi
     throw error;
   }
 }
-function outputLimitError(request: GenerateRequest): Error {
-  return new Error(`AI provider reached the ${generationOutputTokenLimit(request.artifactType).toLocaleString("en-US")}-token output budget before completing the project. Try fewer effects in this pass or a lower reasoning level. No automatic retry was made.`);
+function outputLimitError(request: GenerateRequest, content?: string, usage?: Record<string, unknown>): Error {
+  const count = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+  const total = count(usage?.output_tokens ?? usage?.completion_tokens);
+  const details = usage?.output_tokens_details ?? usage?.completion_tokens_details;
+  const reasoning = details && typeof details === "object" && !Array.isArray(details)
+    ? count((details as Record<string, unknown>).reasoning_tokens) : undefined;
+  const evidence = [total !== undefined ? `${total.toLocaleString("en-US")} reported output tokens` : "",
+    reasoning !== undefined ? `${reasoning.toLocaleString("en-US")} reported reasoning tokens` : "",
+    content !== undefined ? `${content.length.toLocaleString("en-US")} project text characters received` : ""].filter(Boolean);
+  return new Error(`AI provider reached the ${generationOutputTokenLimit(request.artifactType, request.modelId).toLocaleString("en-US")}-token output budget before completing the project. The budget includes reasoning and project text. ${evidence.length ? `Diagnostics: ${evidence.join("; ")}. ` : ""}Try fewer effects in this pass or a lower reasoning level. No automatic retry was made.`);
 }
 function refusalError(): Error {
   return new Error("AI provider declined or filtered this request; no complete project was generated. No automatic retry was made.");
@@ -301,7 +309,7 @@ class OpenAIProvider implements AIProvider {
         legacyCompatible
           ? {
               model: this.modelId,
-              max_tokens: generationOutputTokenLimit(request.artifactType),
+              max_tokens: generationOutputTokenLimit(request.artifactType, this.modelId),
               reasoning_effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai"),
               response_format: { type: "json_object" },
               messages: [
@@ -311,7 +319,7 @@ class OpenAIProvider implements AIProvider {
             }
           : {
               model: this.modelId,
-              max_output_tokens: generationOutputTokenLimit(request.artifactType),
+              max_output_tokens: generationOutputTokenLimit(request.artifactType, this.modelId),
               store: false,
               reasoning: { effort: providerReasoningEffort(request.reasoningEffort || DEFAULT_REASONING_EFFORT, "openai") },
               input: [
@@ -342,22 +350,22 @@ class OpenAIProvider implements AIProvider {
       choices?: { finish_reason?: string; message?: { content?: string; refusal?: string } }[];
       usage?: Record<string, unknown>;
     };
-    if (legacyCompatible) {
-      const choice = data.choices?.[0];
-      if (choice?.finish_reason === "length") throw outputLimitError(request);
-      if (choice?.finish_reason === "content_filter" || choice?.message?.refusal) throw refusalError();
-      if (choice?.finish_reason && choice.finish_reason !== "stop") throw new Error("AI provider stopped before returning a complete project. No automatic retry was made.");
-    } else {
-      if (data.status === "incomplete" && data.incomplete_details?.reason === "max_output_tokens") throw outputLimitError(request);
-      if (data.incomplete_details?.reason === "content_filter" || data.output?.some(item => item.content?.some(part => part.type === "refusal"))) throw refusalError();
-      if (data.status && data.status !== "completed") throw new Error("AI provider did not complete project generation. No automatic retry was made.");
-    }
     const content = legacyCompatible
       ? data.choices?.[0]?.message?.content
       : data.output_text || data.output
           ?.filter(item => item.type === "message" || item.type === undefined)
           .flatMap((item) => item.content || [])
           .filter((part) => part.type === "output_text").map(part => part.text || "").join("");
+    if (legacyCompatible) {
+      const choice = data.choices?.[0];
+      if (choice?.finish_reason === "length") throw outputLimitError({ ...request, modelId: this.modelId }, content || "", data.usage);
+      if (choice?.finish_reason === "content_filter" || choice?.message?.refusal) throw refusalError();
+      if (choice?.finish_reason && choice.finish_reason !== "stop") throw new Error("AI provider stopped before returning a complete project. No automatic retry was made.");
+    } else {
+      if (data.status === "incomplete" && data.incomplete_details?.reason === "max_output_tokens") throw outputLimitError({ ...request, modelId: this.modelId }, content || "", data.usage);
+      if (data.incomplete_details?.reason === "content_filter" || data.output?.some(item => item.content?.some(part => part.type === "refusal"))) throw refusalError();
+      if (data.status && data.status !== "completed") throw new Error("AI provider did not complete project generation. No automatic retry was made.");
+    }
     return parseGeneratedProject(content, request, normalizedUsage(data.usage));
   }
 }

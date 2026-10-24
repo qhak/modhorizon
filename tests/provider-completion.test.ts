@@ -83,7 +83,7 @@ test("OpenAI completion status precedes parsing and text blocks are assembled in
     const provider = createAIProvider("gpt-6-luna");
     for (const badText of [text, '{"name":"Unfinished"']) {
       payload = { status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output_text: badText };
-      await assert.rejects(provider.generate(request), /32,000-token output budget.*No automatic retry/);
+      await assert.rejects(provider.generate(request), /64,000-token output budget.*No automatic retry/);
     }
     payload = { status: "completed", output_text: text, output: [{ type: "message", content: [{ type: "refusal", refusal: "private provider text" }] }] };
     await assert.rejects(provider.generate(request), /declined or filtered/);
@@ -130,7 +130,7 @@ test("legacy OpenAI, Anthropic and Gemini reject incomplete results even with va
   try {
     delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = "gpt-6-luna";
     payload = { choices: [{ finish_reason: "length", message: { content: text } }] };
-    await assert.rejects(createAIProvider("gpt-6-luna").generate(request), /32,000-token output budget/);
+    await assert.rejects(createAIProvider("gpt-6-luna").generate(request), /64,000-token output budget/);
     payload = { choices: [{ finish_reason: "content_filter", message: { content: text } }] };
     await assert.rejects(createAIProvider("gpt-6-luna").generate(request), /declined or filtered/);
     payload = { stop_reason: "max_tokens", content: [{ type: "text", text }] };
@@ -162,7 +162,7 @@ test("provider envelope failures hide raw text and enforce the response limit in
   } finally { restore(); }
 });
 
-test("every adapter uses the same artifact output ceiling as credit quotes and reservations", async t => {
+test("every adapter uses the same model/artifact output ceiling as credit quotes and reservations", async t => {
   const restore = configure(); let expectedLimit = 0, mode = "openai", calls = 0;
   t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
     calls++;
@@ -178,6 +178,8 @@ test("every adapter uses the same artifact output ceiling as credit quotes and r
       expectedLimit = artifactType === "shader_pack" ? 32_000 : 16_000;
       assert.equal(generationOutputTokenLimit(artifactType), expectedLimit);
       for (const [adapter, model] of [["openai", "gpt-6-luna"], ["legacy", "gpt-6-luna"], ["anthropic", "claude-sonnet-5-5"], ["google", "gemini-3-flash-preview"]]) {
+        expectedLimit = artifactType === "shader_pack" ? (model === "gpt-6-luna" ? 64_000 : 32_000) : 16_000;
+        assert.equal(generationOutputTokenLimit(artifactType, model), expectedLimit);
         mode = adapter;
         if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }
         else process.env.OPENAI_API_KEY = "fixture";
@@ -190,5 +192,28 @@ test("every adapter uses the same artifact output ceiling as credit quotes and r
       }
     }
     assert.equal(calls, 16);
+  } finally { restore(); }
+});
+
+test("incomplete OpenAI replies expose numeric budget evidence without exposing partial source or reasoning", async t => {
+  const restore = configure();
+  let usage: unknown = { output_tokens: 64_000, output_tokens_details: { reasoning_tokens: 59_000 } };
+  t.mock.method(globalThis, "fetch", async () => Response.json({ status: "incomplete",
+    incomplete_details: { reason: "max_output_tokens" }, output_text: "private-project-source",
+    output: [{ type: "reasoning", content: [{ type: "output_text", text: "private-thoughts" }] }], usage }));
+  try {
+    await assert.rejects(createAIProvider("gpt-6-luna").generate(request), error => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /64,000 reported output tokens; 59,000 reported reasoning tokens; 22 project text characters received/);
+      assert.doesNotMatch(error.message, /private-project-source|private-thoughts/);
+      return true;
+    });
+    usage = { output_tokens: "private-usage", output_tokens_details: { reasoning_tokens: -1 } };
+    await assert.rejects(createAIProvider("gpt-6-luna").generate(request), error => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /22 project text characters received/);
+      assert.doesNotMatch(error.message, /reported reasoning tokens|private-usage/);
+      return true;
+    });
   } finally { restore(); }
 });

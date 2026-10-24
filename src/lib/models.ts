@@ -144,7 +144,11 @@ export function findModel(id: string | undefined) {
 export const PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT = 5_000;
 export const MAX_GENERATION_OUTPUT_TOKENS = 16_000;
 export const MAX_SHADER_OUTPUT_TOKENS = 32_000;
-export function generationOutputTokenLimit(artifactType?: string) {
+// Luna supports 128k output; leave deliberate headroom for reasoning plus full GLSL.
+// Other models retain their existing ceiling until individually reviewed.
+export const MAX_LUNA_SHADER_OUTPUT_TOKENS = 64_000;
+export function generationOutputTokenLimit(artifactType?: string, modelId?: string) {
+  if (artifactType === "shader_pack" && modelId === "gpt-6-luna") return MAX_LUNA_SHADER_OUTPUT_TOKENS;
   return artifactType === "shader_pack" ? MAX_SHADER_OUTPUT_TOKENS : MAX_GENERATION_OUTPUT_TOKENS;
 }
 
@@ -160,7 +164,7 @@ export function creditsForUsage(modelId: string, inputTokens: number, outputToke
 }
 
 export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT, artifactType?: string) {
-  const base = creditsForUsage(modelId, estimatedInputTokens, generationOutputTokenLimit(artifactType));
+  const base = creditsForUsage(modelId, estimatedInputTokens, generationOutputTokenLimit(artifactType, modelId));
   // Low effort is an estimate, not a provider output limit. Never discount the hold
   // below the configured output ceiling; settlement refunds unused credits.
   return base === null ? null : Math.ceil(base * Math.max(1, reasoningEstimateMultiplier(effort)));

@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.12.1 - 2026-10-24
+
+- Raise Luna shader output headroom to 64,000 tokens for reasoning plus complete source. Keep other shader models at 32,000 and non-shader requests at 16,000; shared model-aware quotes/reservations account for the same ceiling.
+- Add safe numeric OpenAI incomplete-response diagnostics for reported output/reasoning tokens and received project-text length. Never expose partial source or reasoning, package incomplete output or initiate an automatic retry.
+- Document the owner's 32,000-token stop without inventing its missing reasoning/code split. A larger cap is headroom, not proof of better rendering or guaranteed completion.
+
+Validation: 141 tests and TypeScript pass; Cloudflare build passes. All provider ceilings match quotes/reservations; safe diagnostics cover missing/malformed usage and private source exclusion. No paid provider call or in-game acceptance was performed.
+
 ## v0.12.0 - 2026-10-24
 
 - Add a versioned shader specialist library with five roles, ten documented reference records, alternative methods, failure/correction pairs and concrete acceptance scenes.

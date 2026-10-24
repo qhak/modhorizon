@@ -1,5 +1,31 @@
 # Full shader-source generation
 
+## Luna reasoning/output headroom - v0.12.1
+
+Luna shader requests now use a 64,000-token output cap rather than 32,000.
+Other shader models retain 32,000; non-shader requests retain 16,000. The model-aware
+helper is shared by provider requests, credit quotes/reservations and limit errors.
+The larger reservation is shown before the owner initiates another generation.
+Source bytes, file limits, transport room, timeouts and repair authorization stay
+unchanged. A larger ceiling is not a requirement to generate more code.
+
+OpenAI's [reasoning documentation](https://developers.openai.com/api/docs/guides/reasoning)
+states that max_output_tokens includes reasoning and visible output. The reviewed
+[Luna page](https://developers.openai.com/api/docs/models/gpt-6-luna) lists 128,000
+maximum output tokens (checked 24 October 2026). This app deliberately uses 64,000.
+No higher limit is assumed for other providers or model IDs.
+
+Incomplete OpenAI responses now expose only safe numeric diagnostics: reported
+total output/reasoning counts when present and received project-text characters.
+They still produce no partial ZIP and no automatic retry. Missing usage is not
+invented; raw partial source and reasoning are not added to errors or logs.
+
+The owner reported a 32,000-token exhaustion after the skill-library test. That
+establishes the reported stop reason, not its reasoning/code split or the amount
+of usable source. The expanded context may affect workload, but causality is not
+measured. New diagnostics apply to subsequent attempts; this change does not
+recover discarded prior response text or establish a successful paid generation.
+
 ## Specialist reference library - v0.12.0
 
 Provider input now includes a versioned skill library with task workflows,
