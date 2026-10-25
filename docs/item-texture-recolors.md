@@ -52,3 +52,12 @@ does not prove that a live provider follows the new instructions. Tests decode
 actual PNG chunks/zlib/CRC, inspect original alpha/handle pixels and shaded colors,
 read ZIP entries and exercise generation/storage with a fixture provider. Full
 Minecraft visual acceptance and a fresh billable model pass remain separate checks.
+
+## Owner acceptance - 2026-10-25
+
+The owner generated and downloaded DarkCherryDiamondTools through the local app.
+Archive inspection confirmed format 46 and five valid 16x16 RGBA PNGs with no
+internal recipes. After installation, the owner reported “works well”; their
+screenshot showed the cherry-red sword in hand and all five recolored tool icons
+in the hotbar. This establishes that specific pack's prompt-to-gameplay success,
+not armor, original artwork or every selected game version.

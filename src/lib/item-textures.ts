@@ -50,7 +50,8 @@ function chunk(kind: string, data: Uint8Array): Uint8Array {
   return concat([u32(data.length), body, u32((crc ^ 0xffffffff) >>> 0)]);
 }
 
-function encodePng(rgba: Uint8Array): Uint8Array {
+export function encodePng16(rgba: Uint8Array): Uint8Array {
+  if (rgba.length !== 16 * 16 * 4) throw new Error("Texture encoder requires exactly 16×16 RGBA pixels.");
   const scanlines = new Uint8Array(16 * 65);
   for (let row = 0; row < 16; row++) scanlines.set(rgba.subarray(row * 64, row * 64 + 64), row * 65 + 1);
   let a = 1, b = 0;
@@ -77,5 +78,5 @@ export function renderItemRecolor(path: string, content: string): { path: string
   });
   const rgba = new Uint8Array(16 * 16 * 4);
   for (let i = 0; i < 256; i++) rgba.set(palette[parseInt(base.pixels.slice(i * 2, i * 2 + 2), 16)], i * 4);
-  return { path: path.replace(/\.recolor\.json$/, ".png"), bytes: encodePng(rgba) };
+  return { path: path.replace(/\.recolor\.json$/, ".png"), bytes: encodePng16(rgba) };
 }

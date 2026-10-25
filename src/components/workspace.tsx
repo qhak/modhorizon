@@ -1065,7 +1065,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                     ? project.artifactType === "datapack"
                       ? "Packaged as a datapack ZIP. Test commands and gameplay in Minecraft."
                       : project.artifactType === "resource_pack"
-                      ? "Resource-pack ZIP ready. Supported diamond-tool recolors include real PNGs; review previews and any reported omissions."
+                      ? "Resource-pack ZIP ready. Supported tool recolors and ore visibility textures include real PNGs; review previews and reported omissions."
                       : project.artifactType === "shader_pack"
                         ? "Packaged as a shader ZIP. GLSL and GPU behavior still need in-game testing."
                         : project.artifactType === "mod"
@@ -1155,7 +1155,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                         </> : project.artifactType === "resource_pack" ? <>
                           <li>Open Options → Resource Packs → Open Pack Folder.</li>
                           <li>Copy the downloaded ZIP into that folder, return to Minecraft, and enable the pack.</li>
-                          <li>Check the changed resources in game. Diamond-tool recolors include PNGs; review the message for unsupported artwork or armor.</li>
+                          <li>Check the changed resources in game. Ore visibility textures increase contrast but do not glow or remove water fog. Review any reported omissions.</li>
                         </> : <>
                           <li>Install the selected shader runtime ({project.target}) for Minecraft {project.version}.</li>
                           <li>Copy the downloaded ZIP into the runtime’s <code>shaderpacks</code> folder and select it in video settings.</li>

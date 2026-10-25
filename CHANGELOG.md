@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.17.0 - 2026-10-25
+
+- Add shader-free ore visibility textures for all 18 normal, deepslate and Nether ore variants on 1.21.1-1.21.11. Bounded brightness/outline recipes render real 16x16 PNGs while retaining opaque source pixels and unrelated host-stone details.
+- Extend texture previews, short-prompt guidance, validation, ZIP packaging and an authored sample. Explicitly distinguish contrast from emission: no glow, lighting/fog bypass, hidden-ore visibility or transparency holes. Keep diamond-tool recolors working.
+- Record the owner's successful live cherry-red tool-pack test and retain that prior pack. Add fixed ore masks, official source provenance and a reproducible extraction script.
+
+Validation: 189 TypeScript tests, typecheck, production Next.js build, independent PNG decoding and local HTTP checks pass. Minecraft ore appearance acceptance and a fresh model-generated ore pack remain separate from offline fixtures. No billable model call or deployment.
+
 ## v0.16.0 - 2026-10-25
 
 - Add vanilla diamond-tool recoloring for resource packs on 1.21.1-1.21.11. Bounded model-authored color recipes render as actual 16x16 PNGs with preserved vanilla alpha, silhouettes, wooden handles and shading. Recipes stay editable but are excluded from the installable ZIP.

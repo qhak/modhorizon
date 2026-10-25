@@ -19,6 +19,7 @@ import { checkShaderSourceContracts } from "./shader-source-checks";
 import { SHADER_PROGRAM_PATH } from "./shader-programs";
 import { PROJECT_NAME_PATTERN, REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
 import { parseItemRecolor, supportsItemRecolorVersion } from "./item-textures";
+import { parseOreTexture, supportsOreTextureVersion } from "./ore-textures";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -210,6 +211,12 @@ function validateResourcePack(files: Files, version?: string) {
         throw new InputError("Item texture recoloring currently supports Minecraft 1.21.1–1.21.11. Other versions can still use text resource assets.");
       try { parseItemRecolor(file.path, file.content); }
       catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid item texture recolor."); }
+    }
+    if (file.path.endsWith(".ore.json")) {
+      if (!supportsOreTextureVersion(version))
+        throw new InputError("Ore visibility textures currently support Minecraft 1.21.1–1.21.11.");
+      try { parseOreTexture(file.path, file.content); }
+      catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid ore texture recipe."); }
     }
   }
 }

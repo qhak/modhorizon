@@ -2,6 +2,7 @@ import { deflateRawSync } from "node:zlib";
 import type { ArtifactType, GeneratedProject, MinecraftVersion } from "./types";
 import { dataPackFormat } from "./datapack-versions";
 import { renderItemRecolor, supportsItemRecolorVersion } from "./item-textures";
+import { renderOreTexture, supportsOreTextureVersion } from "./ore-textures";
 
 const MAX_ARCHIVE_BYTES = 5_000_000;
 const crcTable = new Uint32Array(256);
@@ -134,6 +135,11 @@ export function packageMinecraftPack(project: GeneratedProject, artifactType: Ar
     });
   }
   const rendered = files.map(file => {
+    if (artifactType === "resource_pack" && file.path.endsWith(".ore.json")) {
+      if (!supportsOreTextureVersion(version)) throw new Error("Ore visibility textures currently support Minecraft 1.21.1–1.21.11.");
+      const image = renderOreTexture(file.path, file.content);
+      return { path: image.path, content: image.bytes };
+    }
     if (artifactType !== "resource_pack" || !file.path.endsWith(".recolor.json")) return file;
     if (!supportsItemRecolorVersion(version)) throw new Error("Item texture recoloring currently supports Minecraft 1.21.1–1.21.11.");
     const image = renderItemRecolor(file.path, file.content);
