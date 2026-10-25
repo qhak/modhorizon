@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.8 - 2026-10-25
+
+- Add a separate authored GoldenHour water03 revision over the retained horizon02 sky. Replace mostly fixed water opacity with a coherent depth/angle-dependent reflection, scatter and neutral transmission layer; output straight RGB for the existing SRC_ALPHA overlay blend so reflections are not attenuated twice.
+- Use view-ray bed separation, lit shallow/deep scatter and explicit missing-bed fallback. Retain sky/clouds, terrain light, reflection trace, wave normals, material mapping, glass path and far-horizon fade. Scalar absorption is not spectral transport or full underwater/refraction optics.
+- Teach the water-layer budget in bounded generator context; add five native regressions and a guidance regression. Preserve previous candidates and document controlled visual acceptance checks.
+
+Validation: five native regressions, 38 compiled stages/19 links, 165 TypeScript tests/typecheck and ZIP/source integrity pass. No new provider call or deployment. Minecraft appearance/performance remain unverified.
+
 ## v0.14.7 - 2026-10-25
 
 - Preserve the tested GoldenHour checked source and add a reproducible local horizon02 revision. Remove a measured lower-sky branch discontinuity; share render-distance haze between terrain and water, including far-water alpha, while preserving near glass/underwater transparency.

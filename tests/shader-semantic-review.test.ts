@@ -80,3 +80,11 @@ test("horizon guidance covers measured branch, alpha and runtime-binding failure
   assert.match(context, /viewWidth\/viewHeight/);
   assert.match(context, /inverse-transforming camera-up/);
 });
+
+test("water guidance budgets the transmitted bed and reflection before alpha composition", () => {
+  const context = shaderGenerationContext({ ...request, prompt: "Reflective water with clear shallows." });
+  assert.match(context, /coverage A=1-\(1-F\)\*T/);
+  assert.match(context, /Output P\/A as straight RGB/);
+  assert.match(context, /preserve glass separately/);
+  assert.match(context, /do not call this complete physical water/);
+});
