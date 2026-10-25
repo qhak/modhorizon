@@ -1,5 +1,12 @@
 # Change notes
 
+## v0.15.1 - 2026-10-25
+
+- Add authored sunset04 over retained water03: directional golden twilight, peach cloud edge light, stronger water highlights and sky-exposed ambient fill. Preserve dark interiors, optical coverage, reflection trace and waves.
+- Add a reproducible builder and GLSL regressions for sunset contrast, outdoor/cave separation, unchanged day/deep-night response and water contracts. Previous candidates retained.
+
+Validation: four native GPU tests pass; 38 stages compile and 19 programs link. Minecraft appearance/performance acceptance pending. No model call or deployment. Candidate not yet promoted as a visually accepted generator reference.
+
 ## v0.15.0 - 2026-10-25
 
 - Integrate main's datapack generation, searchable examples and homepage media with all shader generation, reference, compiler and authored rendering work through v0.14.8. Preserve original commits through a regular merge.
