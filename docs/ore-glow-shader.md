@@ -7,9 +7,9 @@ shader-free pack remains unchanged.
 
 ## Two packs required
 
-`OreGlow-test01.zip` belongs in shaderpacks; `OreGlowMaterials-test01.zip` belongs
+`OreGlow-test02.zip` belongs in shaderpacks; `OreGlowMaterials-test02.zip` belongs
 in resourcepacks. Enable the material pack above ClearOres and any other ore
-texture pack, then select OreGlow in Iris/OptiFine. Test Minecraft 1.21.4 first.
+texture pack, then select OreGlow in Iris/OptiFine. The repaired companion targets Minecraft 1.21.11, matching the owner's current Lunar client.
 The companion contains 18 opaque albedo textures and 18 `_s.png` specular maps.
 Its `assets/minecraft/optifine/texture.properties` declares `format=lab-pbr/1.3`.
 The shader reads the standard `specular` atlas using the terrain UVs.
@@ -44,3 +44,23 @@ The build scripts reproduce the shader and materials from retained authored
 source and verified vanilla masks. No provider generation or production deployment
 is involved. The candidate is not promoted into a visually accepted ModHorizon
 example until the owner completes the in-game test.
+
+## test02 loader repair
+
+The owner reported `Index 1 out of bounds for length 1` while loading test01.
+Their Lunar log identified Minecraft 1.21.11 and an Iris shader-load failure.
+Bytecode inspection of installed Iris 1.10.7 showed the registered vec4 directive
+parser split arguments by commas and then indexed four elements even after
+logging an incorrect arity. A small isolated harness loaded that actual parser
+class (with only logging stubbed): `vec4(0.0)` reproduced the exact exception;
+`vec4(0.0, 0.0, 0.0, 0.0)` was accepted. This was a loader metadata failure,
+not a GLSL compile failure. All three terrain clear-color directives and the
+reproducible builder now use the explicit four-component constructor.
+
+The source validator now catches unconditionally declared registered clear colors
+with missing or non-literal components, while leaving ordinary GLSL constructors
+and conditional source alone. Generation guidance records the distinction. The
+original test01 ZIPs are retained. test02 material metadata uses format75 with
+both min_format/max_format [75,0], because the current game log had removed older
+1.21.4 resource packs as incompatible. A full Minecraft reload/visual retest is
+still required; the isolated parser probe does not test the whole renderer.

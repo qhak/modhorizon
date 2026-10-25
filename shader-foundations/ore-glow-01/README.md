@@ -1,4 +1,4 @@
-# OreGlow - test01
+# OreGlow - test02
 
 Authored candidate copied from the retained sunset04 shader. Enable the matching
 OreGlowMasks resource pack ABOVE ClearOres, then select this shader in Iris or

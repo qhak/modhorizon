@@ -78,7 +78,7 @@ def build():
         p = shader/name
         s = p.read_text(encoding='utf-8').replace('/* DRAWBUFFERS:0 */', '''/* DRAWBUFFERS:06 */
 const bool colortex6Clear = true;
-const vec4 colortex6ClearColor = vec4(0.0);
+const vec4 colortex6ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 ''')
         s = s.replace('#include "/lib/terrain_lighting.glsl"', '#include "/lib/terrain_lighting.glsl"\n#include "/lib/ore_emission.glsl"')
         marker = '    vec3 worldRay ='
@@ -136,7 +136,7 @@ const vec4 colortex6ClearColor = vec4(0.0);
         {'name': 'Depth-aware ore screen halo', 'kind': 'bloom', 'priority': 2, 'status': 'approximation', 'technique': 'Collect 12 bounded taps of cleared emission attachment6 in composite. Reject clear-depth, farther-than-receiver taps and opaque translucent-overlay coverage; add a small glow only around visible ore mask pixels.', 'files': ['shaders/composite.fsh', 'shaders/lib/ore_bloom.glsl', 'shaders/lib/lit_fragment.glsl'], 'limitations': 'Screen-space artistic halo, not physically based bloom, hidden-geometry detection or dynamic lighting. Depth tolerance and transparent-water absorption need real-scene evaluation. Existing opaque geometry clears the mask; no off-screen ore is reconstructed.'},
     ])
     p.write_text(json.dumps(plan, indent=2)+'\n', encoding='utf-8')
-    (dest/'README.md').write_text('''# OreGlow - test01
+    (dest/'README.md').write_text('''# OreGlow - test02
 
 Authored candidate copied from the retained sunset04 shader. Enable the matching
 OreGlowMasks resource pack ABOVE ClearOres, then select this shader in Iris or

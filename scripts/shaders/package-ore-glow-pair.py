@@ -12,9 +12,9 @@ node = shutil.which('node')
 if not node: raise SystemExit('Node.js is required')
 tsx = ROOT/'node_modules/tsx/dist/cli.mjs'
 subprocess.run([sys.executable, str(ROOT/'scripts/shaders/build-ore-glow.py')], cwd=ROOT, check=True)
-subprocess.run([node, str(tsx), 'scripts/shaders/package-ore-glow.ts', str(output/'OreGlow-test01.zip')], cwd=ROOT, check=True)
-materials = ROOT/'.data/ore-glow-materials-test01'
-subprocess.run([node, str(tsx), 'scripts/textures/build-ore-glow-materials.ts', str(materials), '1.21.4'], cwd=ROOT, check=True)
+subprocess.run([node, str(tsx), 'scripts/shaders/package-ore-glow.ts', str(output/'OreGlow-test02.zip')], cwd=ROOT, check=True)
+materials = ROOT/'.data/ore-glow-materials-test02'
+subprocess.run([node, str(tsx), 'scripts/textures/build-ore-glow-materials.ts', str(materials), '1.21.11'], cwd=ROOT, check=True)
 files = sorted(p for p in materials.rglob('*') if p.is_file())
 assert len(files) == 39, 'Unexpected companion pack entries; inspect the material staging folder'
 archive = io.BytesIO()
@@ -26,7 +26,7 @@ with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
 data = archive.getvalue()
 with zipfile.ZipFile(io.BytesIO(data)) as z:
     for p in files: assert z.read(p.relative_to(materials).as_posix()) == p.read_bytes()
-target = output/'OreGlowMaterials-test01.zip'
+target = output/'OreGlowMaterials-test02.zip'
 output.mkdir(parents=True, exist_ok=True)
 if target.exists() and target.read_bytes() != data:
     raise SystemExit('Preserve existing candidates: choose another output folder')

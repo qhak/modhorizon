@@ -1,7 +1,7 @@
 #version 120
 /* DRAWBUFFERS:06 */
 const bool colortex6Clear = true;
-const vec4 colortex6ClearColor = vec4(0.0);
+const vec4 colortex6ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 
 #include "/lib/terrain_varyings.glsl"
 #include "/lib/terrain_lighting.glsl"

@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.17.2 - 2026-10-25
+
+- Repair OreGlow's Iris loader failure: use four explicit colortex6ClearColor components rather than the GLSL-valid scalar splat. Reproduce the exact reported index exception with the installed Iris parser, then verify the repaired constructor is accepted.
+- Add a conservative loader-metadata source check and regression; teach the generator the parser/GLSL distinction within the existing context budget. Preserve ordinary GLSL splats and conditional-source handling.
+- Package separate test02 shader/material ZIPs without overwriting test01. Target companion metadata to the current Lunar client's verified Minecraft 1.21.11, including mandatory min/max formats.
+
+Validation: 192 TypeScript tests, typecheck, six native GPU regressions, 38 stages/19 links and installed-Iris parser reproduction/repair checks pass. Full Minecraft load and visual retest remain pending. No provider call or deployment.
+
 ## v0.17.1 - 2026-10-25
 
 - Add a separate authored OreGlow shader and paired material pack: mineral-only self-brightness from LabPBR specular alpha, strict ore-ID gating and a bounded screen-space halo. Keep host stone normally lit, clear emission on opaque occluders and retain underwater attenuation/far haze.
