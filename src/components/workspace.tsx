@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { ManagedProject, LocalProfile } from "@/lib/managed-project";
 import { CreditBalance } from "./credit-balance";
+import { TexturePreviews } from "./texture-previews";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -58,7 +59,7 @@ const EXAMPLE_PROMPTS: Record<ArtifactType, string> = {
   datapack: "Create a Minecraft Java datapack with a manual function that gives a player a small starter kit once, tracked by a scoreboard.",
   plugin: "Create a Paper plugin with a /spawn command that teleports players to world spawn.",
   mod: "Create a Fabric mod that adds a craftable copper lantern with a soft blue glow.",
-  resource_pack: "Create a resource pack that renames the diamond sword to 'Nightfall Blade' in English and adds a short purple-themed pack description.",
+  resource_pack: "Make my diamond sword, pickaxe, axe, shovel and hoe dark cherry red, keeping the classic Minecraft pixel style.",
   shader_pack: "Create a lightweight Iris shader pack with warm sunset colors, subtle water reflections, and a performance-friendly settings file.",
 };
 const ARTIFACT_LABELS: Record<ArtifactType, string> = {
@@ -1064,7 +1065,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                     ? project.artifactType === "datapack"
                       ? "Packaged as a datapack ZIP. Test commands and gameplay in Minecraft."
                       : project.artifactType === "resource_pack"
-                      ? "Packaged as a resource-pack ZIP. Add textures separately if your prompt requires them."
+                      ? "Resource-pack ZIP ready. Supported diamond-tool recolors include real PNGs; review previews and any reported omissions."
                       : project.artifactType === "shader_pack"
                         ? "Packaged as a shader ZIP. GLSL and GPU behavior still need in-game testing."
                         : project.artifactType === "mod"
@@ -1084,6 +1085,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                   <SlidersHorizontal size={14} />
                 </button>
               </div>
+              {project.artifactType === "resource_pack" && project.artifactAvailable && <TexturePreviews files={project.files} />}
               {tab === "test" ? (
                 <div className="test-workflow">
                   <div className="test-workflow-heading">
@@ -1153,7 +1155,7 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
                         </> : project.artifactType === "resource_pack" ? <>
                           <li>Open Options → Resource Packs → Open Pack Folder.</li>
                           <li>Copy the downloaded ZIP into that folder, return to Minecraft, and enable the pack.</li>
-                          <li>Check the changed resources in game. Add any missing texture files separately.</li>
+                          <li>Check the changed resources in game. Diamond-tool recolors include PNGs; review the message for unsupported artwork or armor.</li>
                         </> : <>
                           <li>Install the selected shader runtime ({project.target}) for Minecraft {project.version}.</li>
                           <li>Copy the downloaded ZIP into the runtime’s <code>shaderpacks</code> folder and select it in video settings.</li>

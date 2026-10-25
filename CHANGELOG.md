@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.16.0 - 2026-10-25
+
+- Add vanilla diamond-tool recoloring for resource packs on 1.21.1-1.21.11. Bounded model-authored color recipes render as actual 16x16 PNGs with preserved vanilla alpha, silhouettes, wooden handles and shading. Recipes stay editable but are excluded from the installable ZIP.
+- Add matching PNG previews, a short example prompt, accurate scope notices, pinned Mojang asset provenance and reproducible extraction/sample scripts. Worn armor, block textures and original art remain unsupported; no placeholder files are added to bypass validation.
+- Verify PNG CRC/decompression and pixel preservation for all five tools, strict recipes/version/path rejection, ZIP contents and generation-to-storage behavior with an offline fixture.
+
+Validation: 181 TypeScript tests, typecheck, production Next.js build and local creation/catalog HTTP checks pass. Authored sample is distinct from a live AI response. Minecraft visual acceptance remains pending; no billable provider call or production deployment.
+
 ## v0.15.1 - 2026-10-25
 
 - Add authored sunset04 over retained water03: directional golden twilight, peach cloud edge light, stronger water highlights and sky-exposed ambient fill. Preserve dark interiors, optical coverage, reflection trace and waves.

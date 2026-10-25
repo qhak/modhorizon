@@ -4,6 +4,7 @@ import type { ArtifactTarget, ArtifactType, GenerateRequest } from "./types";
 import { dataPackFormat } from "./datapack-versions";
 import { SHADER_BASELINE, selectShaderModules, shaderGenerationContext } from "./shader-context";
 import { projectResponseInstructions } from "./project-response";
+import { ITEM_RECOLOR_INSTRUCTIONS } from "./item-textures";
 
 export type ArtifactExpert = {
   type: ArtifactType;
@@ -48,8 +49,8 @@ export const ARTIFACT_EXPERTS: Record<ArtifactType, ArtifactExpert> = {
     targets: ["vanilla"],
     targetLabels: { vanilla: "Vanilla resource pack" },
     buildMode: "zip",
-    sourcePaths: "pack.mcmeta and text-based assets below assets/<namespace>/; JSON, MCMeta, properties, and README files are accepted. Image binaries are not generated yet.",
-    instructions: "Create a Minecraft Java resource pack for the selected version. Include valid root pack.mcmeta with an integer pack.pack_format and a clear description. Put resources below assets/<lowercase_namespace>/ using the exact vanilla resource paths and valid JSON/MCMeta syntax. Preserve vanilla identifiers unless the request explicitly replaces them. The server packages accepted text files into an installable resource-pack ZIP. Describe required textures or other binary assets in a README instead of fabricating image contents; clearly say when the prompt requires a texture that is not included.",
+    sourcePaths: "Root pack.mcmeta, optional README.md, text assets below assets/<namespace>/, and supported diamond-tool .recolor.json recipes. PNG bytes are rendered by the server, never supplied by the model.",
+    instructions: "Create a Minecraft Java resource pack for the selected version. Include valid root pack.mcmeta with an integer pack.pack_format and a clear description. Put resources below assets/<lowercase_namespace>/ using exact vanilla resource paths and valid JSON/MCMeta syntax. Preserve unrelated vanilla resources. " + ITEM_RECOLOR_INSTRUCTIONS + " For unsupported artwork, worn armor, blocks, sounds or arbitrary image uploads, clearly state the omission in message and README. Never claim a missing asset was included, output fake base64 images, or add dummy language files just to pass validation. If a mixed request includes supported tools and unsupported armor, produce the tools and disclose the armor omission prominently.",
   },
   shader_pack: {
     type: "shader_pack",
@@ -82,7 +83,7 @@ const SPECIALIST_SKILLS: Record<ArtifactType, { label: string; pattern: RegExp; 
     { label: "Gameplay events and networking", pattern: /\b(event|sync|network|packet|player|join|damage|tick)\b/i, guidance: "Use the selected loader's supported event/network APIs, validate packet data, and never trust client-supplied state for server-authoritative actions." },
   ],
   resource_pack: [
-    { label: "Resource identifiers and JSON", pattern: /\b(model|item|block|sound|font|language|translation|texture)\b/i, guidance: "Use exact vanilla resource paths and identifiers, validate JSON shapes, and preserve unrelated vanilla assets. For unavailable binary textures, describe the required image specification in README.md." },
+    { label: "Resource identifiers and JSON", pattern: /\b(model|item|block|sound|font|language|translation|texture)\b/i, guidance: "Use exact vanilla resource paths and identifiers and preserve unrelated assets. Diamond tool recolors use the supported .recolor.json contract; unsupported image types must be disclosed as omitted." },
     { label: "Pack compatibility", pattern: /\b(version|compat|format|1\.21)\b/i, guidance: "Set pack.mcmeta to the requested Minecraft Java pack format only when known; otherwise call out the format value that must be confirmed instead of inventing compatibility." },
   ],
   shader_pack: [], // Routed through the bounded shader technique modules instead.
@@ -122,6 +123,6 @@ export function artifactCatalog() {
     label: expert.label,
     targets: expert.targets.map((target) => ({ id: target, label: expert.targetLabels[target] })),
     output: expert.buildMode === "zip" ? "installable-zip" : expert.type === "mod" ? "mod-jar-requires-loader-capable-build-service" : "paper-jar-requires-build-service",
-    limitations: expert.type === "datapack" ? ["Minecraft Java 1.13 or newer. Commands and gameplay require testing in Minecraft; binary structure files are not generated."] : expert.type === "resource_pack" ? ["Text assets only; textures and other binary assets are not generated yet."] : expert.type === "shader_pack" ? ["GLSL is packaged but not compiled or GPU-tested."] : expert.type === "mod" ? ["Requires a secure build service with a server-owned template for the selected loader."] : [],
+    limitations: expert.type === "datapack" ? ["Minecraft Java 1.13 or newer. Commands and gameplay require testing in Minecraft; binary structure files are not generated."] : expert.type === "resource_pack" ? ["Diamond sword, pickaxe, axe, shovel and hoe recolors render as PNGs for 1.21.1–1.21.11. Worn armor, blocks and original artwork are not supported yet."] : expert.type === "shader_pack" ? ["GLSL is packaged but not compiled or GPU-tested."] : expert.type === "mod" ? ["Requires a secure build service with a server-owned template for the selected loader."] : [],
   }));
 }

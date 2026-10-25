@@ -1,6 +1,7 @@
 import { deflateRawSync } from "node:zlib";
 import type { ArtifactType, GeneratedProject, MinecraftVersion } from "./types";
 import { dataPackFormat } from "./datapack-versions";
+import { renderItemRecolor, supportsItemRecolorVersion } from "./item-textures";
 
 const MAX_ARCHIVE_BYTES = 5_000_000;
 const crcTable = new Uint32Array(256);
@@ -19,12 +20,12 @@ function crc32(bytes: Uint8Array) {
 type ZipEntry = { local: Buffer; central: Buffer };
 
 /** Build a small UTF-8 ZIP in memory. Paths are already constrained by validateProject. */
-function zip(files: GeneratedProject["files"]): Uint8Array {
+function zip(files: { path: string; content: string | Uint8Array }[]): Uint8Array {
   const entries: ZipEntry[] = [];
   let offset = 0;
   for (const file of files) {
     const name = Buffer.from(file.path, "utf8");
-    const content = Buffer.from(file.content, "utf8");
+    const content = typeof file.content === "string" ? Buffer.from(file.content, "utf8") : Buffer.from(file.content);
     const compressed = deflateRawSync(content, { level: 6 });
     const checksum = crc32(content);
     const local = Buffer.alloc(30 + name.length);
@@ -132,5 +133,14 @@ export function packageMinecraftPack(project: GeneratedProject, artifactType: Ar
       return { ...file, content: `${JSON.stringify(metadata, null, 2)}\n` };
     });
   }
-  return { files, artifact: zip(files) };
+  const rendered = files.map(file => {
+    if (artifactType !== "resource_pack" || !file.path.endsWith(".recolor.json")) return file;
+    if (!supportsItemRecolorVersion(version)) throw new Error("Item texture recoloring currently supports Minecraft 1.21.1–1.21.11.");
+    const image = renderItemRecolor(file.path, file.content);
+    return { path: image.path, content: image.bytes };
+  });
+  if (new Set(rendered.map(file => file.path.toLowerCase())).size !== rendered.length)
+    throw new Error("Resource assets resolve to duplicate archive paths.");
+  // Editable recipes remain in project source; the installed ZIP contains real PNGs.
+  return { files, artifact: zip(rendered) };
 }
