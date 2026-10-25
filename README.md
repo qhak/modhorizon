@@ -1,6 +1,6 @@
 # ModHorizon
 
-Current release: **v0.14.6**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
+Current release: **v0.14.7**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
 
 ## Configured local testing
 
@@ -106,3 +106,5 @@ Implement and audit the isolated Java 21/Gradle worker, then run the above accep
 A private Paper 1.21.4 builder and local preview launchers are prepared in [the local builder guide](build-service/local/README.md). Docker Desktop provisioning, offline compilation, HTTP adapter and cleanup acceptance have passed for Paper 1.21.4. The live website remains on v0.2.3 and is not connected to your PC.
 
 Shader reference audit: [Amberglass findings and next test](docs/amberglass-reference-audit.md).
+
+Horizon revision: [GoldenHour findings and acceptance](docs/golden-hour-horizon-audit.md).

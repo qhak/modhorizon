@@ -71,3 +71,12 @@ test("short image prompts receive shape, lightmap and gap review without forcing
   assert.match(context, /unfulfilledRequests/);
   assert.match(context, /fixed day gradients cannot match night/);
 });
+
+test("horizon guidance covers measured branch, alpha and runtime-binding failures", () => {
+  const context = shaderGenerationContext(request);
+  assert.match(context, /lower-sky blends continuously/);
+  assert.match(context, /both colour and alpha/);
+  assert.match(context, /nearby glass and underwater behavior separate/);
+  assert.match(context, /viewWidth\/viewHeight/);
+  assert.match(context, /inverse-transforming camera-up/);
+});

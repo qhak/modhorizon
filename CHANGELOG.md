@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.7 - 2026-10-25
+
+- Preserve the tested GoldenHour checked source and add a reproducible local horizon02 revision. Remove a measured lower-sky branch discontinuity; share render-distance haze between terrain and water, including far-water alpha, while preserving near glass/underwater transparency.
+- Refine bounded 2D cloud shapes and directional density contrast, disable duplicate vanilla clouds, enlarge the stylized sun and restrain sunset saturation. Slightly lift deep-water tint; retain reflection/wave algorithms and block lighting. No new texture assets or volumetric-cloud claim.
+- Teach continuous horizon blends, viewing-sky/alpha agreement, runtime viewport uniforms and true world-up. Add five native regressions using retained actual GLSL and a context regression. Document screenshot evidence and limitations separately from compiler success.
+
+Validation: 164 TypeScript tests/typecheck, five native regressions, 38 compiled stages/19 linked programs and archive/source integrity pass. Synthetic tests are not Iris scene/visual acceptance. No new provider request, production deployment or automatic visual evaluation.
+
 ## v0.14.6 - 2026-10-25
 
 - Audit the unchanged AmberglassReflections short-prompt/two-image output: real SSR is present, but clouds retain vanilla shapes, sky changes are restrained, and lighting/space semantics need work. Document source evidence, screenshot limits and a controlled next test without claiming a model comparison or visual acceptance.

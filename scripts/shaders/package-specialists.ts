@@ -4,7 +4,7 @@ import { packageMinecraftPack } from "../../src/lib/packager";
 import { validateProject } from "../../src/lib/validation";
 
 // Packaging is not a compiler or visual acceptance check. Run check_glsl.py first.
-for (const [folder, name] of [["blocks-lab-01", "BlocksLab-candidate-01"], ["clean-sky-lab-01", "CleanSkyLab-candidate-01"], ["blocks-lab-02", "BlocksLab-candidate-02"], ["blocks-lab-03", "BlocksLab-candidate-03"], ["blocks-lab-04", "BlocksLab-candidate-04"], ["blocks-lab-05", "BlocksLab-candidate-05"], ["blocks-lab-06", "BlocksLab-candidate-06"]]) {
+for (const [folder, name] of [["blocks-lab-01", "BlocksLab-candidate-01"], ["clean-sky-lab-01", "CleanSkyLab-candidate-01"], ["blocks-lab-02", "BlocksLab-candidate-02"], ["blocks-lab-03", "BlocksLab-candidate-03"], ["blocks-lab-04", "BlocksLab-candidate-04"], ["blocks-lab-05", "BlocksLab-candidate-05"], ["blocks-lab-06", "BlocksLab-candidate-06"], ["golden-hour-02", "GoldenHourReflectiveHorizon-horizon02"]]) {
   const root = resolve("shader-foundations", folder);
   function collect(directory: string): { path: string; content: string }[] {
     return readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)).flatMap(entry => {
