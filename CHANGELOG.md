@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.17.1 - 2026-10-25
+
+- Add a separate authored OreGlow shader and paired material pack: mineral-only self-brightness from LabPBR specular alpha, strict ore-ID gating and a bounded screen-space halo. Keep host stone normally lit, clear emission on opaque occluders and retain underwater attenuation/far haze.
+- Reuse the retained sunset04 water/sky algorithms. Ship 18 opaque albedo PNGs and 18 masked emission maps with exact 254 emission/255 no-emission handling. No dynamic light propagation, hidden-ore visibility or full PBR claim; the original shader-free pack stays unchanged.
+- Add reproducible pair packaging, dependency/installation notes, two PNG/material tests and six native GPU regressions. The candidate is authored, not a billable AI response or a visually accepted model example.
+
+Validation: 191 TypeScript tests, typecheck, six native GPU tests, 38 compiled stages/19 links, source validation and independent PNG decoding pass. Minecraft appearance/performance and Iris atlas/attachment integration still need owner acceptance. No provider call or deployment.
+
 ## v0.17.0 - 2026-10-25
 
 - Add shader-free ore visibility textures for all 18 normal, deepslate and Nether ore variants on 1.21.1-1.21.11. Bounded brightness/outline recipes render real 16x16 PNGs while retaining opaque source pixels and unrelated host-stone details.
