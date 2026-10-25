@@ -1,3 +1,4 @@
+import { shaderCompilerConfigured } from "./shader-compiler";
 import { modelChoices, preferredModelId } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 
@@ -9,6 +10,7 @@ export function serviceStatus(env: NodeJS.ProcessEnv = process.env) {
   return {
     generationAvailable,
     artifactTypes: Object.keys(ARTIFACT_EXPERTS),
+    shaderCompilerConfigured: shaderCompilerConfigured(env),
     buildConfigured: Boolean(env.BUILD_SERVICE_URL && env.BUILD_SERVICE_TOKEN),
     choices,
     testingRestricted: env.AI_TESTING_MODE !== "false",

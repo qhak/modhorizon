@@ -1,3 +1,4 @@
+import { createShaderCompiler } from "@/lib/shader-compiler";
 import { createAIProvider, limitedJson } from "@/lib/ai-provider";
 import { createBuildService } from "@/lib/build-service";
 import { generatePlugin } from "@/lib/generation";
@@ -12,7 +13,8 @@ import { hasAllowedOrigin } from "@/lib/request-origin";
 import { accountFromRequest, BillingError, refundGenerationCredits, reserveGenerationCredits, settleGenerationCredits } from "@/lib/billing-service";
 
 export const runtime = "nodejs";
-export const maxDuration = 900;
+// Hosting platforms may impose a lower limit; long hosted jobs need a durable queue.
+export const maxDuration = 1500;
 // Process-local guard only. Public deployments require authenticated quotas and a durable job queue.
 let active = 0;
 
@@ -53,6 +55,8 @@ export async function POST(request: Request) {
     const input = validateRequest(body);
     if (!serviceStatus().choices[input.modelId || ""])
       throw new InputError("That model is unavailable. Connect its provider first.");
+    const shaderCompiler = createShaderCompiler();
+    if (input.shaderRepairCredits && !shaderCompiler) throw new InputError("Optional shader repair requires the local compiler service.");
     const { account } = await accountFromRequest(request);
     const provider = createAIProvider(input.modelId || "");
     let creditsSpent = 0;
@@ -77,6 +81,7 @@ export async function POST(request: Request) {
       input,
       meteredProvider,
       createBuildService(),
+      shaderCompiler,
     );
     project.creditsSpent = creditsSpent;
     project.reasoningEffort = input.reasoningEffort;

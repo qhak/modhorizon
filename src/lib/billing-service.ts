@@ -9,7 +9,7 @@ import { holdCredits, completeCreditReservation } from "./credit-reservations";
 import { renewalCreditStatements, initialSubscriptionStatements } from "./subscription-credits";
 import { paidTopupStatements } from "./credit-purchases";
 import { validateTopup } from "./topup-pricing";
-import { quoteGeneration } from "./generation-quote";
+import { quoteGeneration, assertShaderRepairBudget } from "./generation-quote";
 import { assertStripeEventMode, stripeMode, stripeReadiness } from "./stripe-config";
 import { resolveAccountIdentity, verifiedAuthUser } from "./account-auth";
 import { subscriptionCancellationState } from "./plan-downgrade";
@@ -168,6 +168,7 @@ export async function reserveGenerationCredits(accountId: string, request: Gener
   if (!current) throw new BillingError("Account not found.", 401);
   const account = serializeAccount(current);
   const { reservedCredits: reserved } = quoteGeneration(account, request, errors);
+  assertShaderRepairBudget(request, reserved, errors);
   if (model.provider === "demo") return { model, reserved: 0, reservationId: null, account };
   const reservationId = await holdCredits(db, accountId, modelId, reserved);
   if (!reservationId) throw new BillingError(`This generation may use up to ${reserved} credits, but your balance cannot cover it.`, 402);

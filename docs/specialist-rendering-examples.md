@@ -1,0 +1,204 @@
+# Separate block, sky and water examples
+
+Owner direction, 2026-10-24: develop components separately. AuroraHorizon
+candidate03 is the best water reference so far; realistic blocks need new
+material assets, and a clean sky needs its own candidate. Do not describe new
+blocks or sky as visually accepted based on a compiler pass.
+
+| Role | Source | Evidence | What to learn |
+| --- | --- | --- | --- |
+| Water | `shader-foundations/aurora-horizon` | Owner prefers candidate03; native compilation recorded previously. This is component-level feedback, not universal quality approval. | Scene snapshot, bounded reflection tracing, Fresnel, absorption and consistent sky fallback. |
+| Blocks | `shader-foundations/blocks-lab-01` plus `material-foundations/blocks-lab-01` | Candidate01: 22 stages/11 links; five material/isolation tests. In-game acceptance pending. | Separate detailed albedo content from surface shading; correlate height/normals; use correct atlas/tangent conventions and dielectric smoothness/F0. |
+| Sky | `shader-foundations/clean-sky-lab-01` | Candidate01: 22 stages/11 links. Source isolation test. In-game acceptance pending. | Continuous upper/lower horizon, controlled sun/moon discs and a soft 2D cloud layer shared with reflection fallback. No stars in candidate01. |
+
+These are independent selectable shader ZIPs, not three shader packs stacked at
+runtime. The block candidate reuses the accepted water architecture; the sky
+candidate changes only `skyRadiance`, so reflected sky colours change with it.
+Aurora's original directory and ZIP remain unchanged.
+
+## Sky shapes candidate06
+
+Candidate05 owner screenshot confirmed coloured sky/clouds, with tiny sun,
+streaky clouds and pale horizon. Owner authorized improving those features.
+Select BlocksLab-candidate-06.zip with unchanged BlocksLab-materials-04.zip.
+The shared helper uses bounded angular dome coordinates rather than near-horizon
+1/y plane projection. Warped noise forms broader clusters; the stylized solar
+radius grows from 0.010 to 0.026 radians. Horizon radiance is lower. Composite
+uses 35% lower base distance fog with reduced golden-hour amplification, keeping
+far-distance fade and underwater fog. Block lighting/exposure, materials and
+water algorithms are unchanged; reflected sky and atmospheric appearance change.
+This is a 2D dome with limited parallax, no stars or volumetric cloud claim.
+
+Three native regressions check actual solar angular footprint, retained background/
+translucency contracts and source isolation. 22 stages/11 links pass. Preview is
+synthetic actual GLSL, not Minecraft. Test same location/time in 05 versus 06,
+then noon/sunset/night/rain; pan up and around the horizon, check reflected cloud
+shapes, cloud motion and terrain silhouettes. Owner visual acceptance pending.
+
+## Clear sky candidate05
+
+Owner feedback retains candidate04 grass/leaves as the current baseline; the next
+requested change is its pale sky. Select **BlocksLab-candidate-05.zip**, keeping
+**BlocksLab-materials-04.zip** enabled. No new resource pack is required.
+
+The old composite trusted scene colour for clear-depth background despite an
+early begin sky pass. A native GPU test of its actual stages reproduces white sky
+from white scene input. Candidate05 fills depth==1 in the opaque snapshot and
+composite before translucent mixing. Geometry and test overlays are preserved.
+This demonstrates input dependency, not an Iris clear trace.
+
+Sky changes provide blue daytime, soft 2D clouds, continuous warm sunset and
+restrained sun/moon. Non-sky common code, block lighting, exposure and material
+bytes are preserved. Reflected sky/fog colours change naturally; water algorithms
+are unchanged. No stars or volumetric clouds; above-cloud views remain incomplete.
+
+Four native tests cover the old defect, background independence, geometry,
+translucency, day/night and source isolation. Candidate05 compiles 22 stages and
+links 11 programs. Its actual-GLSL synthetic preview uses current filmic/exposure
+without bloom; it is not a Minecraft screenshot or visual acceptance.
+Test fixed-camera day/sunset/night/rain, pan around sun/horizon, and check sky
+behind water/glass, terrain edges and cloud visibility. Record sky feedback
+separately from current material feedback. No paid request or deployment.
+
+## Block test
+
+### Grass and finer foliage candidate04
+
+The owner showed candidate03 in-game: bark stripes were reduced, but leaf forms
+looked too large and flat. The owner authorized finer leaves and grass work.
+Candidate04 reduces each leaf's extent, increases density to retain coverage,
+and strengthens vein pigment detail. Ground turf has finer blade marks and
+irregular darker gaps. Short grass and both tall-grass halves get original 512px
+curved/tapered blade sprites; paths were checked against the installed official
+Minecraft 1.21.11 model JSONs, without copying vanilla image content.
+
+Tall grass is generated as one continuous two-block colour/height/alpha field;
+normal derivatives use the complete image before it is split. The new plant
+material IDs use the same dielectric decoder. A small directional backlighting
+term applies only to leaves/grass and uses the existing shadow-gated incident
+light. This is an approximation, not true subsurface scattering or global light
+transport. There is no wind, extra plant geometry or tessellation.
+
+Use **BlocksLab-materials-04.zip** above older packs and select
+**BlocksLab-candidate-04.zip**. Check the same tree, sun behind/in front of leaves,
+canopy interiors, grassy slopes, short-grass clumps, the tall-grass mid-height
+join, leaf/plant shadows, biome tint and distant shimmer. Brightness at night or
+through an opaque wall is a failure sign. Bark, sand and all other unrelated
+candidate03 material bytes are preserved; water and sky algorithms are unchanged.
+Later owner feedback retains this grass/leaves baseline; this is scoped feedback,
+not approval of every material or lighting condition.
+
+The candidate03 foliage helper now exposes optional detail/density/vein controls;
+its default behavior is preserved and tested against existing candidate03 assets.
+`build-grass-foliage.py` creates candidate04. Tests check periodic fields,
+connected tall-grass halves/normals, finer alpha silhouettes, sampled PNG data,
+neutral colour and rendering/material isolation.
+
+### Bark and foliage candidate03
+
+Owner's candidate02 screenshot revealed a barcode-like vertical bark pattern;
+the owner requested more natural bark and new leaves. Candidate03 replaces only
+oak/spruce/birch bark and adds those species' leaf sprites. Jittered anisotropic
+plates, interrupted ridges, cracks and localized knot/scar fields replace the
+full-height sine bars. The original sand, ground, planks and cut ends are preserved.
+
+Leaves use neutral grayscale albedo for Minecraft's biome/species tint and RGBA
+cutouts, with non-black transparent RGB to reduce filtering fringes. Oak/birch
+have distinct broadleaf sizes/shapes; spruce has fine needle forms. Surface maps
+share the material field. Leaf normals use the same matte dielectric decoder;
+there is no leaf wind, true subsurface scattering or new leaf geometry.
+
+Enable **BlocksLab-materials-03.zip** above older resource packs and select
+**BlocksLab-candidate-03.zip**. Check the same tree in sun and shade, rotated logs,
+leaf gaps against bright sky, cutout shadows, canopy interiors, biome tint and
+distance/mip shimmer. New bark/foliage appearance is experimental; native driver
+success is not visual acceptance. Other tree species and plants remain vanilla.
+
+In Minecraft 1.21.11, enable **See-Through Leaves**; Lunar/Sodium UI labels may
+differ. This option is independently configurable in the game's current visual
+settings ([official release notes](https://feedback.minecraft.net/hc/en-us/articles/41809981427213-Minecraft-Java-Edition-1-21-11-Mounts-of-Mayhem), checked 2026-10-24).
+
+`build-bark-leaves.py` rebuilds the material/shader sources. `test_bark_leaves.py`
+checks periodicity, reduction of full-height barcode structure, alpha coverage,
+neutral/non-black RGB, sampled colour/normal consistency and source isolation.
+
+### Expanded candidate02
+
+The owner reported candidate01 sand "looks clean" with an in-game screenshot.
+This is positive sand feedback, not acceptance of all materials or a performance
+benchmark. Candidate02 preserves all nine original sand/stone/oak-plank PNGs
+byte-for-byte and adds fourteen texture entries (albedo, normal and surface maps
+for each): dirt, coarse dirt, gravel, grass top/side/biome-tinted cutout fringe,
+spruce/birch planks, and oak/spruce/birch bark/end-grain textures.
+
+Enable **BlocksLab-materials-02.zip** above candidate01 in Resource Packs (or
+disable the old pack), then select **BlocksLab-candidate-02.zip** in Iris. Plank
+stairs/slabs and wood blocks use matching material IDs. Water and sky rendering
+algorithms are unchanged. All other species, stripped wood, leaves, plants and
+ores retain their textures. No extra block geometry is generated.
+
+Check dirt cliffs and biome-tinted grass edges, gravel closeups, oak/spruce/birch
+logs placed vertically and horizontally, cut ends, planks/stairs/slabs, underwater,
+torch/night lighting and distant shimmer. Grass-side alpha is intentionally
+top-to-bottom coverage, not a vertically repeating grass strip. New materials are
+experimental. The local resource ZIP is larger than the live app's text packager
+limit; it is not evidence of binary-asset support in that service.
+
+Rebuild with `scripts/shaders/build-material-expansion.py`, compile the new shader
+with `check_glsl.py`, then run `package-specialists.ts`. Five expansion tests check
+periodic source fields, preserved original bytes, stored images/grass alpha,
+unique block IDs and rendering source isolation.
+
+### Original candidate01 comparison
+
+Enable **BlocksLab-materials-01.zip** in Resource Packs, above other resource
+packs. Select **BlocksLab-candidate-01.zip** in Iris Shader Packs. Use a sand
+beach plus a stone wall and oak-plank wall at a fixed time/camera. Compare:
+
+1. Vanilla textures with Aurora candidate03.
+2. The materials resource pack with Aurora candidate03 (albedo contribution).
+3. The materials resource pack with BlocksLab candidate01 (normal/roughness contribution).
+
+Set `LAB_NORMAL_STRENGTH=0` to isolate the normal-map contribution. Check vertical,
+horizontal and rotated faces, low-angle sunlight, torch/night light, underwater
+sand, large repeating surfaces and distant mip levels. Record seams, shimmer,
+wrong tangent handedness, plastic highlights and performance. The three textures
+are original 512px periodic procedural materials, not photo scans. Every other
+block stays unchanged. Silhouettes remain cubic; POM/displacement are absent.
+The decoder supports these dielectric fixtures only, not full LabPBR compliance.
+
+## Sky test
+
+Select **CleanSkyLab-candidate-01.zip** alone. The block resource pack is optional
+and should initially be disabled to isolate the sky. Compare day, sunset, night
+and rain; look toward/away from the sun and across the horizon, then inspect water
+reflections. Clouds are procedural 2D, not volumetric. Camera above the layer is
+not fully modeled. Vanilla clouds/celestial layers stay disabled to avoid doubles.
+
+## ModHorizon boundary and next integration
+
+The live generator still returns text files. These local material PNGs are NOT
+generated by a deployed texture pipeline. Generation context now distinguishes
+texture content from lighting and requires honest dependency reporting. Existing
+Aurora source examples remain optional; new experimental material/sky source is
+not injected as a proven recipe.
+
+After visual acceptance, introduce selected source excerpts with dependencies,
+limitations and component-specific evidence. A complete material workflow still
+needs reference-to-material intent, binary asset generation/import, tiling and
+channel validation, version-correct resource packaging, separate shader/resource
+downloads and visible missing-asset reporting. Do not advertise texture generation
+until those parts exist. Avoid baking these three materials or one sunset into
+the general-purpose generator.
+
+Rebuild with `build-material-lab.py`, `build-specialist-candidates.py`, compile each
+with `check_glsl.py`, then run `package-specialists.ts`. Native compilation is not
+Iris rendering, visual matching or FPS evidence.
+
+Primary interface references checked 2026-10-24:
+
+- [Iris material atlases and absent-map defaults](https://shaders.properties/current/reference/buffers/atlases/)
+- [Iris at_tangent and handedness](https://shaders.properties/current/reference/attributes/at_tangent/)
+- [Iris PBR texture suffixes](https://shaders.properties/current/how-to/pbr_standards/)
+- [LabPBR channel assignments](https://shaderlabs.org/wiki/LabPBR_Material_Standard)
+- [LabPBR compliance requirements](https://shaderlabs.org/wiki/LabPBR_Implementation_Requirements)

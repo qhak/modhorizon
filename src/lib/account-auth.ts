@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { confirmedAccountUser } from "./account-auth-policy";
+import { confirmedAccountUser, resolveAccountAppOrigin } from "./account-auth-policy";
 export { resolveAccountIdentity } from "./account-identity";
 
 export type AuthEnvironment = { SUPABASE_URL?: string; SUPABASE_PUBLISHABLE_KEY?: string; AUTH_GOOGLE_ENABLED?: string; APP_ORIGIN?: string };
@@ -35,8 +35,5 @@ export async function verifiedAuthUser() {
 
 export async function accountAppOrigin(request: Request) {
   const env = await authEnvironment();
-  if (env.APP_ORIGIN) return new URL(env.APP_ORIGIN).origin;
-  const url = new URL(request.url);
-  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return url.origin;
-  return "https://modhorizon.callout-ai.workers.dev";
+  return resolveAccountAppOrigin(request.url, env.APP_ORIGIN, process.env.MODHORIZON_LOCAL_ORIGIN, process.env.NODE_ENV === "development", request.headers.get("host"));
 }

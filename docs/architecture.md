@@ -19,7 +19,7 @@ The application accepts descriptions and displays generated text. It never runs 
 
 ## External build worker: required implementation
 
-The HTTP adapter is a protocol boundary, not a container runner. This repository does not implement, launch, or certify an isolated Gradle worker. Its preview deliberately produces no fake JAR. Do not connect this interface to a service that executes source on the Next.js host.
+The HTTP adapter is a protocol boundary, not a container runner. The experimental private implementation in `build-service/local/` provides a Docker job runner and loopback service, but requires Docker installation and real offline compilation acceptance. No production compiler is provisioned or certified. Its preview deliberately produces no fake JAR. Do not connect this interface to a service that executes source on the Next.js host.
 
 `RemoteBuildService` sends an authenticated JSON POST to `BUILD_SERVICE_URL` using `BUILD_SERVICE_TOKEN` as a bearer credential:
 

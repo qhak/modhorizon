@@ -143,6 +143,14 @@ export function findModel(id: string | undefined) {
 // is 80% before Stripe fees, hosting, taxes, and support.
 export const PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT = 5_000;
 export const MAX_GENERATION_OUTPUT_TOKENS = 16_000;
+export const MAX_SHADER_OUTPUT_TOKENS = 32_000;
+// Luna supports 128k output; leave deliberate headroom for reasoning plus full GLSL.
+// Other models retain their existing ceiling until individually reviewed.
+export const MAX_LUNA_SHADER_OUTPUT_TOKENS = 64_000;
+export function generationOutputTokenLimit(artifactType?: string, modelId?: string) {
+  if (artifactType === "shader_pack" && modelId === "gpt-6-luna") return MAX_LUNA_SHADER_OUTPUT_TOKENS;
+  return artifactType === "shader_pack" ? MAX_SHADER_OUTPUT_TOKENS : MAX_GENERATION_OUTPUT_TOKENS;
+}
 
 export function creditsForUsage(modelId: string, inputTokens: number, outputTokens: number) {
   if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 || !Number.isSafeInteger(outputTokens) || outputTokens < 0)
@@ -155,8 +163,8 @@ export function creditsForUsage(modelId: string, inputTokens: number, outputToke
   return Math.max(1, Math.ceil(providerCostMicroUsd / PROVIDER_COST_BUDGET_MICRO_USD_PER_CREDIT));
 }
 
-export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT) {
-  const base = creditsForUsage(modelId, estimatedInputTokens, MAX_GENERATION_OUTPUT_TOKENS);
+export function reserveCreditsForGeneration(modelId: string, estimatedInputTokens: number, effort: ReasoningLevel = DEFAULT_REASONING_EFFORT, artifactType?: string) {
+  const base = creditsForUsage(modelId, estimatedInputTokens, generationOutputTokenLimit(artifactType, modelId));
   // Low effort is an estimate, not a provider output limit. Never discount the hold
   // below the configured output ceiling; settlement refunds unused credits.
   return base === null ? null : Math.ceil(base * Math.max(1, reasoningEstimateMultiplier(effort)));
@@ -238,4 +246,10 @@ export function reasoningFor(modelId: string): { levels: ReasoningLevel[]; defau
     levels: PROVIDER_REASONING[model.provider],
     default: MODEL_DEFAULT[model.id] ?? PROVIDER_DEFAULT[model.provider],
   };
+}
+
+/** Prefer deliberate source generation for shaders without overriding an explicit choice. */
+export function defaultReasoningForArtifact(modelId: string, artifactType?: string): ReasoningLevel {
+  const options = reasoningFor(modelId);
+  return artifactType === "shader_pack" && options?.levels.includes("high") ? "high" : options?.default ?? DEFAULT_REASONING_EFFORT;
 }

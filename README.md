@@ -1,6 +1,32 @@
 # ModHorizon
 
-Current release: **v0.4.0**. See [change notes](CHANGELOG.md) for version history.
+Current release: **v0.15.0**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
+
+## Configured local testing
+
+Separate authored block-material and clean-sky candidates, with Aurora candidate03 as the owner's water baseline, are documented in [the specialist example guide](docs/specialist-rendering-examples.md). These local material assets are experimental; the live generator does not yet produce binary textures.
+
+From this repository, use `npm run local:preview` when testing with the provider
+credentials and Cloudflare bindings already configured in the ignored `.dev.vars`.
+This launcher loads the settings into the Next.js server, sets the loopback origin
+and keeps the testing model restriction enabled. Open
+[the create page](http://127.0.0.1:3215/create).
+
+`npm run dev` alone does not load `.dev.vars` provider keys into `process.env`.
+If no other provider configuration is present, only the fixed demo model will be
+available. `/api/status` reports model availability without revealing credentials.
+Do not commit `.dev.vars`, local account databases or credit grants.
+
+On Windows, this launcher also starts a private raw GLSL compiler when the bundled
+Python is present. Set `SHADER_COMPILER_PYTHON` to an absolute Python executable
+path if needed. Shader ZIPs then require a compiler pass. One optional paid repair
+is **off by default** and has an explicit extra credit limit in the create form.
+This checks native stages/links, not Iris integration or visual quality. See
+[local compiler behavior and limits](docs/local-shader-compiler.md).
+
+Release commits include their version, a change summary, validation and remaining
+limitations. Matching annotated tags and dated entries in CHANGELOG.md identify
+each version; preserve previously published history.
 
 A standalone Next.js application for creating Minecraft plugins, mods, resource packs, shader packs and datapacks. Run commands from this `modhorizon` directory, independently of the surrounding CutRank application.
 
@@ -76,3 +102,13 @@ See the [Paper 1.21.4 `LivingEntity` API](https://jd.papermc.io/paper/1.21.4/org
 ## Next implementation steps
 
 Implement and audit the isolated Java 21/Gradle worker, then run the above acceptance test with a real artifact. Next add durable jobs and artifact storage, cancellation and progress streaming, ownership/authentication, quotas and rate limits, and broader prompt and gameplay evaluation. Fabric and NeoForge remain unavailable.
+
+## Private local compiler
+
+A private Paper 1.21.4 builder and local preview launchers are prepared in [the local builder guide](build-service/local/README.md). Docker Desktop provisioning, offline compilation, HTTP adapter and cleanup acceptance have passed for Paper 1.21.4. The live website remains on v0.2.3 and is not connected to your PC.
+
+Shader reference audit: [Amberglass findings and next test](docs/amberglass-reference-audit.md).
+
+Horizon revision: [GoldenHour findings and acceptance](docs/golden-hour-horizon-audit.md).
+
+Water balance: [GoldenHour water03](docs/golden-water-balance.md).

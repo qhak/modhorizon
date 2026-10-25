@@ -1,6 +1,6 @@
 {
   "name": "modhorizon",
-  "version": "0.4.0",
+  "version": "0.15.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3215",
@@ -8,12 +8,21 @@
     "start": "next start --hostname 127.0.0.1 --port 3215",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "package:shader-foundation": "tsx scripts/shaders/package-foundation.ts",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "npm run build:cloudflare && opennextjs-cloudflare preview",
     "db:migrate:local": "wrangler d1 migrations apply modhorizon-billing --local",
     "db:migrate:remote": "wrangler d1 migrations apply modhorizon-billing --remote",
     "deploy": "npm run build:cloudflare && opennextjs-cloudflare deploy",
-    "build:html": "next build && tsx scripts/static-index/build.ts"
+    "build:html": "next build && tsx scripts/static-index/build.ts",
+    "setup:local-builder": "node scripts/local-builder-setup.mjs",
+    "prepare:local-builder": "tsx build-service/local/prepare.ts",
+    "local:builder": "tsx build-service/local/start.ts",
+    "local:preview": "node scripts/local-preview.mjs",
+    "check:local-builder": "tsx build-service/local/check.ts",
+    "check:local-builder-http": "tsx build-service/local/check-http.ts",
+    "check:local-builder-deadline": "tsx build-service/local/check-deadline.ts",
+    "sync:shader-foundation": "tsx scripts/shaders/sync-foundation.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.12",
@@ -42,6 +51,7 @@
     "tailwindcss": "^4.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
+    "undici": "^7.30.1",
     "wrangler": "^4.151.3"
   }
 }
