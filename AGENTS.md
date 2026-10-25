@@ -15,6 +15,7 @@ After every completed logical change, including small fixes and documentation ch
 - Update the application version in package.json and package-lock.json (patch for small changes, minor for new features).
 - Add a concise dated CHANGELOG.md entry describing the resulting behavior and relevant validation.
 - Run checks appropriate to the change, commit with a descriptive message, and push the current working branch to origin.
+- Include the version in each release commit title. In the commit body, summarize what changed, relevant validation, and remaining limitations; maintain the matching dated CHANGELOG.md entry. Do not rewrite already-pushed version history to add this detail retroactively.
 - Create and push the matching annotated version tag after checks pass. Do not overwrite existing tags or force-push.
 - Keep credentials, local environment files, database exports, and personal account data out of Git.
 - Report the version and GitHub link. If pushing fails, preserve the commit and explain the blocker.

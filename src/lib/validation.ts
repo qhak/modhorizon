@@ -9,9 +9,15 @@ import {
   isPlatformId,
   type PlatformId,
 } from "./platforms";
-import { DEFAULT_MODEL_ID, findModel, reasoningFor, DEFAULT_REASONING_EFFORT, REASONING_EFFORTS } from "./models";
+import { DEFAULT_MODEL_ID, findModel, reasoningFor, defaultReasoningForArtifact, REASONING_EFFORTS } from "./models";
 import { ARTIFACT_EXPERTS } from "./artifact-experts";
 import { dataPackFormat } from "./datapack-versions";
+import { validateAttachments } from "./reference-attachments";
+import { readShaderReport, stripShaderComments } from "./shader-report";
+import { maskShaderComments, normalizeShaderMatrices, normalizeShaderUniformOwners } from "./shader-normalization";
+import { checkShaderSourceContracts } from "./shader-source-checks";
+import { SHADER_PROGRAM_PATH } from "./shader-programs";
+import { PROJECT_NAME_PATTERN, REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -37,7 +43,7 @@ function allowedPath(path: string, kind: ArtifactType): boolean {
     return path === "pack.mcmeta" || path === "README.md" || /^assets\/[a-z0-9_.-]+\/[A-Za-z0-9_./-]+\.(json|mcmeta|properties)$/.test(path);
   if (kind === "datapack")
     return path === "pack.mcmeta" || path === "README.md" || /^data\/[a-z0-9_.-]+\/(?:[a-z0-9_.-]+\/)*[a-z0-9_.-]+\.(json|mcfunction)$/.test(path);
-  return path === "shaders.properties" || path === "README.md" || /^shaders\/[A-Za-z0-9_./-]+\.(vsh|fsh|glsl|properties)$/.test(path);
+  return path === "shader-plan.json" || path === "shaders.properties" || path === "README.md" || /^shaders\/[A-Za-z0-9_./-]+\.(vsh|fsh|glsl|properties)$/.test(path);
 }
 
 /** Platforms a request may target for each artifact type. */
@@ -202,11 +208,44 @@ function validateResourcePack(files: Files) {
 }
 
 function validateShaderPack(files: Files) {
-  const shaders = files.filter((file) => /^shaders\/.*\.(vsh|fsh|glsl)$/.test(file.path));
-  if (!shaders.some((file) => file.path.endsWith(".vsh")) || !shaders.some((file) => file.path.endsWith(".fsh")))
-    throw new InputError("A shader pack preview needs at least one .vsh vertex shader and one .fsh fragment shader under shaders/.");
-  if (!shaders.some((file) => /^\s*#version\s+\d+/m.test(file.content)))
-    throw new InputError("Shader source needs an explicit GLSL #version directive.");
+  if (files.some((file) => file.path === "shaders.properties"))
+    throw new InputError("Move shader settings to shaders/shaders.properties, not the ZIP root.");
+  const entries = files.filter((file) => /\.(vsh|fsh)$/.test(file.path));
+  const paths = new Set(files.map((file) => file.path));
+  // Product baseline policy: runtime fallback alone was insufficient in Test 002.
+  const missing = REQUIRED_SHADER_STAGE_PATHS.filter(path => !paths.has(path));
+  if (missing.length)
+    throw new InputError(`Shader pack is missing required geometry stages: ${missing.join(", ")}. ModHorizon requires explicit root terrain and vanilla-cloud coverage; provide generated GLSL for these paths even if shared helpers or other terrain variants exist.`);
+  for (const file of entries) {
+    if (!SHADER_PROGRAM_PATH.test(file.path))
+      throw new InputError(`Unrecognised shader program ${file.path}; use runtime program names such as gbuffers_terrain, composite or final.${/gbuffers_terrain_cutout_mip(?:ped)?\./.test(file.path) ? " Iris uses gbuffers_terrain_cutout for cutout terrain; review the source before changing filenames or merging passes." : ""}`);
+    const sibling = file.path.replace(/\.(vsh|fsh)$/, file.path.endsWith(".vsh") ? ".fsh" : ".vsh");
+    if (!paths.has(sibling)) throw new InputError(`Shader program ${file.path} is missing its paired stage ${sibling}.`);
+    const code = file.content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    if (!/^\s*#version\s+\d+\b/.test(code))
+      throw new InputError(`${file.path} needs its own leading GLSL #version directive.`);
+    if (!/\bvoid\s+main\s*\(\s*(?:void\s*)?\)/.test(code))
+      throw new InputError(`${file.path} needs a main() entrypoint.`);
+  }
+  for (const file of files.filter((file) => /\.(vsh|fsh|glsl)$/.test(file.path))) {
+    const code = stripShaderComments(file.content);
+    const masked = maskShaderComments(file.content);
+    const reserved = /\b(?:uniform|attribute|varying)\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+(gl_\w+)/.exec(masked);
+    if (reserved) {
+      const line = masked.slice(0, reserved.index).split("\n").length;
+      throw new InputError(`${file.path}:${line} redeclares reserved gl_ input ${reserved[1]}. Use an available compatibility built-in without declaring it, or rename a custom input and supply it through the target's supported interface.`);
+    }
+    if (/^\s*#\s*(?:if|elif)\b[^\n]*(?:\b\d+\.\d*|\.\d+)\b/m.test(code))
+      throw new InputError(`${file.path} uses a floating-point preprocessor condition. #if/#elif require integer expressions; use shader arithmetic for float settings.`);
+    for (const match of code.matchAll(/^[ \t]*#[ \t]*include[ \t]+"([^"]+)"/gm)) {
+      const include = match[1];
+      const resolved = include.startsWith("/") ? `shaders${include}` : file.path.slice(0, file.path.lastIndexOf("/") + 1) + include;
+      if (include.includes("..") || include.includes("\\") || !paths.has(resolved))
+        throw new InputError(`${file.path} includes a missing or unsupported file: ${include}.`);
+    }
+  }
+  try { checkShaderSourceContracts(files); readShaderReport(files); }
+  catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid shader feature report."); }
 }
 
 function validateDatapack(files: Files, version?: string) {
@@ -268,17 +307,20 @@ export function validateProject(
   artifactType: ArtifactType = "plugin",
   target: ArtifactTarget = "paper",
   version?: string,
+  options: { allowIncompleteShader?: boolean } = {},
 ): GeneratedProject {
   if (!value || typeof value !== "object") throw new InputError("The provider did not return a project object.");
   const project = value as Record<string, unknown>;
-  if (typeof project.name !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(project.name))
+  if (typeof project.name !== "string" || project.name !== project.name.trim() || !new RegExp(PROJECT_NAME_PATTERN).test(project.name))
     throw new InputError("Project names must use 1–48 letters, numbers, underscores, or hyphens and start with a letter.");
-  if (!Array.isArray(project.files) || project.files.length === 0 || project.files.length > MAX_FILE_COUNT)
-    throw new InputError(`A project must contain 1–${MAX_FILE_COUNT} source files.`);
+  const maxFileCount = artifactType === "shader_pack" ? 60 : MAX_FILE_COUNT;
+  const maxFileChars = artifactType === "shader_pack" ? 80_000 : MAX_FILE_CHARS;
+  if (!Array.isArray(project.files) || project.files.length === 0 || project.files.length > maxFileCount)
+    throw new InputError(`A project must contain 1–${maxFileCount} source files.`);
   const code = artifactType === "plugin" || artifactType === "mod";
   const seen = new Set<string>();
   let bytes = 0;
-  const files = project.files.map((file: unknown) => {
+  let files = project.files.map((file: unknown) => {
     if (!file || typeof file !== "object") throw new InputError("Invalid source file.");
     const { path, content } = file as Record<string, unknown>;
     if (typeof path !== "string" || path.length > 200 || path.includes("..") || path.startsWith("/") || path.includes("\\") || !allowedPath(path, artifactType))
@@ -287,15 +329,26 @@ export function validateProject(
         : `Unsupported ${artifactType.replace("_", " ")} file path. ${ARTIFACT_EXPERTS[artifactType].sourcePaths}`);
     if (seen.has(path.toLowerCase())) throw new InputError("Duplicate source file path.");
     seen.add(path.toLowerCase());
-    if (typeof content !== "string" || content.includes("\0") || content.length > MAX_FILE_CHARS)
-      throw new InputError(`Source files must be text and no larger than ${MAX_FILE_CHARS.toLocaleString()} characters.`);
+    if (typeof content !== "string" || content.includes("\0") || content.length > maxFileChars)
+      throw new InputError(`Source files must be text and no larger than ${maxFileChars.toLocaleString()} characters.`);
     bytes += new TextEncoder().encode(content).length;
     if (bytes > MAX_SOURCE_BYTES) throw new InputError("Generated project exceeds the 150 KB source limit.");
     return { path, content };
   });
 
+  const repairs: string[] = [];
+  const uniformRepairs: string[] = [];
+  if (artifactType === "shader_pack" && !options.allowIncompleteShader) {
+    const normalized = normalizeShaderMatrices(files);
+    const uniforms = normalizeShaderUniformOwners(normalized.files);
+    files = uniforms.files;
+    repairs.push(...normalized.repairs);
+    uniformRepairs.push(...uniforms.repairs);
+  }
   if (artifactType === "resource_pack") validateResourcePack(files);
-  else if (artifactType === "shader_pack") validateShaderPack(files);
+  else if (artifactType === "shader_pack") {
+    if (!options.allowIncompleteShader) validateShaderPack(files);
+  }
   else if (artifactType === "datapack") validateDatapack(files, version);
   else {
     if (!isPlatformId(target)) throw new InputError("Choose a supported platform.");
@@ -303,8 +356,16 @@ export function validateProject(
       throw new InputError(`A ${PLATFORMS[target].label} project needs Java source.`);
     validateDescriptor(files, target, version ?? PLATFORMS[target].versions[0]);
   }
-  const message = cleanMessage(project.message);
-  return { name: project.name, files, ...(message ? { message } : {}) };
+  const originalMessage = cleanMessage(project.message);
+  const cleanup = [
+    ...(repairs.length ? [`${repairs.length} redundant built-in matrix declaration(s) removed.`] : []),
+    ...uniformRepairs,
+  ];
+  const message = cleanup.length
+    ? cleanMessage(`Automatic compatibility cleanup: ${cleanup.join(" ")} GLSL compilation and appearance remain unverified.\n\n${originalMessage || ""}`)
+    : originalMessage;
+  return { name: project.name, files, ...(message ? { message } : {}),
+    ...(artifactType === "shader_pack" && !options.allowIncompleteShader ? { shaderReport: readShaderReport(files) } : {}) };
 }
 
 export function validateRequest(value: unknown): GenerateRequest {
@@ -333,18 +394,28 @@ export function validateRequest(value: unknown): GenerateRequest {
   const modelId = data.modelId ?? DEFAULT_MODEL_ID;
   if (typeof modelId !== "string" || !findModel(modelId)) throw new InputError("Choose a supported AI model.");
   const reasoning = reasoningFor(modelId);
-  const reasoningEffort = data.reasoningEffort ?? reasoning?.default ?? DEFAULT_REASONING_EFFORT;
+  const reasoningEffort = data.reasoningEffort ?? defaultReasoningForArtifact(modelId, kind);
   if (typeof reasoningEffort !== "string" || !REASONING_EFFORTS.includes(reasoningEffort as ReasoningEffort))
     throw new InputError("Choose a supported reasoning level.");
   if (reasoning && !reasoning.levels.includes(reasoningEffort as ReasoningEffort))
     throw new InputError("That reasoning level is not supported by the selected model.");
+  const shaderRepairCredits = data.shaderRepairCredits ?? 0;
+  if (!Number.isInteger(shaderRepairCredits) || (shaderRepairCredits as number) < 0 || (shaderRepairCredits as number) > 1000 || (kind !== "shader_pack" && shaderRepairCredits !== 0))
+    throw new InputError("Shader repair budget must be an integer from 0 to 1,000 credits, for shaders only.");
+  let attachments: GenerateRequest["attachments"] = undefined;
+  try { attachments = data.attachments === undefined ? undefined : validateAttachments(data.attachments); }
+  catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid reference attachments."); }
+  if (attachments?.length && modelId === "demo") throw new InputError("Reference attachments need a connected AI model; the local example cannot read them.");
   return {
+    shaderRepairCredits: shaderRepairCredits as number,
+    ...(attachments?.length ? { attachments } : {}),
     reasoningEffort: reasoningEffort as ReasoningEffort,
     prompt: data.prompt.trim(),
     version: data.version,
     artifactType: kind,
     target: target as ArtifactTarget,
     modelId,
-    ...(data.project === undefined ? {} : { project: validateProject(data.project, kind, target as ArtifactTarget, data.version) }),
+    // Older failed shaders remain editable; all path/size checks still apply.
+    ...(data.project === undefined ? {} : { project: validateProject(data.project, kind, target as ArtifactTarget, data.version, { allowIncompleteShader: true }) }),
   };
 }

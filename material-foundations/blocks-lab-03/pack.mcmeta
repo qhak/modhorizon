@@ -1,0 +1,14 @@
+{
+  "pack": {
+    "pack_format": 75,
+    "min_format": [
+      75,
+      0
+    ],
+    "max_format": [
+      75,
+      0
+    ],
+    "description": "BlocksLab03 - irregular bark and fine oak/spruce/birch foliage (512px)"
+  }
+}

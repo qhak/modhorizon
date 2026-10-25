@@ -1,3 +1,4 @@
+import type { ShaderCompiler } from "./shader-compiler";
 import { randomUUID } from "node:crypto";
 import { saveArtifact } from "./project-store";
 import { validateProject } from "./validation";
@@ -16,6 +17,7 @@ export async function generateArtifact(
   request: GenerateRequest,
   provider: AIProvider,
   builder?: BuildService,
+  shaderCompiler?: ShaderCompiler,
 ): Promise<Project> {
   const artifactType = request.artifactType || "plugin";
   const target = request.target || "paper";
@@ -35,6 +37,9 @@ export async function generateArtifact(
   };
   try {
     const model = `${provider.name}${request.modelId ? ` · ${request.modelId}` : ""}`;
+    if (request.attachments?.length)
+      project.logs.push(`Using ${request.attachments.length} reference attachment(s) for this generation pass. References are not retained with project history.`);
+    if (artifactType === "shader_pack") project.logs.push("Generating complete shader source and a rendering plan in one model pass. Engineering examples are optional; no fixed look-settings template is assembled by the server.");
     project.logs.push(
       isPlatformId(target)
         ? `Generating ${describeTarget(target, request.version)} source using ${model}.`
@@ -49,6 +54,25 @@ export async function generateArtifact(
     project.name = generated.name;
     project.files = generated.files;
     project.message = generated.message;
+    if (generated.shaderReport) project.shaderReport = generated.shaderReport;
+    if (artifactType === "shader_pack" && shaderCompiler) {
+      project.logs.push("Checking GLSL stages and program links with the local raw driver. Iris integration and appearance remain unverified.");
+      let result = await shaderCompiler.check(generated);
+      project.logs.push(...result.logs);
+      if (!result.success && (request.shaderRepairCredits || 0) > 0) {
+        project.logs.push(`Requesting one compiler repair, authorized up to ${request.shaderRepairCredits} extra credits. No further automatic attempts will run.`);
+        const revised = await provider.generate({ ...request, project: { name: generated.name, files: generated.files } }, result.logs);
+        // Keep the latest returned source even when its static validation fails.
+        project.files = revised.files;
+        generated = validateProject(revised, artifactType, target, request.version);
+        project.name = generated.name; project.files = generated.files; project.message = generated.message;
+        project.shaderReport = generated.shaderReport;
+        result = await shaderCompiler.check(generated);
+        project.logs.push(...result.logs);
+      }
+      if (!result.success) throw new Error("GLSL compilation failed. Source and compiler diagnostics retained; no installable ZIP was created.");
+      project.logs.push("Local raw-driver compilation passed. This is not an Iris runtime or visual-quality pass.");
+    }
     if (expertFor(artifactType).buildMode === "zip") {
       const packaged = packageMinecraftPack(generated, artifactType, request.version);
       project.files = packaged.files;
@@ -60,7 +84,13 @@ export async function generateArtifact(
           ? `Kept the pack_format from the generated pack.mcmeta. The server's compatibility table doesn't list Minecraft ${request.version}.`
           : `Set pack metadata for Minecraft ${request.version} from the server's compatibility table.`);
       if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
-      if (artifactType === "shader_pack") project.logs.push("ZIP packaging succeeded. GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      if (artifactType === "shader_pack") {
+        const features = generated.shaderReport!.features;
+        project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Effects are not runtime-verified.`);
+        for (const feature of features) for (const warning of feature.warnings || []) project.logs.push(`Feature report warning (${feature.name}): ${warning}`);
+        project.logs.push("Static source checks passed: program pairs, includes, reserved declarations and explicit output routing. These checks are not GLSL compilation or visual verification.");
+        project.logs.push(shaderCompiler ? "ZIP packaged after local raw-driver compilation. Iris integration and appearance still need an in-game test." : "ZIP packaging succeeded. This output's GLSL compiler compatibility and GPU runtime behavior have not been checked.");
+      }
       if (artifactType === "datapack") project.logs.push("Set datapack metadata for the selected Minecraft release. File paths, JSON and function tags were checked; commands and gameplay have not been tested in Minecraft.");
       saveArtifact(project, packaged.artifact);
       return project;
@@ -120,9 +150,9 @@ export async function generateArtifact(
   } catch (error) {
     if (error instanceof Error && error.name === "BillingError") {
       if (!project.files.length) throw error;
-      project.status = "preview";
+      project.status = artifactType === "shader_pack" ? "failed" : "preview";
       project.error = error.message;
-      project.logs.push("Automatic repair stopped because the credit balance could not cover another model pass. The generated source remains available.");
+      project.logs.push("Automatic repair stopped because its credit limit or the available balance could not cover another model pass. The generated source remains available.");
       return project;
     }
     project.error =

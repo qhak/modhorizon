@@ -354,6 +354,21 @@ textarea::placeholder { color: var(--secondary); opacity: 1; }
 .attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-list button { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--secondary); }
 .attachment-list button:hover:not(:disabled) { background: var(--elevated); color: var(--foreground); }
+.reference-note { margin: 6px 12px; color: var(--secondary); font-size: 12px; line-height: 1.5; }
+.shader-compiler-options { padding: 8px 0; border-top: 1px solid var(--border); }
+.shader-compiler-options p { margin: 4px 0; }
+.shader-compiler-options label { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.shader-compiler-options input[type="number"] { padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; color: inherit; background: transparent; }
+
+.shader-feature-report { margin: 0 0 20px; padding: 16px; border: 1px solid var(--line-strong); border-radius: 12px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.shader-feature-report summary { cursor: pointer; font-weight: 600; }
+.shader-feature-report p { margin: 8px 0; }
+.shader-feature-report > ul { list-style: none; padding: 0; }
+.shader-feature-report > ul > li { border-top: 1px solid var(--line-strong); padding: 12px 0; }
+.shader-feature-report > ul > li > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.shader-feature-status { border: 1px solid var(--line-strong); border-radius: 6px; padding: 1px 6px; font-size: 11px; }
+.shader-report-notice { color: var(--secondary); }
+.status-approximation, .status-omitted { color: #f1c27d; }
 @media (max-width: 700px) {
   .welcome { padding: 48px 16px 170px; }
   .workspace-home-heading { margin-bottom: 28px; }

@@ -82,6 +82,7 @@ import {
   MODEL_OPTIONS,
   REASONING_LABELS,
   reasoningFor,
+  defaultReasoningForArtifact,
   estimateCreditsForModel,
   type ModelOption,
   type ModelProvider,
@@ -89,6 +90,8 @@ import {
 } from "@/lib/models";
 import { TESTING_MODEL_IDS } from "@/lib/model-access";
 import { VoidBackdrop } from "@/components/void-backdrop";
+import { ShaderFeatureReport } from "@/components/shader-feature-report";
+import { ATTACHMENT_BUDGET, MAX_ATTACHMENTS, validateAttachments } from "@/lib/reference-attachments";
 import { BrandMark } from "@/components/brand-mark";
 import { parseReply } from "@/lib/chat-commands";
 
@@ -549,7 +552,7 @@ function ModelPicker({
                   })()}
                 </span>
                 <span className="model-option-price">
-                  {estimateCreditsForModel(model.id, 1_500, 5_000, reasoningEffort) ?? "—"} credits / pass
+                  ~{estimateCreditsForModel(model.id, 1_500, 5_000, reasoningEffort) ?? "—"} credits / pass before references
                 </span>
                 {model.group !== "Economy" && !paidAccess ? (
                   <span className="model-connect-label">Paid plan</span>
@@ -693,9 +696,6 @@ function TestGuide({ project, target, onTarget }: {
 }
 
 type Attachment = { id: string; name: string; type: string; data: string; image: boolean; size: number };
-const MAX_ATTACHMENTS = 6;
-// Generation requests are capped at 200 KB, so attachments share a smaller budget.
-const ATTACHMENT_BUDGET = 180_000;
 const ATTACHMENT_TYPES = "image/*,.txt,.md,.json,.yml,.yaml,.toml,.properties,.java,.kt,.mcmeta,.mcfunction,.log";
 
 /** Scales an image down to fit the request budget and returns it as a JPEG data URL. */
@@ -722,13 +722,29 @@ function downscaleImage(file: File, maxSide = 768, quality = 0.72): Promise<stri
 
 async function readAttachment(file: File): Promise<Attachment> {
   const id = crypto.randomUUID();
+  if (file.size > (file.type.startsWith("image/") ? 20_000_000 : 160_000)) throw new Error(`${file.name} is too large to read as a reference.`);
   if (file.type.startsWith("image/")) {
     const data = await downscaleImage(file);
     return { id, name: file.name, type: "image/jpeg", data, image: true, size: data.length };
   }
-  const text = (await file.text()).slice(0, 40_000);
+  const text = await file.text();
+  if (text.length > 40_000) throw new Error(`${file.name} exceeds the 40,000 character text-file limit.`);
   if (text.includes("\0")) throw new Error(`${file.name} isn't an image or a text file.`);
-  return { id, name: file.name, type: file.type || "text/plain", data: text, image: false, size: text.length };
+  return { id, name: file.name, type: "text/plain", data: text, image: false, size: new TextEncoder().encode(text).length };
+}
+
+function ReferenceList({ files, busy, onRemove }: { files: Attachment[]; busy: boolean; onRemove: (id: string) => void }) {
+  if (!files.length) return null;
+  return <section aria-label="Reference attachments">
+    <ul className="attachment-list" aria-label="Attachments">
+      {files.map(file => <li key={file.id}>
+        {file.image ? <span className="attachment-thumb" style={{ backgroundImage: `url(${file.data})` }} aria-hidden="true" /> : <FileText size={15} aria-hidden="true" />}
+        <span className="attachment-name" title={file.name}>{file.name}</span>
+        <button type="button" aria-label={`Remove ${file.name}`} disabled={busy} onClick={() => onRemove(file.id)}><X size={13} /></button>
+      </li>)}
+    </ul>
+    <p className="reference-note">Sent to the selected AI for this message. Reattach for later messages. Image processing uses credits.</p>
+  </section>;
 }
 
 const PROMPT_IDEAS: Record<ContentType | "proxy", readonly string[]> = {
@@ -917,6 +933,7 @@ export default function Home() {
   const [services, setServices] = useState<{
     generationAvailable: boolean;
     buildConfigured: boolean;
+    shaderCompilerConfigured?: boolean;
     message: string;
     choices: Record<string, boolean>;
     preferred: string;
@@ -943,10 +960,53 @@ export default function Home() {
   const input = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [readingAttachments, setReadingAttachments] = useState(false);
+  const [shaderRepairEnabled, setShaderRepairEnabled] = useState(false);
+  const [shaderRepairCredits, setShaderRepairCredits] = useState(10);
+  const isShaderRequest = (project?.artifactType ?? contentType) === "shader_pack";
+  const [referenceQuote, setReferenceQuote] = useState<{ estimatedCredits: number; reservedCredits: number } | null>(null);
+  const [referenceQuoteError, setReferenceQuoteError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // The files, build and test panels are optional; chat-only keeps just the conversation.
   const [showFiles, setShowFiles] = useState(true);
+  // The exact same body is used for estimates and submission, including follow-up references.
+  const generationBody = JSON.stringify({
+    shaderRepairCredits: isShaderRequest && services?.shaderCompilerConfigured && shaderRepairEnabled ? shaderRepairCredits : 0,
+    prompt: prompt.trim(), artifactType: project?.artifactType ?? contentType,
+    target: project?.target ?? PACK_TARGETS[contentType] ?? platform,
+    version: project?.version ?? version, modelId: selectedModel,
+    ...(reasoningFor(selectedModel) ? { reasoningEffort: reasoning } : {}),
+    ...(attachments.length ? { attachments: attachments.map(({ name, type, data }) => ({ name, type, data })) } : {}),
+    ...(project ? { project: { name: project.name, files: project.files } } : {}),
+  });
+  useEffect(() => {
+    setReferenceQuote(null);
+    setReferenceQuoteError("");
+    if ((!attachments.length && !isShaderRequest) || !signedIn || prompt.trim().length < 12 || busy) return;
+    if (new TextEncoder().encode(generationBody).length > 200_000) {
+      setReferenceQuoteError("This message and its references exceed 200 KB. Remove a file or use a smaller image.");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch("/api/generate/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: generationBody, signal: controller.signal })
+        .then(async response => { const result = await response.json(); if (!response.ok || !result.quote) throw new Error(result.error || "Credit estimate unavailable."); return result.quote; })
+        .then(quote => { if (!controller.signal.aborted) setReferenceQuote(quote); })
+        .catch(error => { if (!controller.signal.aborted) setReferenceQuoteError(error instanceof Error ? error.message : "Credit estimate unavailable."); });
+    }, 400);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [generationBody, attachments.length, isShaderRequest, signedIn, prompt, busy]);
+  const referenceEstimate = attachments.length > 0 || isShaderRequest ? <p className="reference-note" role="status">{referenceQuoteError || (referenceQuote ? `Estimated ${referenceQuote.estimatedCredits} credits; reserves ${referenceQuote.reservedCredits} for this pass. Unused reserved credits are returned.` : prompt.trim().length >= 12 && signedIn ? "Estimating credits including references…" : "Add your prompt and sign in to see a credit estimate including references.")}</p> : null;
+
+  const shaderCompilerOptions = isShaderRequest ? <div className="reference-note shader-compiler-options">
+    <p>{services?.shaderCompilerConfigured ? "Local GLSL compilation runs before download. In-game appearance still needs testing." : "Static shader checks only. A local compiler is not configured."}</p>
+    {services?.shaderCompilerConfigured && <>
+      <label><input type="checkbox" checked={shaderRepairEnabled} disabled={busy} onChange={event => setShaderRepairEnabled(event.target.checked)} /> Allow one paid compiler repair if needed</label>
+      {shaderRepairEnabled && <label> Extra credit limit: <input aria-label="Shader repair credit limit" type="number" style={{ width: "5rem" }} min="1" max="1000" value={shaderRepairCredits} disabled={busy} onChange={event => setShaderRepairCredits(Math.max(1, Math.min(1000, Number(event.target.value) || 1)))} /></label>}
+      <p>{shaderRepairEnabled ? `One optional repair may reserve up to ${shaderRepairCredits} extra credits. It is skipped if its required hold exceeds this limit or your balance; unused credits are returned.` : "No paid repair will run unless you enable it."}</p>
+    </>}
+  </div> : null;
 
   useEffect(() => {
     // Retire saved accent palettes so returning workspaces use the graphite identity.
@@ -987,7 +1047,7 @@ export default function Home() {
 
   useEffect(() => {
     const options = reasoningFor(selectedModel);
-    if (options) setReasoning(options.default);
+    if (options) setReasoning(defaultReasoningForArtifact(selectedModel, project?.artifactType ?? contentType));
   }, [selectedModel]);
 
   useEffect(() => {
@@ -1142,6 +1202,7 @@ export default function Home() {
     });
   }
   function chooseContentType(next: ContentType) {
+    setReasoning(defaultReasoningForArtifact(selectedModel, next));
     if (next === "plugin" && PLATFORMS[platform].kind === "mod") choosePlatform("paper");
     else if (next === "mod" && PLATFORMS[platform].kind !== "mod") choosePlatform("fabric");
     if (!CODE_TYPES.includes(next) && !MINECRAFT_RELEASES.includes(version as (typeof MINECRAFT_RELEASES)[number])) setVersion("1.21.4");
@@ -1151,13 +1212,16 @@ export default function Home() {
   useTypedPlaceholder(input, PROMPT_IDEAS[ideaKey], !project && !prompt && !busy);
 
   async function addAttachments(files: FileList | null) {
-    if (!files?.length) return;
+    if (!files?.length || busy || readingAttachments) return;
+    if (files.length + attachments.length > MAX_ATTACHMENTS) { setError(`Attach at most ${MAX_ATTACHMENTS} reference files.`); return; }
+    setReadingAttachments(true);
     setError("");
     const added: Attachment[] = [];
     let used = attachments.reduce((total, item) => total + item.size, 0);
     for (const file of Array.from(files).slice(0, MAX_ATTACHMENTS - attachments.length)) {
       try {
         const attachment = await readAttachment(file);
+        validateAttachments([{ name: attachment.name, type: attachment.type, data: attachment.data }]);
         if (used + attachment.size > ATTACHMENT_BUDGET) {
           setError(`${file.name} is too large to attach.`);
           continue;
@@ -1169,6 +1233,7 @@ export default function Home() {
       }
     }
     setAttachments((current) => [...current, ...added]);
+    setReadingAttachments(false);
   }
   function newProject() {
     setAttachments([]);
@@ -1180,6 +1245,7 @@ export default function Home() {
     setTimeout(() => input.current?.focus(), 0);
   }
   function openProject(p: Project) {
+    setAttachments([]);
     setProject(p);
     setContentType(p.artifactType);
     if (isPlatformId(p.target)) setPlatform(p.target);
@@ -1207,7 +1273,7 @@ export default function Home() {
   }
   async function generate() {
     const current = project;
-    if (busy || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || packProblem || typeUnavailable))) return;
+    if (busy || readingAttachments || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || packProblem || typeUnavailable))) return;
     if (!signedIn) {
       window.location.assign("/account");
       return;
@@ -1217,23 +1283,12 @@ export default function Home() {
     setBusy(true);
     setError("");
     try {
+      if (new TextEncoder().encode(generationBody).length > 200_000)
+        throw new Error("This message and its references exceed 200 KB. Remove a file or use a smaller image.");
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: text,
-          artifactType: current ? current.artifactType : contentType,
-          target: current ? current.target : PACK_TARGETS[contentType] ?? platform,
-          version: current?.version || version,
-          modelId: selectedModel,
-          ...(reasoningFor(selectedModel) ? { reasoningEffort: reasoning } : {}),
-          ...(!current && attachments.length
-            ? { attachments: attachments.map(({ name, type, data }) => ({ name, type, data })) }
-            : {}),
-          ...(current
-            ? { project: { name: current.name, files: current.files } }
-            : {}),
-        }),
+        body: generationBody,
       });
       const data = await response.json();
       if (!response.ok || !data.project)
@@ -1456,26 +1511,9 @@ export default function Home() {
                   void generate();
                 }}
               >
-                {attachments.length > 0 && (
-                  <ul className="attachment-list" aria-label="Attachments">
-                    {attachments.map((file) => (
-                      <li key={file.id}>
-                        {file.image
-                          ? <span className="attachment-thumb" style={{ backgroundImage: `url(${file.data})` }} aria-hidden="true" />
-                          : <FileText size={15} aria-hidden="true" />}
-                        <span className="attachment-name" title={file.name}>{file.name}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${file.name}`}
-                          disabled={busy}
-                          onClick={() => setAttachments((current) => current.filter((item) => item.id !== file.id))}
-                        >
-                          <X size={13} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ReferenceList files={attachments} busy={busy} onRemove={id => setAttachments(current => current.filter(file => file.id !== id))} />
+                {referenceEstimate}
+                {shaderCompilerOptions}
                 <textarea
                   ref={input}
                   aria-label={`Describe your Minecraft ${contentLabel.toLowerCase()}`}
@@ -1509,7 +1547,7 @@ export default function Home() {
                       className="composer-attach"
                       aria-label="Add files or images"
                       title="Add files or images"
-                      disabled={busy || attachments.length >= MAX_ATTACHMENTS}
+                      disabled={busy || readingAttachments || attachments.length >= MAX_ATTACHMENTS}
                       onClick={() => fileInput.current?.click()}
                     >
                       <Plus size={18} />
@@ -1548,7 +1586,7 @@ export default function Home() {
                     type="submit"
                     className="composer-send"
                     aria-label={busy ? "Generating" : "Generate"}
-                    disabled={busy || generationUnavailable || typeUnavailable || Boolean(versionProblem || packProblem) || prompt.trim().length < 12}
+                    disabled={busy || readingAttachments || generationUnavailable || typeUnavailable || Boolean(versionProblem || packProblem) || prompt.trim().length < 12}
                     title={typeUnavailable ? `${contentLabel} generation isn't available yet.` : versionProblem ? versionProblem.title : packProblem ? packProblem.title : generationUnavailable ? "Add an AI provider key on the server to generate." : "Generate"}
                   >
                     {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowUp size={18} />}
@@ -1671,6 +1709,7 @@ export default function Home() {
               </div>
             <section className="chat-panel" id="panel-conversation" {...(wide ? { "aria-label": "Conversation" } : { role: "tabpanel", "aria-labelledby": "tab-conversation" })} hidden={showFiles && !wide && tab !== "conversation"}>
               <ProjectSummary project={project} statusLabel={statusLabel} />
+              <ShaderFeatureReport project={project} />
               <div className="chat-messages">
                 {messages.map((message, i) => (
                   <div key={i} className={`message message-${message.role}`}>
@@ -1715,6 +1754,9 @@ export default function Home() {
                     {error}
                   </div>
                 )}
+                <ReferenceList files={attachments} busy={busy} onRemove={id => setAttachments(current => current.filter(file => file.id !== id))} />
+                {referenceEstimate}
+                {shaderCompilerOptions}
                 <textarea
                   onKeyDown={(event) => {
                     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void generate(); }
@@ -1729,6 +1771,8 @@ export default function Home() {
                 />
                 <div>
                   <div className="followup-pickers">
+                    <input ref={fileInput} type="file" multiple hidden accept={ATTACHMENT_TYPES} onChange={event => { void addAttachments(event.target.files); event.target.value = ""; }} />
+                    <button type="button" className="composer-attach" aria-label="Add files or images" title="Add files or images" disabled={busy || readingAttachments || attachments.length >= MAX_ATTACHMENTS} onClick={() => fileInput.current?.click()}><Plus size={18} /></button>
                     <ModelPicker
                       value={selectedModel}
                       onChange={setSelectedModel}
@@ -1744,7 +1788,7 @@ export default function Home() {
                   <Button
                     size="icon"
                     aria-label="Send follow-up"
-                    disabled={busy || generationUnavailable || prompt.trim().length < 12}
+                    disabled={busy || readingAttachments || generationUnavailable || prompt.trim().length < 12}
                   >
                     {busy ? (
                       <LoaderCircle size={15} className="spin" />
