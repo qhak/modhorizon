@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.14.6 - 2026-10-25
+
+- Audit the unchanged AmberglassReflections short-prompt/two-image output: real SSR is present, but clouds retain vanilla shapes, sky changes are restrained, and lighting/space semantics need work. Document source evidence, screenshot limits and a controlled next test without claiming a model comparison or visual acceptance.
+- Add bounded source-linked warnings for sampled vanilla lightmap RGB used as independent light levels and view-space sun direction dotted with fixed camera-up. Review implemented and approximation features; preserve downloadable source, historical reports and no-surprise-paid-retry behavior.
+- Teach reference appearance gaps, lightmap semantics, common-space shadow offsets, stationary wave phase and coherent sky fallback. Retain original GLSL regression fixtures. No repair to the downloaded pack, new model call or deployment.
+
+Validation: 163 TypeScript tests and typecheck pass. Unchanged downloaded source compiles 16 stages/8 links. Warnings are lexical review hints, not whole-program data-flow analysis or proof of visual fidelity. Live texture generation and automated render/compare/revise remain unavailable.
+
 ## v0.14.5 - 2026-10-24
 
 - Add BlocksLab06 following candidate05 game feedback: bounded angular cloud coordinates replace the near-horizon planar projection, producing broader cloud clusters. Enlarge the stylized sun disc and reduce horizon radiance and distance haze, with less sunset amplification.

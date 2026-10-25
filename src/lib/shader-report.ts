@@ -7,10 +7,10 @@ const kinds = new Set(["baseline", "sky", "lighting", "shadows", "water", "refle
 /** Follow only a feature's citations/includes, never unrelated code elsewhere in the pack.
  * This is bounded lexical evidence, not proof that a sampled value affects an output.
  */
-function featureSource(paths: string[], sources: Map<string, string>): string {
+function featureSources(paths: string[], sources: Map<string, string>): { path: string; code: string }[] {
   const visited = new Set<string>();
   const pending = [...paths];
-  const code: string[] = [];
+  const code: { path: string; code: string }[] = [];
   while (pending.length) {
     const path = pending.pop()!;
     if (visited.has(path) || !/\.(vsh|fsh|glsl)$/.test(path)) continue;
@@ -18,14 +18,36 @@ function featureSource(paths: string[], sources: Map<string, string>): string {
     const source = sources.get(path);
     if (source === undefined) continue;
     const stripped = stripShaderComments(source);
-    code.push(stripped);
+    code.push({ path, code: stripped });
     for (const match of stripped.matchAll(/^[ \t]*#[ \t]*include[ \t]+"([^"]+)"/gm)) {
       const include = match[1];
       if (include.includes("..") || include.includes("\\")) continue;
       pending.push(include.startsWith("/") ? `shaders${include}` : path.slice(0, path.lastIndexOf("/") + 1) + include);
     }
   }
-  return code.join("\n");
+  return code;
+}
+
+/** Narrow review hints for observed mistakes, not GLSL data-flow or fidelity proof.
+ * Examine files independently so aliases cannot leak between different stages.
+ * Do not rewrite source, reject usable packs or trigger a provider repair.
+ */
+function semanticReview(path: string, code: string): string[] {
+  const warnings: string[] = [];
+  for (const match of code.matchAll(/\bvec2\s+(\w+)\s*=\s*texture2D\s*\(\s*lightmap\s*,[^;]+\)\s*\.rg\s*;/g)) {
+    const name = match[1];
+    if (new RegExp(`\\b${name}\\.[rg]\\b`).test(code.slice(match.index! + match[0].length))) {
+      warnings.push(`${path}: possible lightmap semantic error: sampled lightmap RGB channels are used as separate light levels. The vanilla lightmap returns a combined lighting colour; decode block/sky exposure from the documented lightmap coordinates, or use the sampled RGB as a colour. Review the data flow; this is a lexical warning, not a compiler failure.`);
+      break;
+    }
+  }
+  const aliases = [...code.matchAll(/\bvec3\s+(\w+)\s*=\s*normalize\s*\(\s*sunPosition\s*\)\s*;/g)].map(match => match[1]);
+  const sun = `(?:normalize\\s*\\(\\s*sunPosition\\s*\\)${aliases.map(name => `|${name}`).join("")})`;
+  const up = "vec3\\s*\\(\\s*0(?:\\.0*)?\\s*,\\s*1(?:\\.0*)?\\s*,\\s*0(?:\\.0*)?\\s*\\)";
+  if (new RegExp(`\\bdot\\s*\\(\\s*${sun}\\s*,\\s*${up}\\s*\\)`).test(code)
+    || new RegExp(`\\bdot\\s*\\(\\s*${up}\\s*,\\s*${sun}\\s*\\)`).test(code))
+    warnings.push(`${path}: possible camera-dependent solar elevation: sunPosition is view-space, but it is dotted with fixed camera-up. For world solar height use world-up transformed into view space or transform the sun into world-aligned space. Review aliases/guards manually; this is a lexical warning, not runtime proof.`);
+  return warnings;
 }
 function text(value: unknown, label: string, max: number, allowEmpty = false): string {
   if (typeof value !== "string" || (!allowEmpty && !value.trim()) || value.length > max || /[\u0000-\u0008\u000b-\u001f\u007f]/.test(value))
@@ -80,8 +102,12 @@ export function readShaderReport(files: GeneratedFile[]): ShaderReport {
     const feature = features.find(item => item.kind === "baseline") || features[0];
     (feature.warnings ??= []).push(`Misplaced runtime settings in shaders/shaders.properties: ${misplaced.join(", ")}. These require GLSL const directives; successful driver compilation does not mean these property assignments configure Iris.`);
   }
-  for (const feature of features.filter(feature => feature.status === "implemented")) {
-    const code = featureSource(feature.files, sources);
+  for (const feature of features.filter(feature => feature.status !== "omitted")) {
+    const linked = featureSources(feature.files, sources);
+    const review = linked.flatMap(({ path, code }) => semanticReview(path, code));
+    if (review.length) (feature.warnings ??= []).push(...review);
+    if (feature.status !== "implemented") continue;
+    const code = linked.map(file => file.code).join("\n");
     if (feature.kind === "shadows" && !files.some(file => /(?:^|\/)shadow\.vsh$/.test(file.path)))
       (feature.warnings ??= []).push("Cast shadows are reported implemented but no conventional shadow program is supplied; the claim is unsubstantiated.");
     if (feature.kind === "reflections" && (!/\b(?:colortex\d+|gcolor)\b/.test(code) || !/\bdepthtex\d+\b/.test(code)))
