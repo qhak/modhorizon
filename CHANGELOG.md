@@ -1,5 +1,14 @@
 # Change notes
 
+## v0.18.0 - 2026-10-26
+
+- Add community Explore, public creator profiles and stable showcase pages in the existing dark graphite/starfield design, with filtering, screenshots, external release links, likes, follows and discussion.
+- Add explicit drafts, review submission, trusted moderator approval and report hiding. Preserve private workspace data; successful builds prefill only basic showcase fields. Bound uploads/writes, enforce ownership and same-origin requests, and prevent stale-review approvals.
+- Add production-origin canonical metadata, structured data, sitemap and robots controls. Local, sample, filtered and private views stay non-indexable. Include labelled design samples without seeding real posts.
+
+Validation: 204 tests, TypeScript checks and production build pass; local D1 migration applied. Desktop/mobile preview and anonymous routes checked. No deployment or live database changes; authenticated staging acceptance and launch moderation/retention work remain. See docs/community.md.
+
+
 ## v0.17.2 - 2026-10-25
 
 - Repair OreGlow's Iris loader failure: use four explicit colortex6ClearColor components rather than the GLSL-valid scalar splat. Reproduce the exact reported index exception with the installed Iris parser, then verify the repaired constructor is accepted.

@@ -28,6 +28,7 @@ import {
   Plus,
   Settings2,
   ShieldCheck,
+  Share2,
   SlidersHorizontal,
   Sparkles,
   SquareTerminal,
@@ -767,6 +768,11 @@ export default function Workspace({ managedId, profile }: { managedId?: string; 
             {project && <span className="tag paper-tag">{artifactOption.targets.find((item) => item.id === project.target)?.label || project.target}</span>}
           </div>
           <div className="topbar-right">
+            <Link href="/explore" className="icon-button" aria-label="Explore community creations"><Blocks size={17} /></Link>
+            {project?.status === "success" && <button className="icon-button" aria-label="Create a community showcase" title="Share a showcase" onClick={() => {
+              try { sessionStorage.setItem("modhorizon-community-prefill", JSON.stringify({ title: project.name, kind: project.artifactType ?? "plugin", target: project.target, version: project.version })); } catch { /* Sharing still works without browser storage. */ }
+              window.location.href = "/community/new";
+            }}><Share2 size={17} /></button>}
             {managedId && <Link href="/dashboard/credits"><CreditBalance balance={profile?.credits ?? null} /></Link>}
             <button
               className="icon-button"

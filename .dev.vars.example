@@ -20,6 +20,8 @@ AI_PROVIDER=openai-compatible
 # SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 # APP_ORIGIN=https://modhorizon.callout-ai.workers.dev
 # AUTH_GOOGLE_ENABLED=false
+# Community publishing: trusted Supabase user IDs, comma-separated. Empty disables approval.
+# COMMUNITY_MODERATOR_IDS=
 
 # Optional explicit Stripe customer portal configuration.
 # STRIPE_PORTAL_CONFIGURATION_ID=bpc_...
