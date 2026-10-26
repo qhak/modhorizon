@@ -26,13 +26,17 @@ function useCommunityMe() {
 }
 
 export function ProfileEditor() {
-  const { me, error } = useCommunityMe();
+  const { me, setMe, error } = useCommunityMe();
   const [handle, setHandle] = useState(""), [displayName, setDisplayName] = useState(""), [bio, setBio] = useState(""), [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(""), [saved, setSaved] = useState(false);
   useEffect(() => { if (me?.profile) { const p = me.profile; setHandle(p.handle); setDisplayName(p.displayName); setBio(p.bio); setWebsite(p.website); } }, [me]);
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setNotice(""); setSaved(false);
-    try { await communityFetch("/api/community/profile", { handle, displayName, bio, website }, "PATCH"); setSaved(true); setNotice("Your public profile has been saved."); }
+    try {
+      const result = await communityFetch<{ profile: CommunityProfile }>("/api/community/profile", { handle, displayName, bio, website }, "PATCH");
+      setMe(current => current ? { ...current, profile: result.profile } : current);
+      setSaved(true); setNotice("Your public profile has been saved.");
+    }
     catch (e) { setNotice(e instanceof Error ? e.message : "Could not save your profile."); }
     finally { setBusy(false); }
   }
@@ -139,7 +143,7 @@ export function CreatorManager() {
     <div className="cm-section-label"><h2>Your showcases</h2><span>{me.posts.length} saved</span></div>
     {notice && <p className="cm-notice cm-error" role="alert">{notice}</p>}
     {!me.posts.length && <section className="cm-empty"><ImagePlus size={31} /><h2>No showcases yet</h2><p>Add a project to your profile. Workspace projects stay private until you share them.</p><Link className="cm-button" href="/community/new">Start a showcase <ArrowRight size={14} /></Link></section>}
-    {me.posts.map(post => <article key={post.id} className="cm-manager-row"><div><h3>{post.title}</h3><div className="cm-manager-row-meta"><span className="cm-status">{post.status}</span><p>{KIND_SINGULAR[post.kind]} · {post.version}</p></div></div><div className="cm-manager-row-actions">{post.status === "published" && <Link className="cm-button cm-button-small" href={showcaseHref(post)}>View</Link>}<Link className="cm-button cm-button-small" href={`/community/new?edit=${post.id}`}>Edit</Link><button className="cm-button cm-button-small" disabled={!!busy} onClick={() => void remove(post)}>{busy === post.id ? "Withdrawing…" : "Unpublish"}</button></div></article>)}
+    {me.posts.map(post => <article key={post.id} className="cm-manager-row"><div><h3>{post.title}</h3><div className="cm-manager-row-meta"><span className="cm-status">{post.status}</span><p>{KIND_SINGULAR[post.kind]} · {post.version}</p></div></div><div className="cm-manager-row-actions">{post.status === "published" && <Link className="cm-button cm-button-small" href={showcaseHref(post)}>View</Link>}{post.status === "hidden" ? <span className="cm-form-hint">Editing restricted by moderation</span> : <><Link className="cm-button cm-button-small" href={`/community/new?edit=${post.id}`}>Edit</Link><button className="cm-button cm-button-small" disabled={!!busy} onClick={() => void remove(post)}>{busy === post.id ? "Withdrawing…" : "Unpublish"}</button></>}</div></article>)}
     <p className="cm-form-hint" style={{ marginTop: 20 }}>Editing a published showcase sends it back to review and temporarily removes it from public pages and search eligibility.</p>
     {me.isModerator && <p className="cm-notice"><Link href="/community/moderation">Open the moderation queue →</Link></p>}
   </>;

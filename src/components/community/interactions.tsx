@@ -1,14 +1,16 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Heart, Flag, UserPlus } from "lucide-react";
 import type { CommunityComment } from "@/lib/community";
 import { communityFetch } from "./forms";
 
 export function FollowCreator({ handle, initialCount }: { handle: string; initialCount: number }) {
+  const router = useRouter();
   const [following, setFollowing] = useState(false), [count, setCount] = useState(initialCount), [busy, setBusy] = useState(false), [error, setError] = useState("");
   useEffect(() => { let live = true; communityFetch<{following:boolean;followers:number}>(`/api/community/profiles/${handle}/follow`).then(data => { if(live){ setFollowing(data.following); setCount(data.followers); } }).catch(() => {}); return () => { live = false; }; }, [handle]);
-  async function follow() { setBusy(true); setError(""); try { const result = await communityFetch<{ following: boolean; followers: number }>(`/api/community/profiles/${handle}/follow`, {}); setFollowing(result.following); setCount(result.followers); } catch (e) { setError(e instanceof Error ? e.message : "Could not follow this creator."); } finally { setBusy(false); } }
+  async function follow() { setBusy(true); setError(""); try { const result = await communityFetch<{ following: boolean; followers: number }>(`/api/community/profiles/${handle}/follow`, {}); setFollowing(result.following); setCount(result.followers); router.refresh(); } catch (e) { setError(e instanceof Error ? e.message : "Could not follow this creator."); } finally { setBusy(false); } }
   return <div><button className={`cm-button ${following ? "" : "cm-button-primary"}`} onClick={() => void follow()} disabled={busy}><UserPlus size={14} />{following ? "Following" : "Follow creator"}</button><p className="cm-follow-note">{count} {count === 1 ? "follower" : "followers"}</p>{error && <p role="alert" className="cm-notice cm-error">{error} <Link href="/account">Sign in</Link></p>}</div>;
 }
 export function ShowcaseConversation({ id, initialLikes, initialComments }: { id: string; initialLikes: number; initialComments: CommunityComment[] }) {

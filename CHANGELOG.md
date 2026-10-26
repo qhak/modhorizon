@@ -1,5 +1,15 @@
 # Change notes
 
+## v0.18.2 - 2026-10-26
+
+- Refresh saved creator-profile state immediately so a newly registered handle locks without a page reload. Reproduce the stale editable field and verify the corrected first-save behavior with a second confirmed account.
+- Refresh server-rendered profile statistics after follow/unfollow so the header matches the updated control without a manual reload.
+- Remove invalid owner Edit/Unpublish controls for moderation-hidden showcases; server enforcement remains authoritative.
+- Record real local two-account community acceptance: private draft/screenshot isolation, denied non-moderator access, review submission/approval, public discovery, edit withdrawal and explicit unpublishing. See docs/community-acceptance-20261026.md for completed and pending checks.
+
+Validation: 204 tests, TypeScript and isolated production build pass. Existing confirmed-account sessions and local D1 data were used; no production migration/deployment or billable generation. Viewer interactions, report hiding, owner resubmission rejection and temporary permission cleanup also verified; production acceptance remains separate.
+
+
 ## v0.18.1 - 2026-10-26
 
 - Replace slogan-heavy community headings, form labels and empty states with direct descriptions. Use concrete sample project names and shorter preview/testing notes while retaining privacy and review information.
