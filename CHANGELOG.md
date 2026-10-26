@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.18.1 - 2026-10-26
+
+- Replace slogan-heavy community headings, form labels and empty states with direct descriptions. Use concrete sample project names and shorter preview/testing notes while retaining privacy and review information.
+- Preserve the existing layout and visual style.
+
+Validation: TypeScript check and local browser review pass. Copy-only change; no behavior, schema or deployment changes.
+
+
 ## v0.18.0 - 2026-10-26
 
 - Add community Explore, public creator profiles and stable showcase pages in the existing dark graphite/starfield design, with filtering, screenshots, external release links, likes, follows and discussion.
