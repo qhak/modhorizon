@@ -17,13 +17,13 @@ export function paidTopupStatements(db: D1Database, item: Record<string, unknown
     throw new BillingError("Top-up payment amount or currency does not match its quote.",400);
   return [
     db.prepare(`INSERT OR IGNORE INTO credit_purchases(checkout_id,account_id,credits,amount_cents,stripe_event_id,created_at)
-      SELECT ?,id,?,?,?,? FROM billing_accounts WHERE id=? AND changes()=1`)
+      SELECT ?,id,?,?,?,? FROM billing_accounts WHERE id=? AND deletion_requested_at IS NULL AND changes()=1`)
       .bind(item.id,credits,amountCents,eventId,now,metadata.account_id),
     // Preserve paid purchases even if the plan changed after checkout creation.
-    db.prepare("UPDATE billing_accounts SET credit_balance=credit_balance+?,purchased_credits=purchased_credits+?,updated_at=? WHERE id=? AND changes()=1")
+    db.prepare("UPDATE billing_accounts SET credit_balance=credit_balance+?,purchased_credits=purchased_credits+?,updated_at=? WHERE id=? AND deletion_requested_at IS NULL AND changes()=1")
       .bind(credits,credits,now,metadata.account_id),
     db.prepare(`INSERT INTO credit_ledger(id,account_id,delta,reason,stripe_event_id,created_at)
-      SELECT ?,id,?,'manual_credit_pack',?,? FROM billing_accounts WHERE id=? AND changes()=1`)
+      SELECT ?,id,?,'manual_credit_pack',?,? FROM billing_accounts WHERE id=? AND deletion_requested_at IS NULL AND changes()=1`)
       .bind(randomUUID(),credits,eventId,now,metadata.account_id),
   ];
 }

@@ -16,7 +16,7 @@ export async function holdCredits(db: D1Database, accountId: string, modelId: st
     db.prepare(`INSERT INTO generation_credit_reservations
       (id,account_id,model_id,reserved_credits,created_at,allowance_reserved,purchased_reserved,allowance_period)
       SELECT ?,id,?,?,?,MIN(allowance_credits,?),MAX(?-allowance_credits,0),allowance_period
-      FROM billing_accounts WHERE id=? AND credit_balance>=? AND allowance_credits+purchased_credits>=?`)
+      FROM billing_accounts WHERE id=? AND credit_balance>=? AND allowance_credits+purchased_credits>=? AND deletion_requested_at IS NULL`)
       .bind(id, modelId, amount, now, amount, amount, accountId, amount, amount),
     db.prepare(`UPDATE billing_accounts SET credit_balance=credit_balance-?,
       allowance_credits=allowance_credits-MIN(allowance_credits,?),

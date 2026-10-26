@@ -43,8 +43,8 @@ export function validateCommunityImage(value: unknown): { bytes: Buffer; content
 
 export async function storeCommunityImage(db: D1Database, ownerId: string, value: unknown) {
   const image = validateCommunityImage(value);
-  if (!await db.prepare("SELECT handle FROM community_profiles WHERE owner_id=?").bind(ownerId).first())
-    throw new CommunityError("Create your community profile before uploading a showcase screenshot.", 409);
+  if (!await db.prepare("SELECT handle FROM community_profiles WHERE owner_id=? AND moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=community_profiles.owner_id)").bind(ownerId).first())
+    throw new CommunityError("An active community profile is required to upload screenshots.", 409);
   const now = Date.now();
   // Remove only old, unreferenced uploads belonging to this creator.
   await db.prepare(`DELETE FROM community_media WHERE owner_id=? AND created_at<?
@@ -62,7 +62,7 @@ export async function storeCommunityImage(db: D1Database, ownerId: string, value
 export async function readCommunityImage(db: D1Database, id: string, ownerId?: string, moderator = false) {
   if (id.length !== 36 || !COMMUNITY_ID.test(id)) throw new CommunityError("Screenshot not found.", 404);
   const row = await db.prepare(`SELECT m.content_type,m.data_base64 FROM community_media m WHERE m.id=?
-    AND (m.owner_id=? OR EXISTS(SELECT 1 FROM community_posts p WHERE p.cover_image='/api/community/media/'||m.id AND (p.status='published' OR (?=1 AND p.status='pending'))))`)
+    AND (m.owner_id=? OR EXISTS(SELECT 1 FROM community_posts p JOIN community_profiles a ON a.owner_id=p.owner_id WHERE a.moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=a.owner_id) AND p.cover_image='/api/community/media/'||m.id AND (p.status='published' OR (?=1 AND p.status='pending'))))`)
     .bind(id, ownerId ?? "", moderator ? 1 : 0).first<{ content_type: string; data_base64: string }>();
   if (!row || !["image/png", "image/jpeg"].includes(row.content_type)) throw new CommunityError("Screenshot not found.", 404);
   return { bytes: Buffer.from(row.data_base64, "base64"), contentType: row.content_type };

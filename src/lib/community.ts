@@ -9,7 +9,7 @@ export const COMMUNITY_KINDS = ["plugin", "mod", "datapack", "resource_pack", "s
 export type CommunityStatus = "draft" | "pending" | "published" | "rejected" | "hidden";
 export type CommunityTesting = "untested" | "creator-tested";
 export type CommunityAuthor = { handle: string; displayName: string };
-export type CommunityProfile = CommunityAuthor & { bio: string; website: string; createdAt: number; showcaseCount: number; followerCount: number; followingCount: number };
+export type CommunityProfile = CommunityAuthor & { bio: string; website: string; createdAt: number; showcaseCount: number; followerCount: number; followingCount: number; moderationStatus?: "active" | "hidden" };
 export type CommunityPost = {
   id: string; slug: string; title: string; summary: string; description: string; instructions: string;
   kind: ArtifactType; target: string; version: string; tags: string[]; coverImage: string; downloadUrl: string;

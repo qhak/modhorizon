@@ -8,12 +8,13 @@ import { dataPackFormat } from "../src/lib/datapack-versions";
 import { MINECRAFT_RELEASES, compareVersions } from "../src/lib/platforms";
 import { generateArtifact } from "../src/lib/generation";
 import { packageMinecraftPack } from "../src/lib/packager";
-import { getArtifact } from "../src/lib/project-store";
+import { getArtifact, bindArtifactOwner } from "../src/lib/project-store";
 import { artifactCatalog, artifactSystemPrompt } from "../src/lib/artifact-experts";
 import { serviceStatus } from "../src/lib/service-status";
 import { CREATION_EXAMPLES, exampleHref } from "../src/lib/creation-examples";
 import { GET as sampleDownload } from "../src/app/api/examples/datapack/route";
-import { GET as generatedDownload } from "../src/app/api/projects/[id]/download/route";
+import { downloadStoredArtifact } from "../src/lib/artifact-download";
+import type { D1Database } from "../src/lib/billing-db";
 
 function unzip(archive: Uint8Array) {
   const bytes = Buffer.from(archive);
@@ -105,7 +106,9 @@ test("generated datapacks download as real ZIPs without invoking a Java builder"
   assert.equal(project.artifactAvailable, true);
   assert.match(project.logs.join("\n"), /have not been tested in Minecraft/);
   assert.ok(getArtifact(project.id));
-  const response = await generatedDownload(new Request("http://localhost/download"), { params: Promise.resolve({ id: project.id }) });
+  bindArtifactOwner(project.id,"fixture-owner");
+  const db={prepare:()=>({bind(){return this;},async first(){return {deletion_requested_at:null};}})} as unknown as D1Database;
+  const response = await downloadStoredArtifact(project.id,async()=>({BILLING_DB:db}));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Content-Type"), "application/zip");
   assert.match(response.headers.get("Content-Disposition")!, /ModHorizonHello.zip/);

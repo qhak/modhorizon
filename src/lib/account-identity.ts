@@ -10,11 +10,11 @@ export async function authorizedBillingAccountId(db:D1Database, user:{id:string;
 }
 /** Claim an existing browser-owned guest account once. Never merge signed-in accounts or balances. */
 export async function resolveAccountIdentity(db: D1Database, user: { id: string; email: string }, guestAccountId: string | null): Promise<string | null> {
-  const existing = await db.prepare("SELECT id FROM billing_accounts WHERE auth_subject=?").bind(user.id).first<{id:string}>();
+  const existing = await db.prepare("SELECT id FROM billing_accounts WHERE auth_subject=? AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE owner_id=?)").bind(user.id,user.id).first<{id:string}>();
   if (existing) return existing.id;
   if (!guestAccountId) return null;
   // Unique index arbitrates concurrent first sign-ins; compare-and-set prevents reassignment.
   await db.prepare(`UPDATE billing_accounts SET auth_subject=?,auth_email=?,updated_at=? WHERE id=? AND auth_subject IS NULL
-    AND NOT EXISTS(SELECT 1 FROM billing_accounts WHERE auth_subject=?)`).bind(user.id,user.email,Date.now(),guestAccountId,user.id).run();
-  return (await db.prepare("SELECT id FROM billing_accounts WHERE auth_subject=?").bind(user.id).first<{id:string}>())?.id ?? null;
+    AND NOT EXISTS(SELECT 1 FROM billing_accounts WHERE auth_subject=?) AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE owner_id=?)`).bind(user.id,user.email,Date.now(),guestAccountId,user.id,user.id).run();
+  return (await db.prepare("SELECT id FROM billing_accounts WHERE auth_subject=? AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE owner_id=?)").bind(user.id,user.id).first<{id:string}>())?.id ?? null;
 }

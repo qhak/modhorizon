@@ -1,4 +1,4 @@
-import { accountAppOrigin, accountAuthClient, authConfiguration, verifiedAuthUser } from "@/lib/account-auth";
+import { accountAppOrigin, accountAuthClient, authConfiguration, verifiedAuthUser, providerVerifiedAuthUser, accountDeletionPending } from "@/lib/account-auth";
 import { validPassword } from "@/lib/account-auth-policy";
 import { hasAllowedOrigin } from "@/lib/request-origin";
 import { BILLING_SESSION_COOKIE, revokeBillingSession } from "@/lib/billing-service";
@@ -37,8 +37,9 @@ export async function POST(request:Request) {
       if (typeof password !== "string" || password.length>128) return json({error:"Enter your password."},{status:400});
       const {error} = await client.auth.signInWithPassword({email,password});
       if (error) return json({error:"Sign-in failed. Check your details and confirm your email first."},{status:401});
-      if (!await verifiedAuthUser()) { await client.auth.signOut(); return json({error:"Confirm your email before signing in."},{status:403}); }
-      return json({redirect:"/account"});
+      const user=await providerVerifiedAuthUser();
+      if (!user) { await client.auth.signOut(); return json({error:"Confirm your email before signing in."},{status:403}); }
+      return json({redirect:await accountDeletionPending(user.id)?"/account/delete":"/account"});
     }
     if (action === "forgot") {
       const {error} = await client.auth.resetPasswordForEmail(email,{redirectTo:`${origin}/auth/callback?next=reset`});

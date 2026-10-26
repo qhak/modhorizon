@@ -10,6 +10,16 @@ import { validateCommunityImage, storeCommunityImage, readCommunityImage } from 
 import { safeStructuredData, trustedCommunityOrigin } from "../src/lib/community-seo";
 import { communityId, validateCommunityPost, validateCommunityProfile } from "../src/lib/community";
 
+import { reportCommunityContent, moderateCommunityContent, contentModerationQueue } from "../src/lib/community-moderation";
+import { deleteAccount, beginAccountDeletion, recentDeletionSignIn } from "../src/lib/account-deletion";
+import { deletionConfigured } from "../src/lib/account-deletion-provider";
+import { holdCredits, completeCreditReservation } from "../src/lib/credit-reservations";
+import { resolveAccountIdentity } from "../src/lib/account-identity";
+import { saveArtifact, getArtifact, bindArtifactOwner, removeAccountArtifacts } from "../src/lib/project-store";
+import type { Project } from "../src/lib/types";
+import { initialSubscriptionStatements } from "../src/lib/subscription-credits";
+import { downloadStoredArtifact } from "../src/lib/artifact-download";
+
 class Statement implements D1Statement {
   constructor(private sqlite: DatabaseSync, private query: string, private values: SQLInputValue[] = []) {}
   bind(...values: unknown[]) { return new Statement(this.sqlite, this.query, values as SQLInputValue[]); }
@@ -32,7 +42,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  sqlite.exec(readFileSync(new URL("../migrations/0006_community.sql", import.meta.url), "utf8"));
+  for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql"]) sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
   const d1: D1Database = {
     prepare: query => new Statement(sqlite, query),
     async batch<T>(statements: D1Statement[]): Promise<D1Result<T>[]> {
@@ -264,4 +274,190 @@ test("SEO escapes script terminators and requires an explicit public HTTPS origi
   assert.equal(trustedCommunityOrigin("https://example.com"),"https://example.com");
   assert.doesNotMatch(safeStructuredData({name:"</script><script>alert(1)</script>"}),/<script|<\/script/i);
   assert.equal(JSON.parse(safeStructuredData({name:"</script>"})).name,"</script>");
+});
+
+
+test("comment reports, hiding, restoration and audit records use the actual content rows", async () => {
+ const {db,sqlite}=database();try{
+  await owners(db);const post=await db.savePost("owner-alice-private",input("Moderated discussion",true));await db.moderatePost(post.id,"approve");
+  const comment=await db.addComment("owner-bob-private",post.id,"A comment to review for this moderation test.");
+  await reportCommunityContent(db,"owner-alice-private","comment",comment.id,"Please review this comment for spam.");
+  assert.equal((await contentModerationQueue(db)).reports.length,1);
+  await moderateCommunityContent(db,"trusted-moderator",{kind:"comment",id:comment.id,action:"hide",note:"Test review"});
+  assert.equal((await db.listComments(post.id)).length,0);assert.equal((await db.getPost(post.id))?.comments,0);
+  assert.equal((await contentModerationQueue(db)).reports.length,0);
+  await assert.rejects(reportCommunityContent(db,"owner-alice-private","comment",comment.id,"Cannot report hidden comments."));
+  await moderateCommunityContent(db,"trusted-moderator",{kind:"comment",id:comment.id,action:"restore"});
+  assert.equal((await db.listComments(post.id)).length,1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM community_moderation_actions").get()!.n,2);
+  assert.equal((await contentModerationQueue(db,comment.id)).comments.length,1);
+ }finally{sqlite.close();}
+});
+
+test("hidden profiles disappear with their showcases, comments and screenshots; owners cannot override moderation",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);
+  const image="data:image/png;base64,"+readFileSync(new URL("../public/providers/claude_app_icon.png",import.meta.url)).toString("base64");
+  const media=await storeCommunityImage(db.db,"owner-bob-private",image),mediaId=media.url.split("/").pop()!;
+  const post=await db.savePost("owner-bob-private",{...input("Creator to moderate",true),coverImage:media.url});await db.moderatePost(post.id,"approve");
+  const other=await db.savePost("owner-alice-private",input("Another public showcase",true));await db.moderatePost(other.id,"approve");
+  await db.addComment("owner-bob-private",other.id,"This comment also follows creator visibility.");
+  assert.ok(await readCommunityImage(db.db,mediaId));assert.equal((await db.listComments(other.id)).length,1);
+  await reportCommunityContent(db,"owner-alice-private","profile","bobby","Please inspect this public profile.");
+  let queue=await contentModerationQueue(db);let profile=queue.profiles.find(p=>p.handle==="bobby")!;
+  await moderateCommunityContent(db,"trusted-moderator",{kind:"profile",id:"bobby",action:"hide",updatedAt:profile.updated_at});
+  assert.equal(await db.getProfile("bobby"),null);assert.equal(await db.getPost(post.id),null);assert.equal((await db.sitemapPosts()).length,1);
+  await assert.rejects(readCommunityImage(db.db,mediaId));assert.equal((await db.listComments(other.id)).length,0);
+  await assert.rejects(storeCommunityImage(db.db,"owner-bob-private",image),/active/i);
+  assert.equal((await db.me("owner-bob-private")).profile?.moderationStatus,"hidden");
+  await assert.rejects(db.setProfile("owner-bob-private",{handle:"bobby",displayName:"Bypass",bio:"",website:""}));
+  await assert.rejects(db.savePost("owner-bob-private",input("Bypass hidden profile",true)));
+  await assert.rejects(moderateCommunityContent(db,"trusted-moderator",{kind:"profile",id:"bobby",action:"restore",updatedAt:profile.updated_at}));
+  queue=await contentModerationQueue(db);profile=queue.profiles.find(p=>p.handle==="bobby")!;
+  await moderateCommunityContent(db,"trusted-moderator",{kind:"profile",id:"bobby",action:"restore",updatedAt:profile.updated_at});
+  assert.equal((await db.getPost(post.id))?.id,post.id);assert.ok(await readCommunityImage(db.db,mediaId));assert.equal((await db.listComments(other.id)).length,1);
+ }finally{sqlite.close();}
+});
+
+test("moderation report dismissal is explicit and rejects stale repeats",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);await reportCommunityContent(db,"owner-alice-private","profile","bobby","Review this profile for a test.");
+  const report=(await contentModerationQueue(db)).reports[0];
+  await moderateCommunityContent(db,"trusted-moderator",{action:"dismiss_report",id:report.id});
+  assert.equal((await contentModerationQueue(db)).reports.length,0);
+  await assert.rejects(moderateCommunityContent(db,"trusted-moderator",{action:"dismiss_report",id:report.id}));
+  await assert.rejects(moderateCommunityContent(db,"trusted-moderator",{kind:"profile",id:"bobby",action:"delete"}));
+ }finally{sqlite.close();}
+});
+
+function billingOwner(sqlite:DatabaseSync,ownerId="owner-alice-private") {
+ sqlite.prepare("INSERT INTO billing_accounts(id,auth_subject,auth_email,credit_balance,allowance_credits,purchased_credits,created_at,updated_at) VALUES('billing-alice',?,'private@example.com',20,10,10,0,0)").run(ownerId);
+ sqlite.prepare("INSERT INTO billing_sessions(token_hash,account_id,expires_at,created_at) VALUES('test-session','billing-alice',9999999999999,0)").run();
+ sqlite.prepare("INSERT INTO credit_ledger(id,account_id,delta,reason,created_at) VALUES('ledger-test','billing-alice',20,'initial',0)").run();
+}
+
+test("account deletion removes only owned community data and access, retaining disconnected financial records",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);
+  const alice=await db.savePost("owner-alice-private",input("Alice deleted showcase",true)),bob=await db.savePost("owner-bob-private",input("Bob retained showcase",true));
+  await db.moderatePost(alice.id,"approve");await db.moderatePost(bob.id,"approve");
+  await db.addComment("owner-alice-private",bob.id,"Owned comment to remove.");await db.addComment("owner-bob-private",alice.id,"Comment on the removed showcase.");
+  await db.addComment("owner-bob-private",bob.id,"Unrelated retained comment.");await db.toggleLike("owner-alice-private",bob.id);await db.toggleFollow("owner-bob-private","alice");
+  await reportCommunityContent(db,"owner-bob-private","profile","alice","Report attached to the removed profile.");
+  let authDeleted=false;
+  await deleteAccount(db.db,"owner-alice-private",{stopBilling:async()=>{},revokeAuth:async()=>{},deleteAuth:async()=>{authDeleted=true;}});
+  assert.ok(authDeleted);assert.equal(await db.getProfile("alice"),null);assert.equal((await db.getPost(bob.id))?.title,"Bob retained showcase");
+  assert.equal((await db.listComments(bob.id)).length,1);assert.equal((await db.getPost(bob.id))?.likes,0);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM billing_sessions").get()!.n,0);
+  const billing=sqlite.prepare("SELECT auth_subject,auth_email,credit_balance,deleted_at FROM billing_accounts WHERE id='billing-alice'").get()!;
+  assert.equal(billing.auth_subject,"deleted:owner-alice-private");assert.equal(billing.auth_email,null);assert.equal(billing.credit_balance,0);assert.ok(billing.deleted_at);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM credit_ledger").get()!.n,1);
+  assert.equal(await resolveAccountIdentity(db.db,{id:"owner-alice-private",email:"private@example.com"},null),null);
+  assert.equal(sqlite.prepare("SELECT state FROM account_deletions").get()!.state,"complete");
+ }finally{sqlite.close();}
+});
+
+test("deletion rejects held generations, then blocks new reservations and late writes once it begins",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);
+  const reservation=await holdCredits(db.db,"billing-alice","test-model",2);assert.ok(reservation);
+  await assert.rejects(beginAccountDeletion(db.db,"owner-alice-private"),/generation/i);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM account_deletions").get()!.n,0);
+  await completeCreditReservation(db.db,"billing-alice",reservation,"refunded");
+  await beginAccountDeletion(db.db,"owner-alice-private");
+  assert.equal(await holdCredits(db.db,"billing-alice","test-model",1),null);
+  await assert.rejects(db.setProfile("owner-alice-private",{handle:"alice",displayName:"Race",bio:"",website:""}),/deletion/i);
+  assert.equal(await db.getProfile("alice"),null,"pending deletion immediately removes public identity");
+ }finally{sqlite.close();}
+});
+
+test("failed billing pauses deletion before auth/data removal and remains retryable",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);let called=false;
+  await assert.rejects(deleteAccount(db.db,"owner-alice-private",{stopBilling:async()=>{throw new Error("billing unavailable");},revokeAuth:async()=>{called=true;},deleteAuth:async()=>{called=true;}}));
+  assert.equal(called,false);assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM community_profiles WHERE handle='alice'").get()!.n,1);
+  assert.equal(await db.getProfile("alice"),null,"public access stays blocked while retry is pending");
+  await deleteAccount(db.db,"owner-alice-private",{stopBilling:async()=>{},revokeAuth:async()=>{},deleteAuth:async()=>{}});
+  assert.equal(sqlite.prepare("SELECT state FROM account_deletions").get()!.state,"complete");
+ }finally{sqlite.close();}
+});
+
+test("provider deletion failure is retryable after atomic local purge, and completed retries have no external effects",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);let attempts=0,stops=0;
+  const services={stopBilling:async()=>{stops++;},revokeAuth:async()=>{},deleteAuth:async()=>{if(++attempts===1)throw new Error("provider unavailable");}};
+  await assert.rejects(deleteAccount(db.db,"owner-alice-private",services));
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM community_profiles WHERE handle='alice'").get()!.n,0);
+  await deleteAccount(db.db,"owner-alice-private",services);await deleteAccount(db.db,"owner-alice-private",services);
+  assert.equal(attempts,2);assert.equal(stops,1);
+ }finally{sqlite.close();}
+});
+
+test("recent deletion confirmation uses verified authentication method times, not refreshed JWT iat or user metadata",()=>{
+ const now=Date.now(),fresh={sub:"user",session_id:"session",amr:[{method:"oauth",timestamp:Math.floor(now/1000)-10}]};
+ assert.ok(recentDeletionSignIn(fresh,"user",now));assert.equal(recentDeletionSignIn(fresh,"other",now),false);
+ assert.equal(recentDeletionSignIn({...fresh,iat:Math.floor(now/1000),amr:[{method:"oauth",timestamp:Math.floor(now/1000)-3600}]},"user",now),false);
+ assert.equal(recentDeletionSignIn({...fresh,amr:[],user_metadata:{recent:true}},"user",now),false);
+ assert.equal(deletionConfigured({ACCOUNT_DELETION_ENABLED:"true",SUPABASE_URL:"https://example.supabase.co",SUPABASE_SECRET_KEY:"sb_secret_test"},false),false);
+ assert.equal(deletionConfigured({ACCOUNT_DELETION_ENABLED:"true",SUPABASE_URL:"https://example.supabase.co",SUPABASE_SECRET_KEY:"sb_secret_test"},true),true);
+});
+
+test("a failed local purge rolls back every content deletion before provider removal",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);
+  const post=await db.savePost("owner-alice-private",input("Keep until atomic purge",true));await db.moderatePost(post.id,"approve");
+  await db.addComment("owner-alice-private",post.id,"Must survive rollback.");
+  sqlite.exec("CREATE TRIGGER fail_purge BEFORE DELETE ON community_profiles BEGIN SELECT RAISE(ABORT,'fixture storage failure'); END;");
+  let deleted=false;
+  await assert.rejects(deleteAccount(db.db,"owner-alice-private",{stopBilling:async()=>{},revokeAuth:async()=>{},deleteAuth:async()=>{deleted=true;}}),/fixture/);
+  assert.equal(deleted,false);assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM community_comments").get()!.n,1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM community_posts").get()!.n,1);
+  assert.equal(sqlite.prepare("SELECT auth_subject FROM billing_accounts").get()!.auth_subject,"owner-alice-private");
+  assert.equal(sqlite.prepare("SELECT state FROM account_deletions").get()!.state,"pending");
+ }finally{sqlite.close();}
+});
+
+test("pending deletion hides comments and refuses new reports/follows before purge",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);
+  const post=await db.savePost("owner-bob-private",input("Unrelated public post",true));await db.moderatePost(post.id,"approve");
+  const comment=await db.addComment("owner-alice-private",post.id,"Pending-deletion comment.");
+  await beginAccountDeletion(db.db,"owner-alice-private");
+  assert.equal((await db.listComments(post.id)).length,0);
+  await assert.rejects(reportCommunityContent(db,"owner-bob-private","comment",comment.id,"This target is no longer public."),/not found/);
+  await assert.rejects(db.toggleFollow("owner-bob-private","alice"),/not found/);
+ }finally{sqlite.close();}
+});
+
+test("late subscription credit events cannot reactivate an account after deletion begins",async()=>{
+ const {db,sqlite}=database();try{
+  await owners(db);billingOwner(sqlite);await beginAccountDeletion(db.db,"owner-alice-private");
+  await db.db.batch([db.db.prepare("INSERT INTO stripe_webhook_events(event_id,event_type,received_at) VALUES('late-checkout','checkout.session.completed',0)"),...initialSubscriptionStatements(db.db,"billing-alice","cs_late","sub_late","cus_late","pro",1500,"late-checkout",1)]);
+  const account=sqlite.prepare("SELECT plan_key,credit_balance,stripe_subscription_id FROM billing_accounts").get()!;
+  assert.equal(account.plan_key,"free");assert.equal(account.credit_balance,20);assert.equal(account.stripe_subscription_id,null);
+ }finally{sqlite.close();}
+});
+
+test("artifact purge removes only artifacts bound to the deleted billing owner",()=>{
+ const make=(id:string)=>({id,name:"Fixture",artifactType:"shader_pack"} as Project);
+ try{
+  saveArtifact(make("owner-artifact"),new Uint8Array([1]));bindArtifactOwner("owner-artifact","owner");
+  saveArtifact(make("other-artifact"),new Uint8Array([2]));bindArtifactOwner("other-artifact","other");
+  removeAccountArtifacts("owner");assert.equal(getArtifact("owner-artifact"),undefined);assert.equal(getArtifact("other-artifact")?.artifact[0],2);
+ }finally{removeAccountArtifacts("owner");removeAccountArtifacts("other");}
+});
+
+test("cached artifacts in another isolate remain inaccessible once the durable deletion marker exists",async()=>{
+ const {db,sqlite}=database();const id="77777777-7777-4777-8777-777777777777";
+ try{
+  await owners(db);billingOwner(sqlite);
+  saveArtifact({id,name:"Fixture",artifactType:"resource_pack"} as Project,new Uint8Array([1]));bindArtifactOwner(id,"billing-alice");
+  const load=async()=>({BILLING_DB:db.db});
+  assert.equal((await downloadStoredArtifact(id,load)).status,200);
+  await beginAccountDeletion(db.db,"owner-alice-private");
+  assert.ok(getArtifact(id),"simulate a still-cached entry in a different isolate");
+  assert.equal((await downloadStoredArtifact(id,load)).status,404);assert.equal(getArtifact(id),undefined);
+  saveArtifact({id,name:"Legacy",artifactType:"resource_pack"} as Project,new Uint8Array([1]));
+  assert.equal((await downloadStoredArtifact(id,load)).status,404,"untagged legacy artifacts fail closed");
+ }finally{removeAccountArtifacts("billing-alice");sqlite.close();}
 });

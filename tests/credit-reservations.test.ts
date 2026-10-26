@@ -29,7 +29,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql"])
+  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql"])
     sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
   sqlite.prepare(`INSERT INTO billing_accounts(id,credit_balance,allowance_credits,created_at,updated_at)
     VALUES('owner',100,100,0,0),('other',100,100,0,0)`).run();

@@ -12,3 +12,7 @@
 .account-primary { background: #5090ff; border-color: #5090ff; }
 .account-notice { background: #151e2e; border-color: #344766; }
 .account-card input:focus { outline-color: #5090ff; }
+
+.account-card .deletion-checkbox { display:flex; gap:10px; align-items:flex-start; font-size:12px; line-height:1.7; }
+.account-card .deletion-checkbox input { width:16px; margin-top:4px; flex-shrink:0; }
+.account-card .account-danger { background:#8a3544; border-color:#b45260; }

@@ -1,5 +1,15 @@
 # Change notes
 
+## v0.19.0 - 2026-10-26
+
+- Add profile/comment reporting, searchable moderation, hide/restore controls and transactional action records. Hidden creators and their public work/screenshots disappear; their accounts cannot override the restriction.
+- Add a disabled-by-default self-service deletion flow with recent verified sign-in, typed confirmation and disclosed billing/data retention. Pending deletion blocks access and new generation/checkout activity while retryable cleanup removes owned community data, cancels billing and removes provider sign-in.
+- Guard late billing events, in-flight writes and artifact downloads against deletion races. Preserve unrelated users and disconnected financial records; unowned legacy artifacts must be regenerated.
+- Document setup, recovery, retention limits and disposable staging acceptance in docs/community-moderation-and-deletion.md. Apply D1 migrations 0007/0008 before serving this release.
+
+Validation: 221 tests and TypeScript pass; isolated production build checked. Local browser report/deletion controls and anonymous/cross-origin API guards checked. Destructive provider calls use fixtures/mocked network only; local deletion remains disabled. No production migration/deployment, real account deletion or live subscription cancellation. Separate staging provider/billing acceptance and retention policy remain required before enabling production deletion.
+
+
 ## v0.18.2 - 2026-10-26
 
 - Refresh saved creator-profile state immediately so a newly registered handle locks without a page reload. Reproduce the stale editable field and verify the corrected first-save behavior with a second confirmed account.

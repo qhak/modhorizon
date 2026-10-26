@@ -7,7 +7,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { GoogleIcon } from "@/components/brand-icons";
 import BillingDashboard from "./billing-dashboard";
 
-type AuthStatus = { configured:boolean; googleEnabled:boolean; user:{id:string;email:string}|null };
+type AuthStatus = { configured:boolean; googleEnabled:boolean; user:{id:string;email:string}|null; deletionPending?:boolean };
 export default function AccountPage() {
   const [status,setStatus] = useState<AuthStatus|null>(null);
   const [mode,setMode] = useState("login");
@@ -20,6 +20,7 @@ export default function AccountPage() {
     if(query.get("mode")==="reset")setMode("reset");
     if(query.get("error"))setNotice("That sign-in link could not be used. Please try again or request a new link.");
     fetch("/api/auth/status",{cache:"no-store"}).then(async res=>{if(!res.ok)throw new Error();return res.json();}).then(async data=>{
+      if(data.deletionPending){window.location.assign("/account/delete");return;}
       if(data.user){
         const linked=await fetch("/api/billing/session",{method:"POST"});
         if(!linked.ok)setNotice("You are signed in, but your credit balance could not be loaded. Please refresh before purchasing.");
@@ -56,6 +57,7 @@ export default function AccountPage() {
         <button className="account-secondary" disabled={busy} onClick={()=>void portal()}>Manage subscription</button>
         <button className="account-text" disabled={busy} onClick={()=>{setMode("forgot");setEmail(status.user!.email);}}>Send password reset email</button>
         <button className="account-text" disabled={busy} onClick={()=>void action("logout")}>Sign out</button>
+        <Link className="account-text" href="/account/delete">Delete account</Link>
         {mode==="forgot"&&<button className="account-secondary" disabled={busy} onClick={()=>void action("forgot")}>Send reset link to {email}</button>}
       </>:<>
         {mode!=="forgot"&&mode!=="reset"&&<><button className="account-secondary account-google" disabled={busy||!status.googleEnabled} onClick={()=>void action("google")}><GoogleIcon size={19} />{status.googleEnabled?"Continue with Google":"Google sign-in coming soon"}</button><div className="account-divider">or use email</div></>}

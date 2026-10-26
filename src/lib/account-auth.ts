@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { confirmedAccountUser, resolveAccountAppOrigin } from "./account-auth-policy";
+import type { D1Database } from "./billing-db";
 export { resolveAccountIdentity } from "./account-identity";
 
 export type AuthEnvironment = { SUPABASE_URL?: string; SUPABASE_PUBLISHABLE_KEY?: string; AUTH_GOOGLE_ENABLED?: string; APP_ORIGIN?: string };
@@ -26,11 +27,20 @@ export async function accountAuthClient() {
     },
   });
 }
-export async function verifiedAuthUser() {
+export async function providerVerifiedAuthUser() {
   if (!(await authConfiguration()).configured) return null;
   const supabase = await accountAuthClient();
   const { data, error } = await supabase.auth.getUser();
   return error ? null : confirmedAccountUser(data.user);
+}
+export async function accountDeletionPending(ownerId:string) {
+  const env=(await getCloudflareContext({async:true})).env as unknown as {BILLING_DB?:D1Database};
+  if(!env.BILLING_DB) throw new Error("Account storage unavailable.");
+  return !!await env.BILLING_DB.prepare("SELECT 1 FROM account_deletions WHERE owner_id=?").bind(ownerId).first();
+}
+export async function verifiedAuthUser() {
+  const user=await providerVerifiedAuthUser();
+  return user && !await accountDeletionPending(user.id) ? user : null;
 }
 
 export async function accountAppOrigin(request: Request) {

@@ -14,6 +14,7 @@ import { assertStripeEventMode, stripeMode, stripeReadiness } from "./stripe-con
 import { resolveAccountIdentity, verifiedAuthUser } from "./account-auth";
 import { subscriptionCancellationState } from "./plan-downgrade";
 import { testingModelAllowed } from "./model-access";
+import { expireDeletionCheckout, guardDeletedBillingEvent } from "./account-deletion-billing";
 import { authorizedBillingAccountId } from "./account-identity";
 export { BillingError } from "./billing-errors";
 
@@ -259,7 +260,13 @@ export async function createStripeCheckout(request: Request, account: BillingAcc
   } else {
     throw new BillingError("Choose a valid plan or top-up quantity.", 400);
   }
+  const deletionStarted = async () => env.BILLING_DB ? !!await env.BILLING_DB.prepare("SELECT 1 FROM billing_accounts WHERE id=? AND deletion_requested_at IS NOT NULL").bind(account.id).first() : false;
+  if(await deletionStarted()) throw new BillingError("Account deletion is in progress.",409);
   const session = await stripePost(env, "checkout/sessions", values);
+  if(await deletionStarted()) {
+    if(typeof session.id === "string") await expireDeletionCheckout(env.STRIPE_SECRET_KEY!,session.id);
+    throw new BillingError("Account deletion is in progress; checkout was canceled.",409);
+  }
   if (typeof session.url !== "string") throw new BillingError("Stripe did not return a checkout URL.", 502);
   return { url: session.url };
 }
@@ -308,6 +315,8 @@ export async function processStripeWebhook(request: Request) {
     return { received: true, duplicate: !results[0]?.meta?.changes };
   };
 
+  if(await guardDeletedBillingEvent(db,env.STRIPE_SECRET_KEY,eventType,item)) return commit();
+
   if (eventType === "checkout.session.completed" || eventType === "checkout.session.async_payment_succeeded") {
     const metadata = object(item.metadata), accountId = metadata.account_id;
     const customerId = stripeId(item.customer), subId = stripeId(item.subscription);
@@ -330,21 +339,21 @@ export async function processStripeWebhook(request: Request) {
     }
   } else if (eventType === "invoice.payment_failed") {
     const subId = subscriptionIdFromInvoice(item);
-    if (subId) return commit([db.prepare("UPDATE billing_accounts SET subscription_status='past_due',updated_at=? WHERE stripe_subscription_id=? AND changes()=1").bind(now, subId)]);
+    if (subId) return commit([db.prepare("UPDATE billing_accounts SET subscription_status='past_due',updated_at=? WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1").bind(now, subId)]);
   } else if (eventType === "customer.subscription.deleted") {
     const subId = stripeId(item.id);
     if (subId) return commit([
       db.prepare(`INSERT INTO credit_ledger(id,account_id,delta,reason,stripe_event_id,created_at)
         SELECT ?,id,?-allowance_credits,'subscription_cancel_allowance',?,? FROM billing_accounts
-        WHERE stripe_subscription_id=? AND changes()=1`)
+        WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1`)
         .bind(randomUUID(),BILLING_PLANS.free.credits,eventId,now,subId),
-      db.prepare(`UPDATE billing_accounts SET plan_key='free',credit_balance=?+purchased_credits,allowance_credits=?,allowance_period=allowance_period+1,free_week_start=?,stripe_subscription_id=NULL,subscription_status='canceled',cancel_at_period_end=0,current_period_end=NULL,updated_at=? WHERE stripe_subscription_id=? AND changes()=1`)
+      db.prepare(`UPDATE billing_accounts SET plan_key='free',credit_balance=?+purchased_credits,allowance_credits=?,allowance_period=allowance_period+1,free_week_start=?,stripe_subscription_id=NULL,subscription_status='canceled',cancel_at_period_end=0,current_period_end=NULL,updated_at=? WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1`)
         .bind(BILLING_PLANS.free.credits,BILLING_PLANS.free.credits,weekStart(now),now,subId),
     ]);
   } else if (eventType === "customer.subscription.updated") {
     const subId = stripeId(item.id), status = item.status;
     const state = subscriptionCancellationState(item);
-    if (subId && typeof status === "string") return commit([db.prepare("UPDATE billing_accounts SET subscription_status=?,cancel_at_period_end=?,current_period_end=?,updated_at=? WHERE stripe_subscription_id=? AND changes()=1")
+    if (subId && typeof status === "string") return commit([db.prepare("UPDATE billing_accounts SET subscription_status=?,cancel_at_period_end=?,current_period_end=?,updated_at=? WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1")
       .bind(status, state.scheduled ? 1 : 0, state.periodEnd, now, subId)]);
   }
   return commit();

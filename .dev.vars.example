@@ -23,6 +23,13 @@ AI_PROVIDER=openai-compatible
 # Community publishing: trusted Supabase user IDs, comma-separated. Empty disables approval.
 # COMMUNITY_MODERATOR_IDS=
 
+# Self-service deletion stays disabled until disposable staging acceptance passes.
+# Server-only admin secret; never use NEXT_PUBLIC_ or commit a real value.
+# SUPABASE_SECRET_KEY=
+ACCOUNT_DELETION_ENABLED=false
+# Development mode additionally requires ALLOW_LOCAL_ACCOUNT_DELETION=true.
+# ALLOW_LOCAL_ACCOUNT_DELETION=false
+
 # Optional explicit Stripe customer portal configuration.
 # STRIPE_PORTAL_CONFIGURATION_ID=bpc_...
 

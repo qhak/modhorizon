@@ -8,7 +8,7 @@ type Row = Record<string, unknown>;
 const postSelect = `SELECT p.id,p.slug,p.title,p.summary,p.description,p.instructions,p.kind,p.target,p.version,p.tags,p.cover_image,p.download_url,p.testing,p.status,p.created_at,p.updated_at,p.published_at,
   a.handle,a.display_name,
   (SELECT COUNT(*) FROM community_likes l WHERE l.post_id=p.id) AS likes,
-  (SELECT COUNT(*) FROM community_comments c WHERE c.post_id=p.id AND c.hidden=0) AS comments
+  (SELECT COUNT(*) FROM community_comments c JOIN community_profiles ca ON ca.owner_id=c.owner_id WHERE c.post_id=p.id AND c.hidden=0 AND ca.moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=ca.owner_id)) AS comments
   FROM community_posts p JOIN community_profiles a ON a.owner_id=p.owner_id`;
 function post(row: Row): CommunityPost {
   return { id: String(row.id), slug: String(row.slug), title: String(row.title), summary: String(row.summary), description: String(row.description), instructions: String(row.instructions),
@@ -27,27 +27,29 @@ export class CommunityDatabase {
   }
   async profileForOwner(ownerId: string): Promise<CommunityProfile | null> {
     const row = await this.db.prepare("SELECT handle FROM community_profiles WHERE owner_id=?").bind(ownerId).first<Row>();
-    return row ? this.getProfile(String(row.handle)) : null;
+    return row ? this.getProfile(String(row.handle),true) : null;
   }
   async requireProfile(ownerId: string) {
     const value = await this.profileForOwner(ownerId);
     if (!value) throw new CommunityError("Create your public creator profile first.", 409);
+    if(value.moderationStatus === "hidden") throw new CommunityError("Your community profile is hidden by moderation.",403);
     return value;
   }
-  async getProfile(handle: string): Promise<CommunityProfile | null> {
+  async getProfile(handle: string, includeHidden = false): Promise<CommunityProfile | null> {
     if (!/^[a-z][a-z0-9_]{2,23}$/.test(handle)) return null;
-    const row = await this.db.prepare(`SELECT a.handle,a.display_name,a.bio,a.website,a.created_at,
+    const row = await this.db.prepare(`SELECT a.handle,a.display_name,a.bio,a.website,a.created_at,a.moderation_status,
       (SELECT COUNT(*) FROM community_posts p WHERE p.owner_id=a.owner_id AND p.status='published') AS showcase_count,
       (SELECT COUNT(*) FROM community_follows f WHERE f.target_owner_id=a.owner_id) AS follower_count,
       (SELECT COUNT(*) FROM community_follows f WHERE f.owner_id=a.owner_id) AS following_count
-      FROM community_profiles a WHERE a.handle=?`).bind(handle).first<Row>();
+      FROM community_profiles a WHERE a.handle=? AND (?=1 OR (a.moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=a.owner_id)))`).bind(handle,includeHidden?1:0).first<Row>();
     return row ? { handle: String(row.handle), displayName: String(row.display_name), bio: String(row.bio), website: String(row.website), createdAt: Number(row.created_at),
-      showcaseCount: Number(row.showcase_count), followerCount: Number(row.follower_count), followingCount: Number(row.following_count) } : null;
+      moderationStatus: row.moderation_status as "active"|"hidden", showcaseCount: Number(row.showcase_count), followerCount: Number(row.follower_count), followingCount: Number(row.following_count) } : null;
   }
   async setProfile(ownerId: string, value: unknown): Promise<CommunityProfile> {
     const input = validateCommunityProfile(value);
     await this.rateLimit(ownerId,"profile",20);
     const current = await this.profileForOwner(ownerId);
+    if(current?.moderationStatus === "hidden") throw new CommunityError("Your profile is hidden by moderation. Editing is restricted.",403);
     if (current && current.handle !== input.handle) throw new CommunityError("Public handles cannot be changed after creation, so shared links stay stable.",409);
     const taken = await this.db.prepare("SELECT owner_id FROM community_profiles WHERE handle=? AND owner_id!=?").bind(input.handle,ownerId).first();
     if (taken) throw new CommunityError("That handle is already taken.",409);
@@ -65,7 +67,7 @@ export class CommunityDatabase {
     return { profile, posts: (result.results || []).map(post) };
   }
   async listPosts(options: CommunityListOptions = {}): Promise<{ posts: CommunityPost[]; nextCursor: string | null }> {
-    const where = ["p.status='published'"];
+    const where = ["p.status='published'", "a.moderation_status='active'", "NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=a.owner_id)"];
     const args: unknown[] = [];
     if (options.kind) { where.push("p.kind=?"); args.push(options.kind.slice(0,30)); }
     if (options.author) { where.push("a.handle=?"); args.push(options.author.slice(0,24)); }
@@ -84,12 +86,12 @@ export class CommunityDatabase {
     return { posts: rows.slice(0,limit).map(post), nextCursor: rows.length > limit && last ? `${last.created_at}:${last.id}` : null };
   }
   async sitemapPosts(): Promise<CommunityPost[]> {
-    const result = await this.db.prepare(`${postSelect} WHERE p.status='published' ORDER BY p.updated_at DESC LIMIT 1000`).all<Row>();
+    const result = await this.db.prepare(`${postSelect} WHERE p.status='published' AND a.moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=a.owner_id) ORDER BY p.updated_at DESC LIMIT 1000`).all<Row>();
     return (result.results || []).map(post);
   }
   async getPost(id: string, ownerId?: string): Promise<CommunityPost | null> {
     communityId(id);
-    const row = await this.db.prepare(`${postSelect} WHERE p.id=? AND (p.status='published' OR p.owner_id=?)`).bind(id,ownerId || "").first<Row>();
+    const row = await this.db.prepare(`${postSelect} WHERE p.id=? AND ((p.status='published' AND a.moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=a.owner_id)) OR p.owner_id=?)`).bind(id,ownerId || "").first<Row>();
     if (!row) return null;
     const result = post(row);
     if (ownerId) result.viewerLiked = !!await this.db.prepare("SELECT 1 FROM community_likes WHERE owner_id=? AND post_id=?").bind(ownerId,id).first();
@@ -140,7 +142,7 @@ export class CommunityDatabase {
   }
   async listComments(id: string): Promise<CommunityComment[]> {
     await this.requirePublished(id);
-    const result=await this.db.prepare(`SELECT c.id,c.text,c.created_at,a.handle,a.display_name FROM community_comments c JOIN community_profiles a ON a.owner_id=c.owner_id WHERE c.post_id=? AND c.hidden=0 ORDER BY c.created_at,c.id LIMIT 100`).bind(id).all<Row>();
+    const result=await this.db.prepare(`SELECT c.id,c.text,c.created_at,a.handle,a.display_name FROM community_comments c JOIN community_profiles a ON a.owner_id=c.owner_id WHERE c.post_id=? AND c.hidden=0 AND a.moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=a.owner_id) ORDER BY c.created_at,c.id LIMIT 100`).bind(id).all<Row>();
     return (result.results||[]).map(row=>({id:String(row.id),text:String(row.text),createdAt:Number(row.created_at),author:{handle:String(row.handle),displayName:String(row.display_name)}}));
   }
   async addComment(ownerId: string,id: string,value: unknown): Promise<CommunityComment> {
@@ -152,7 +154,7 @@ export class CommunityDatabase {
   }
   async toggleFollow(ownerId: string,handle: string) {
     await this.requireProfile(ownerId);
-    const target=await this.db.prepare("SELECT owner_id FROM community_profiles WHERE handle=?").bind(handle).first<Row>();
+    const target=await this.db.prepare("SELECT owner_id FROM community_profiles WHERE handle=? AND moderation_status='active' AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.owner_id=community_profiles.owner_id)").bind(handle).first<Row>();
     if(!target) throw new CommunityError("Creator not found.",404);
     if(target.owner_id===ownerId) throw new CommunityError("You cannot follow your own profile.");
     await this.rateLimit(ownerId,"follow",60);

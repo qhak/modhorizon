@@ -42,6 +42,7 @@ export function ProfileEditor() {
   }
   if (error) return <SignIn error={error} />;
   if (!me) return <p className="cm-notice" role="status">Loading your creator profile…</p>;
+  if(me.profile?.moderationStatus === "hidden") return <section className="cm-signin"><h1>Profile hidden</h1><p>Your profile has been hidden by moderation. Editing and posting are restricted until it is restored.</p><Link href="/community">Back to your showcases</Link></section>;
   return <><header className="cm-form-heading"><span className="cm-eyebrow">YOUR PUBLIC PROFILE</span><h1>Edit your public profile</h1><p>Choose how you appear in the community. Your account email, private projects, prompts, and build logs are never added to your public profile.</p></header>
     <div className="cm-form-layout"><form className="cm-form" onSubmit={submit}>
       <div className="cm-form-columns"><label>Creator handle<input value={handle} disabled={busy || !!me.profile} onChange={e => setHandle(e.target.value.toLowerCase())} required pattern="[a-z][a-z0-9_]{2,23}" minLength={3} maxLength={24} placeholder="your_creator_name" /><span>{me.profile ? "Your permanent public profile address." : "3–24 lowercase letters, numbers or underscores, starting with a letter. Your handle cannot be changed after creation."}</span></label>
