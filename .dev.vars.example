@@ -15,6 +15,12 @@ AI_PROVIDER=openai-compatible
 # STRIPE_PRICE_PRO=price_...
 # STRIPE_PRICE_STUDIO=price_...
 
+# Rewarded Google Ad Manager web ads are disabled unless both values are set.
+# Before enabling, create a rewarded web ad unit and configure a Google-certified
+# consent message/CMP for users in the UK, EEA, and Switzerland.
+# REWARDED_ADS_ENABLED=false
+# GAM_REWARDED_AD_UNIT_PATH=/NETWORK_CODE/AD_UNIT_CODE
+
 # Dedicated managed accounts (runtime bindings, not NEXT_PUBLIC_ build variables).
 # SUPABASE_URL=https://PROJECT.supabase.co
 # SUPABASE_PUBLISHABLE_KEY=sb_publishable_...

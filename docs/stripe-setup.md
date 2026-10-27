@@ -33,6 +33,16 @@ In the Stripe Dashboard, use the **live account** for the owner's requested live
 
 The application uses the plan and credit amounts from `src/lib/billing-catalog.ts`; Stripe is only the payment processor. Do not create a Stripe price for the manual credit pack: checkout creates its one-time amount server-side from the subscriber's plan rate.
 
+### Promotion codes
+
+Subscription Checkout enables Stripe's promotion-code field. Create coupons and
+customer-facing promotion codes in the matching Stripe account and mode, then
+verify eligibility, expiry, redemption limits and the resulting invoice in a
+separate test-mode environment before advertising a code. Credit top-up Checkout
+does not accept promotion codes; the server validates the full expected amount
+before granting credits. There is no in-app discount-code administration or
+reporting screen.
+
 ## 2. Configure local secrets
 
 Create `.dev.vars` in the project root (it is gitignored) with the live values:

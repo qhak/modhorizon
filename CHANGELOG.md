@@ -1,5 +1,13 @@
 # Change notes
 
+## v0.20.0 - 2026-10-27
+
+- Add an opt-in Google Ad Manager rewarded web ad flow for verified Free accounts, capped at five completed ads per UTC day. Each completion grants one separate credit that expires after seven days; generation spends weekly or monthly allowance first, then ad rewards, then purchased credits.
+- Bind one-time ad claims to the signed-in account, reject replayed rewards, include ad credits in billing history and account deletion, and safely restore unexpired ad credits after refunded or partially used generation.
+- Keep ad serving disabled until the server feature flag and valid GAM ad-unit path are configured. Document publisher setup and the UK, EEA and Swiss consent gate. Subscription Checkout displays Stripe promotion codes; top-up Checkout remains amount-validated without discounts.
+
+Validation: 225 tests, TypeScript check, and Next.js production build pass. No live ads, production migration or deployment was run. Google Ad Manager network/ad-unit setup, a certified consent flow for relevant regions, and real browser/ad-fill acceptance remain outstanding. GPT web completion is client-reported and can be forged by a determined client; account caps and one-use server claims limit replay but do not provide cryptographic completion proof.
+
 ## v0.19.1 - 2026-10-27
 
 - Consolidate the current release baseline, production launch gates, verification evidence and broader capability gaps in `docs/release-readiness.md`.

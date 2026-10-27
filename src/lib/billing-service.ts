@@ -16,6 +16,7 @@ import { subscriptionCancellationState } from "./plan-downgrade";
 import { testingModelAllowed } from "./model-access";
 import { expireDeletionCheckout, guardDeletedBillingEvent } from "./account-deletion-billing";
 import { authorizedBillingAccountId } from "./account-identity";
+import { expireRewardedAdCredits } from "./rewarded-ads";
 export { BillingError } from "./billing-errors";
 
 export const BILLING_SESSION_COOKIE = "mh_session";
@@ -29,15 +30,17 @@ type BillingEnv = {
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_STUDIO?: string;
   STRIPE_PORTAL_CONFIGURATION_ID?: string;
+  REWARDED_ADS_ENABLED?: string;
+  GAM_REWARDED_AD_UNIT_PATH?: string;
 };
 type BillingAccountRow = {
   auth_subject: string | null; auth_email: string | null;
-  id: string; plan_key: PlanId; credit_balance: number; free_week_start: number; allowance_credits: number; purchased_credits: number;
+  id: string; plan_key: PlanId; credit_balance: number; free_week_start: number; allowance_credits: number; purchased_credits: number; rewarded_ad_credits: number;
   stripe_subscription_id: string | null; subscription_status: string; cancel_at_period_end: number; current_period_end: number | null;
 };
 export type BillingAccount = {
   authenticated?: boolean; email?: string | null; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: number | null;
-  id: string; plan: PlanId; credits: number; subscriptionStatus: string; allowanceCredits?: number; purchasedCredits?: number;
+  id: string; plan: PlanId; credits: number; subscriptionStatus: string; allowanceCredits?: number; purchasedCredits?: number; rewardedAdCredits?: number;
 };
 
 export async function billingEnv(): Promise<BillingEnv> {
@@ -69,7 +72,7 @@ function weekStart(now: number) {
 
 async function findAccount(db: D1Database, token: string | undefined) {
   if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
-  const row = await db.prepare(`SELECT a.id, a.plan_key, a.credit_balance, a.free_week_start, a.allowance_credits, a.purchased_credits, a.auth_subject, a.auth_email,
+  const row = await db.prepare(`SELECT a.id, a.plan_key, a.credit_balance, a.free_week_start, a.allowance_credits, a.purchased_credits, a.rewarded_ad_credits, a.auth_subject, a.auth_email,
       a.stripe_subscription_id, a.subscription_status, a.cancel_at_period_end, a.current_period_end
     FROM billing_sessions s JOIN billing_accounts a ON a.id=s.account_id
     WHERE s.token_hash=? AND s.expires_at>?`).bind(tokenHash(token), Date.now()).first<BillingAccountRow>();
@@ -89,7 +92,7 @@ async function refreshFreeAllowance(db: D1Database, row: BillingAccountRow) {
   }
 }
 function serializeAccount(row: BillingAccountRow): BillingAccount {
-  return { cancelAtPeriodEnd: Boolean(row.cancel_at_period_end), currentPeriodEnd: row.current_period_end, id: row.id, plan: row.plan_key, credits: Number(row.credit_balance), subscriptionStatus: row.subscription_status, allowanceCredits: Number(row.allowance_credits), purchasedCredits: Number(row.purchased_credits), authenticated: Boolean(row.auth_subject), email: row.auth_email };
+  return { cancelAtPeriodEnd: Boolean(row.cancel_at_period_end), currentPeriodEnd: row.current_period_end, id: row.id, plan: row.plan_key, credits: Number(row.credit_balance), subscriptionStatus: row.subscription_status, allowanceCredits: Number(row.allowance_credits), purchasedCredits: Number(row.purchased_credits), rewardedAdCredits: Number(row.rewarded_ad_credits), authenticated: Boolean(row.auth_subject), email: row.auth_email };
 }
 
 async function resolveRequestAccount(db: D1Database, request: Request) {
@@ -104,11 +107,12 @@ export async function accountFromRequest(request: Request) {
   const { row } = await resolveRequestAccount(db, request);
   if (!row) throw new BillingError("Your session has expired. Refresh the page and try again.", 401);
   await refreshFreeAllowance(db, row);
+  await expireRewardedAdCredits(db, row.id);
   const fresh = await findAccountById(db, row.id);
   return { env, db, account: serializeAccount(fresh ?? row) };
 }
 async function findAccountById(db: D1Database, id: string) {
-  return db.prepare(`SELECT id,plan_key,credit_balance,free_week_start,allowance_credits,purchased_credits,stripe_subscription_id,subscription_status,auth_subject,auth_email,cancel_at_period_end,current_period_end
+  return db.prepare(`SELECT id,plan_key,credit_balance,free_week_start,allowance_credits,purchased_credits,rewarded_ad_credits,stripe_subscription_id,subscription_status,auth_subject,auth_email,cancel_at_period_end,current_period_end
     FROM billing_accounts WHERE id=?`).bind(id).first<BillingAccountRow>();
 }
 

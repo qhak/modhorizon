@@ -8,6 +8,7 @@ import { paidTopupStatements } from "../src/lib/credit-purchases";
 import { validateTopup, minimumTopupCredits, topupAmountCents } from "../src/lib/topup-pricing";
 import { downgradeComplimentaryAccount, subscriptionCancellationState } from "../src/lib/plan-downgrade";
 import { holdCredits, completeCreditReservation } from "../src/lib/credit-reservations";
+import { beginRewardedAdClaim, grantRewardedAdClaim, expireRewardedAdCredits } from "../src/lib/rewarded-ads";
 
 // Execute the production SQL and migrations against SQLite, including transaction rollback.
 class Statement implements D1Statement {
@@ -29,7 +30,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql"])
+  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql"])
     sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
   sqlite.prepare(`INSERT INTO billing_accounts(id,credit_balance,allowance_credits,created_at,updated_at)
     VALUES('owner',100,100,0,0),('other',100,100,0,0)`).run();
@@ -152,6 +153,70 @@ test("old allowance refunds never inflate a new weekly allowance", async () => {
     sqlite.exec("UPDATE billing_accounts SET allowance_period=allowance_period+1,allowance_credits=10,credit_balance=10 WHERE id='owner'");
     await Promise.all([completeCreditReservation(db,"owner",id,"refunded"),completeCreditReservation(db,"owner",id,"refunded")]);
     assert.equal(balance(),10);
+  } finally {sqlite.close();}
+});
+
+test("rewarded ads enforce five grants per UTC day and cannot replay a claim", async () => {
+  const {db,sqlite,balance}=database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET auth_subject='verified-user' WHERE id='owner'").run();
+    const now=Date.UTC(2026,9,27,12);
+    for(let i=0;i<5;i++) {
+      const claim=await beginRewardedAdClaim(db,"owner",now+i);
+      assert.equal((await grantRewardedAdClaim(db,"owner",claim.id,now+i)).granted,true);
+      assert.equal((await grantRewardedAdClaim(db,"owner",claim.id,now+i)).granted,false);
+    }
+    await assert.rejects(beginRewardedAdClaim(db,"owner",now+10),/five-ad limit/);
+    assert.equal(balance(),105);
+    assert.equal(sqlite.prepare("SELECT rewarded_ad_credits FROM billing_accounts WHERE id='owner'").get()!.rewarded_ad_credits,5);
+  } finally {sqlite.close();}
+});
+
+test("an ad started before UTC midnight can still grant inside its ten-minute claim window", async () => {
+  const {db,sqlite,balance}=database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET auth_subject='verified-user' WHERE id='owner'").run();
+    const beforeMidnight=Date.UTC(2026,9,27,23,59,59);
+    const claim=await beginRewardedAdClaim(db,"owner",beforeMidnight);
+    assert.equal((await grantRewardedAdClaim(db,"owner",claim.id,beforeMidnight+2_000)).granted,true);
+    assert.equal(balance(),101);
+  } finally {sqlite.close();}
+});
+
+test("reward credits expire after seven days and leave the free allowance untouched", async () => {
+  const {db,sqlite,balance,ledger}=database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET auth_subject='verified-user' WHERE id='owner'").run();
+    const claim=await beginRewardedAdClaim(db,"owner",1000);
+    await grantRewardedAdClaim(db,"owner",claim.id,1000);
+    assert.equal(balance(),101);
+    assert.equal(await expireRewardedAdCredits(db,"owner",1000+7*24*60*60*1000),1);
+    assert.equal(balance(),100);
+    const buckets=sqlite.prepare("SELECT allowance_credits,rewarded_ad_credits FROM billing_accounts WHERE id='owner'").get()!;
+    assert.equal(buckets.allowance_credits,100); assert.equal(buckets.rewarded_ad_credits,0);
+    assert.equal(ledger().filter(row=>row.reason==="rewarded_ad_expiry").length,1);
+  } finally {sqlite.close();}
+});
+
+test("reward credits are spent after allowance and refunded only while their lot remains valid", async () => {
+  const {db,sqlite,balance,ledger}=database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET credit_balance=0,allowance_credits=0,purchased_credits=0 WHERE id='owner'").run();
+    const now=Date.now();
+    sqlite.prepare(`INSERT INTO rewarded_ad_claims(id,account_id,day_key,state,credits_remaining,created_at,updated_at,expires_at,granted_at)
+      VALUES('claim_a','owner','2026-10-27','granted',1,?,?,?,?)`).run(now,now,now+7*24*60*60*1000,now);
+    sqlite.prepare(`INSERT INTO rewarded_ad_claims(id,account_id,day_key,state,credits_remaining,created_at,updated_at,expires_at,granted_at)
+      VALUES('claim_b','owner','2026-10-27','granted',1,?,?,?,?)`).run(now,now,now+7*24*60*60*1000,now);
+    assert.equal(balance(),2);
+    const hold=(await holdCredits(db,"owner","model",2))!;
+    assert.equal(balance(),0);
+    await completeCreditReservation(db,"owner",hold,"refunded");
+    assert.equal(balance(),2);
+    const second=(await holdCredits(db,"owner","model",2))!;
+    sqlite.prepare("UPDATE rewarded_ad_claims SET expires_at=? WHERE id IN ('claim_a','claim_b')").run(Date.now()-1);
+    await completeCreditReservation(db,"owner",second,"refunded");
+    assert.equal(balance(),0);
+    assert.equal(ledger().reduce((sum,row)=>sum+Number(row.delta),0),-2);
   } finally {sqlite.close();}
 });
 

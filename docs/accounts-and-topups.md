@@ -10,13 +10,21 @@ Implementation scope agreed 22 October 2026:
 - Derive plan and rates on the server, create one-time Stripe Checkout dynamically, and grant credits only after a valid signed paid event with matching currency and amount. Duplicate deliveries must not grant twice.
 - Monthly/free allowance and purchased credits are separate. Spend allowance first. Monthly allowance resets at renewal; purchased credits survive renewals, cancellation, and free allowance resets.
 - Reservations remember the source balances and allowance period so refunds cannot revive expired monthly credits.
-- Annual billing and rewarded ads are outside this implementation.
+- Free users may opt in to up to five rewarded ads per UTC day; a completed ad earns one separate credit that expires seven days after grant. Reward credits are spent after the weekly/monthly allowance and before purchased credits. The integration is disabled until Google Ad Manager and a suitable consent message/CMP are configured.
 
-Validation: price boundary and input tampering tests; SQLite transaction, renewal and hold/refund tests; verified-identity ownership and account-switch tests; auth redirect validation; production build; browser checks of account and pricing screens. Live payment completion remains a user action.
+Validation: price boundary and input tampering tests; SQLite transaction, renewal, ad-credit expiry, daily-cap, idempotent-grant and hold/refund tests; verified-identity ownership and account-switch tests; auth redirect validation; production build; browser checks of account and pricing screens. Live payment completion remains a user action.
 
 External configuration: a dedicated ModHorizon Supabase project, email delivery suitable for real users, allowed app callback/recovery URLs, and a Google OAuth client connected to Supabase. Never store OAuth secrets or user passwords in source or these docs.
 
 ## Verification and rollout status
+
+### Rewarded ads — 27 October 2026
+
+The billing implementation supports opt-in GPT rewarded web ads for signed-in Free accounts. It limits grants to five per UTC day, awards one separate credit per completion, expires the reward after seven days, and allocates allowance before ad rewards and purchased credits. API claims are account-bound, one-use, time-limited and server-capped. Google Publisher Tag's browser completion event is not cryptographically signed, so a determined client can forge completion; do not treat it as high-assurance anti-fraud verification.
+
+To configure Google Ad Manager, first create the publisher network and rewarded web ad unit, then set `REWARDED_ADS_ENABLED=true` and `GAM_REWARDED_AD_UNIT_PATH=/NETWORK_CODE/AD_UNIT_CODE` as server-only runtime values. The ad panel remains hidden unless the feature and valid unit path are configured. Do not enable serving for UK/EEA/Swiss users until a Google-certified CMP or Google Privacy & messaging consent flow is configured and verified. The ad network account, demand, consent message, live ad fill and real-device/browser acceptance remain owner setup tasks. Web ad duration and availability are controlled by demand and are not guaranteed to be 30 seconds.
+
+Google's current rewarded web flow requires clear opt-in and visible reward terms, and Google's policy requires rewards to be non-monetary, non-transferable and usable only on the publisher's platform. See [Google's rewarded web setup](https://support.google.com/admanager/answer/9116812?hl=en), [reward policy](https://support.google.com/admanager/answer/7496282), and [EEA/UK/Swiss consent requirements](https://support.google.com/admanager/answer/13554020?hl=en).
 
 Dedicated Supabase project `mvtetzwggpslczowcfiq` (ModHorizon, London) is configured in local and production runtime values. Google is enabled in Supabase and the application; the owner added the normal and recovery callback URLs. Custom SMTP remains outstanding.
 

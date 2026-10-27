@@ -11,6 +11,8 @@ const labels: Record<string, string> = {
   subscription_cancel_allowance: "Free allowance after subscription ended",
   complimentary_starter_access: "Complimentary Starter allowance",
   complimentary_plan_downgrade: "Free allowance after downgrade",
+  rewarded_ad_grant: "Rewarded ad credit",
+  rewarded_ad_expiry: "Expired rewarded ad credit",
 };
 type HistoryRow = { id: string; delta: number; reason: string; model_id: string | null; created_at: number };
 export async function creditHistory(db: D1Database, accountId: string, cursor: string | null) {

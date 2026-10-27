@@ -59,6 +59,7 @@ test("live checkout uses the supplied plan IDs and live authorization without ma
     assert.equal(call.auth, `Bearer ${live.STRIPE_SECRET_KEY}`);
     assert.equal(call.body.get("line_items[0][price]"), live[`STRIPE_PRICE_${plan.toUpperCase()}` as keyof typeof live]);
     assert.equal(call.body.get("mode"), "subscription");
+    assert.equal(call.body.get("allow_promotion_codes"), "true", "plan checkout accepts Stripe promotion codes");
     assert.equal(call.body.get("subscription_data[metadata][account_id]"), account.id);
   }
   await assert.rejects(() => createStripeCheckout(request, account, { plan: "starter" }, { ...live, STRIPE_WEBHOOK_SECRET: undefined }), /webhook signing secret/);
