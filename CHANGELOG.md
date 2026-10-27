@@ -1,5 +1,12 @@
 # Change notes
 
+## v0.19.1 - 2026-10-27
+
+- Consolidate the current release baseline, production launch gates, verification evidence and broader capability gaps in `docs/release-readiness.md`.
+- Distinguish the pushed v0.19.0 source candidate from `origin/main` v0.15.0 and from a production deployment; record external acceptance still required for identity, billing, generation, community and deletion.
+
+Validation: documentation and version metadata review. No production settings, deployments, migrations or external accounts were changed.
+
 ## v0.19.0 - 2026-10-26
 
 - Add profile/comment reporting, searchable moderation, hide/restore controls and transactional action records. Hidden creators and their public work/screenshots disappear; their accounts cannot override the restriction.
