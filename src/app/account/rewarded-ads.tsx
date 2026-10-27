@@ -138,7 +138,8 @@ export function RewardedAds({ onReward }: { onReward?: () => void }) {
     }
   }
 
-  if (!status?.eligible || !status.enabled) return null;
+  if (!status?.eligible) return null;
+  if (!status.enabled) return <div className="rewarded-ads"><strong>Rewarded ads</strong><p>Free ad rewards are being set up. Check back soon.</p></div>;
   return <div className="rewarded-ads" aria-live="polite">
     <strong>Earn credits with an ad</strong>
     <p>You can choose to watch up to 5 ads per day. Each completed ad earns 1 credit, which expires 7 days after you earn it. Ad length and availability vary. Skipping is always okay.</p>

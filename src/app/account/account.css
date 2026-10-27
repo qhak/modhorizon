@@ -13,6 +13,30 @@
 .account-notice { background: #151e2e; border-color: #344766; }
 .account-card input:focus { outline-color: #5090ff; }
 
+.rewards-card { max-width: 720px; }
+.billing-balances { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.rewards-hub { display:grid; gap:20px; }
+.rewards-balance { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 18px; background:#0c0d11; border:1px solid #292b35; border-radius:14px; color:#a9abba; font-size:13px; }
+.rewards-balance strong { color:#fff; font-size:24px; }
+.free-reward-section { border-top:1px solid #292b35; padding-top:8px; }
+.free-reward-section h2 { margin:16px 0 8px; font-size:20px; }
+.free-reward-section>.account-intro { margin-top:0; }
+.reward-empty { padding:16px; border:1px dashed #393c49; border-radius:12px; color:#a9abba; font-size:13px; }
+.social-reward-card { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px 20px; margin:12px 0; padding:18px; background:#101117; border:1px solid #343645; border-radius:14px; }
+.social-reward-copy { min-width:0; }
+.social-reward-copy h3 { margin:7px 0; font-size:16px; }
+.social-reward-copy p { margin:0; color:#a9abba; font-size:12px; }
+.reward-platform { color:#aab9d2; font-size:11px; }
+.social-profile-link { color:#9fc6ff!important; font-size:12px; }
+.reward-upload { position:relative; display:inline-flex; justify-content:center; align-items:center; grid-column:1/-1; padding:11px 15px; border:1px solid #4c5f80; border-radius:9px; background:#172236; color:#eaf1ff; font-size:13px; cursor:pointer; }
+.reward-upload input { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+.reward-upload:focus-within { outline:2px solid #5090ff; outline-offset:2px; }
+.reward-upload:has(input:disabled) { opacity:.6; cursor:wait; }
+.reward-status { grid-column:1/-1; margin:0; font-size:12px; }
+.reward-approved { color:#8addba; }
+.reward-rejected { color:#ffb9b9; }
+@media(max-width:560px){.social-reward-card{grid-template-columns:1fr}.social-profile-link{grid-row:2}.reward-upload{grid-column:1}.reward-status{grid-column:1}}
+
 .account-card .deletion-checkbox { display:flex; gap:10px; align-items:flex-start; font-size:12px; line-height:1.7; }
 .account-card .deletion-checkbox input { width:16px; margin-top:4px; flex-shrink:0; }
 .account-card .account-danger { background:#8a3544; border-color:#b45260; }

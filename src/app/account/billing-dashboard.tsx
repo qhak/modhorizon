@@ -5,7 +5,7 @@ import { RewardedAds } from "./rewarded-ads";
 
 type Entry = { id: string; credits: number; description: string; modelId: string | null; createdAt: number };
 type Summary = { plan: string; planName: string; balance: number; allowanceCredits: number; purchasedCredits: number;
-  rewardedAdCredits: number;
+  rewardedAdCredits: number; socialRewardCredits: number;
   subscriptionStatus: string; complimentary: boolean; hasBillingCustomer: boolean; periodEnd: number | null;
   cancelAtPeriodEnd: boolean; renewalUnavailable: boolean; priceCents: number };
 const date = (timestamp: number) => new Date(timestamp).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -35,7 +35,7 @@ export default function BillingDashboard() {
     {!summary && !error && <p className="account-intro">Loading your balance…</p>}
     {summary && <>
       <div className="billing-plan"><strong>{summary.planName}</strong><span>{summary.complimentary ? "Complimentary access" : summary.plan === "free" ? "Free account" : `${money(summary.priceCents)} / month`}</span></div>
-      <div className="billing-balances"><div><strong>{summary.balance.toLocaleString()}</strong><span>Total credits</span></div><div><strong>{summary.allowanceCredits.toLocaleString()}</strong><span>{summary.plan === "free" ? "Weekly" : "Monthly"} remaining</span></div><div><strong>{summary.rewardedAdCredits.toLocaleString()}</strong><span>Ad credits · expire after 7 days</span></div><div><strong>{summary.purchasedCredits.toLocaleString()}</strong><span>Purchased · carry over</span></div></div>
+      <div className="billing-balances"><div><strong>{summary.balance.toLocaleString()}</strong><span>Total credits</span></div><div><strong>{summary.allowanceCredits.toLocaleString()}</strong><span>{summary.plan === "free" ? "Weekly" : "Monthly"} remaining</span></div><div><strong>{summary.rewardedAdCredits.toLocaleString()}</strong><span>Ad credits · expire after 7 days</span></div><div><strong>{summary.socialRewardCredits.toLocaleString()}</strong><span>Social rewards · expire after 7 days</span></div><div><strong>{summary.purchasedCredits.toLocaleString()}</strong><span>Purchased · carry over</span></div></div>
       <p className="account-intro">{summary.plan === "free" ? "Your free allowance resets each Monday (UTC)." : summary.complimentary ? "No recurring subscription charge is scheduled for your complimentary access." : summary.renewalUnavailable ? "The renewal date could not be verified. Check Manage subscription for the latest details." : summary.cancelAtPeriodEnd ? `Renewal canceled. You switch to Free ${summary.periodEnd ? `on ${date(summary.periodEnd * 1000)}` : "at the end of this billing period"}.` : summary.periodEnd ? `Next renewal: ${date(summary.periodEnd * 1000)} · ${money(summary.priceCents)} before any tax or discounts.` : "Your renewal date is being confirmed."}</p>
       {summary.plan === "free" && <RewardedAds onReward={() => void load()} />}
       {summary.plan !== "free" && !["active", "trialing"].includes(summary.subscriptionStatus) && <p className="account-notice">Your subscription needs attention. Open Manage subscription to check your billing details.</p>}

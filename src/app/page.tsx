@@ -102,6 +102,7 @@ export default function Landing() {
           <Logo />
           <nav aria-label="Primary">
             <a className="nav-link" href="/explore">Explore</a>
+            <Link className="nav-link" href="/rewards">Free rewards</Link>
             <a className="nav-link" href="#examples">Examples</a>
             <a className="nav-link" href="#versions">Compatibility</a>
             <Link className="nav-link" href="/pricing">Pricing</Link>

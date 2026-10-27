@@ -18,6 +18,12 @@ settings.
 - Historical deployment notes describe older versions and configurations. No
   checked record confirms that v0.19.0 is live or that all production settings
   still match those notes.
+- v0.20.0 added disabled-by-default rewarded ads and subscription promotion
+  codes; v0.21.0 adds the disabled-by-default social screenshot rewards hub.
+  Neither version is a production deployment. Apply migration 0009 before
+  rewarded ads and migration 0010 before social rewards. Configure exact social
+  profiles and OpenAI vision review, confirm platform rules, and complete
+  authenticated staging acceptance before enabling social campaigns.
 
 ## Required before a public release
 

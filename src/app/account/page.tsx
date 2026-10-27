@@ -53,6 +53,7 @@ export default function AccountPage() {
       {!status?<p>Loading account…</p>:!status.configured?<p className="account-notice">Account sign-in is being set up. Please check back shortly.</p>:status.user&&mode!=="reset"?<>
         <p className="account-email">{status.user.email}</p><p className="account-intro">Your email is verified. Monthly credits reset on renewal; purchased top-ups carry over.</p>
         <BillingDashboard />
+        <Link className="account-text" href="/rewards">Browse free rewards</Link>
         <Link className="account-primary" href="/pricing">View plan & buy credits</Link>
         <button className="account-secondary" disabled={busy} onClick={()=>void portal()}>Manage subscription</button>
         <button className="account-text" disabled={busy} onClick={()=>{setMode("forgot");setEmail(status.user!.email);}}>Send password reset email</button>

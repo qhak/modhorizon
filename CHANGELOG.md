@@ -1,4 +1,12 @@
 # Change notes
+## v0.21.0 - 2026-10-27
+
+- Add one Rewards hub for optional rewarded ads and configurable social follow campaigns. Free accounts can submit one PNG/JPEG screenshot per campaign; server-side vision review checks the configured profile and visible Following state, with a three-review daily cap.
+- Add private in-memory screenshot processing, a separate seven-day social-credit bucket, generation reservation/refund/expiry accounting, account deletion cleanup, and social reward ledger labels. Keep social rewards disabled until official account URLs and a vision API key are configured.
+- Document campaign setup, privacy limits, and rollout requirements. No D1 migration or production deployment was run.
+
+Validation: TypeScript, Next.js production build, Cloudflare Worker build, and in-memory migrations 0001-0010 pass. No test suite was added or run. Social profile configuration, real provider acceptance, and production migration/deployment remain outstanding. Screenshot review is heuristic and cannot prove authenticity or an ongoing follow.
+
 
 ## v0.20.0 - 2026-10-27
 

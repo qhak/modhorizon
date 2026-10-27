@@ -45,7 +45,7 @@ export async function purgeAccountContent(db:D1Database, ownerId:string) {
     db.prepare("DELETE FROM community_profiles WHERE owner_id=?").bind(ownerId),
     db.prepare("DELETE FROM billing_sessions WHERE account_id IN (SELECT id FROM billing_accounts WHERE auth_subject IN (?,?))").bind(ownerId,`deleted:${ownerId}`),
     db.prepare("DELETE FROM rewarded_ad_claims WHERE account_id IN (SELECT id FROM billing_accounts WHERE auth_subject IN (?,?))").bind(ownerId,`deleted:${ownerId}`),
-    db.prepare(`UPDATE billing_accounts SET auth_subject=?,auth_email=NULL,credit_balance=0,allowance_credits=0,purchased_credits=0,rewarded_ad_credits=0,plan_key='free',subscription_status='canceled',cancel_at_period_end=0,deleted_at=COALESCE(deleted_at,?),updated_at=? WHERE auth_subject IN (?,?)`).bind(`deleted:${ownerId}`,Date.now(),Date.now(),ownerId,`deleted:${ownerId}`),
+    db.prepare(`UPDATE billing_accounts SET auth_subject=?,auth_email=NULL,credit_balance=0,allowance_credits=0,purchased_credits=0,rewarded_ad_credits=0,social_reward_credits=0,plan_key='free',subscription_status='canceled',cancel_at_period_end=0,deleted_at=COALESCE(deleted_at,?),updated_at=? WHERE auth_subject IN (?,?)`).bind(`deleted:${ownerId}`,Date.now(),Date.now(),ownerId,`deleted:${ownerId}`),
   ]);
 }
 export async function deleteAccount(db:D1Database, ownerId:string, services:DeletionServices) {
