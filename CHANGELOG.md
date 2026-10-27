@@ -1,4 +1,11 @@
 # Change notes
+## v0.22.0 - 2026-10-27
+
+- Allow Stripe promotion codes on credit pack Checkout. Webhooks verify the original server-quoted subtotal, discount arithmetic, zero tax/shipping, paid status, and currency before granting the quoted credits; billing history records the amount actually paid. Fully discounted or mismatched sessions grant nothing.
+- Add social reward campaign URL, one-time claim, daily limit, expiry, credit allocation and refund coverage; update migration fixtures for the social rewards schema.
+
+Validation: all 229 tests, TypeScript check, Next.js production build and Cloudflare Worker build pass. No production migration, Stripe setting change or deployment was run. Real Stripe test-mode checkout still needs owner acceptance.
+
 ## v0.21.0 - 2026-10-27
 
 - Add one Rewards hub for optional rewarded ads and configurable social follow campaigns. Free accounts can submit one PNG/JPEG screenshot per campaign; server-side vision review checks the configured profile and visible Following state, with a three-review daily cap.

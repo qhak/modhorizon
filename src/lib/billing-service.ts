@@ -260,6 +260,7 @@ export async function createStripeCheckout(request: Request, account: BillingAcc
     const plan = account.plan as PaidPlanId;
     const { credits: packCredits, amountCents: unitAmountCents } = validateTopup(plan, body.credits);
     values.set("mode", "payment");
+    values.set("allow_promotion_codes", "true");
     values.set("line_items[0][price_data][currency]", "usd");
     values.set("line_items[0][price_data][unit_amount]", String(unitAmountCents));
     values.set("line_items[0][price_data][product_data][name]", `${packCredits.toLocaleString("en-US")} ModHorizon credits`);

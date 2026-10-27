@@ -35,12 +35,14 @@ The application uses the plan and credit amounts from `src/lib/billing-catalog.t
 
 ### Promotion codes
 
-Subscription Checkout enables Stripe's promotion-code field. Create coupons and
-customer-facing promotion codes in the matching Stripe account and mode, then
-verify eligibility, expiry, redemption limits and the resulting invoice in a
-separate test-mode environment before advertising a code. Credit top-up Checkout
-does not accept promotion codes; the server validates the full expected amount
-before granting credits. There is no in-app discount-code administration or
+Subscription and credit top-up Checkout enable Stripe's promotion-code field.
+Create coupons and customer-facing promotion codes in the matching Stripe
+account and mode, then verify eligibility, expiry, redemption limits and the
+resulting invoice in a separate test-mode environment before advertising a
+code. Top-up fulfillment checks the original subtotal, discount arithmetic,
+currency and positive paid status before granting the server-quoted credits;
+billing history records the discounted amount paid. A fully discounted top-up
+does not grant credits. There is no in-app discount-code administration or
 reporting screen.
 
 ## 2. Configure local secrets

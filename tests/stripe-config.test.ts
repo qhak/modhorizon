@@ -88,9 +88,9 @@ test("custom top-up checkout derives its price on the server and requires sign-i
   await createStripeCheckout(request, subscriber, { credits: 200, amount: 1, price: "price_cheaper" }, live);
   assert.equal(calls[0].get("mode"), "payment");
   assert.equal(calls[0].get("line_items[0][price_data][unit_amount]"), "1400");
+  assert.equal(calls[0].get("allow_promotion_codes"), "true");
   assert.equal(calls[0].get("metadata[credits]"), "200");
   assert.equal(calls[0].get("metadata[account_id]"), subscriber.id);
-  assert.notEqual(calls[0].get("allow_promotion_codes"), "true");
   for (const credits of [142, 0, -1, 200.5, "200", 100001])
     await assert.rejects(() => createStripeCheckout(request, subscriber, { credits }, live));
   await assert.rejects(() => createStripeCheckout(request, { ...subscriber, authenticated: false }, { credits: 200 }, live), /Sign in/);

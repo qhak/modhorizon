@@ -9,6 +9,7 @@ import { validateTopup, minimumTopupCredits, topupAmountCents } from "../src/lib
 import { downgradeComplimentaryAccount, subscriptionCancellationState } from "../src/lib/plan-downgrade";
 import { holdCredits, completeCreditReservation } from "../src/lib/credit-reservations";
 import { beginRewardedAdClaim, grantRewardedAdClaim, expireRewardedAdCredits } from "../src/lib/rewarded-ads";
+import { configuredSocialRewardCampaigns, recordSocialRewardReview, assertSocialRewardCanSubmit, expireSocialRewardCredits } from "../src/lib/social-rewards";
 
 // Execute the production SQL and migrations against SQLite, including transaction rollback.
 class Statement implements D1Statement {
@@ -30,7 +31,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql"])
+  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql"])
     sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
   sqlite.prepare(`INSERT INTO billing_accounts(id,credit_balance,allowance_credits,created_at,updated_at)
     VALUES('owner',100,100,0,0),('other',100,100,0,0)`).run();
@@ -172,6 +173,75 @@ test("rewarded ads enforce five grants per UTC day and cannot replay a claim", a
   } finally {sqlite.close();}
 });
 
+test("social reward campaign config accepts only safe official platform URLs", () => {
+  const valid = { id: "instagram-follow", platform: "Instagram", title: "Follow ModHorizon", accountName: "ModHorizon", accountHandle: "@modhorizon", profileUrl: "https://www.instagram.com/modhorizon/", credits: 2 };
+  assert.equal(configuredSocialRewardCampaigns(JSON.stringify([valid])).length, 1);
+  for (const profileUrl of ["http://www.instagram.com/modhorizon", "https://instagram.com.evil.example/modhorizon", "https://user:pass@instagram.com/modhorizon", "https://instagram.com/modhorizon?next=bad"]) {
+    assert.equal(configuredSocialRewardCampaigns(JSON.stringify([{ ...valid, profileUrl }])).length, 0, profileUrl);
+  }
+  assert.equal(configuredSocialRewardCampaigns("not-json").length, 0);
+});
+
+test("social screenshot rewards grant once, and rejected screenshots grant nothing", async () => {
+  const { db, sqlite, balance, ledger } = database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET auth_subject='verified-owner',allowance_credits=0,credit_balance=0 WHERE id='owner'").run();
+    const campaign = { id: "youtube-follow", platform: "YouTube" as const, title: "Follow", accountName: "ModHorizon", accountHandle: "modhorizon", profileUrl: "https://www.youtube.com/@modhorizon", credits: 2 };
+    const now = Date.now();
+    assert.deepEqual(await recordSocialRewardReview(db, "owner", campaign, { approved: true, note: "accepted" }, now), { recorded: true, approved: true, credits: 2 });
+    assert.equal(balance(), 2);
+    assert.equal(sqlite.prepare("SELECT social_reward_credits FROM billing_accounts WHERE id='owner'").get()!.social_reward_credits, 2);
+    await assert.rejects(assertSocialRewardCanSubmit(db, "owner", campaign.id, now + 1), /already submitted/);
+    await assert.rejects(recordSocialRewardReview(db, "owner", campaign, { approved: true, note: "replay" }, now + 1), /already submitted/);
+    assert.equal(balance(), 2);
+
+    const rejectedCampaign = { ...campaign, id: "instagram-follow" };
+    assert.deepEqual(await recordSocialRewardReview(db, "owner", rejectedCampaign, { approved: false, note: "unclear" }, now + 2), { recorded: true, approved: false, credits: 0 });
+    assert.equal(balance(), 2);
+    assert.equal(ledger().filter((row: any) => row.reason === "social_reward_grant").length, 1);
+  } finally { sqlite.close(); }
+});
+
+test("social reward credits are spent before purchased credits and refunded only while unexpired", async () => {
+  const { db, sqlite, balance } = database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET auth_subject='verified-owner',allowance_credits=0,purchased_credits=10,credit_balance=10 WHERE id='owner'").run();
+    const campaign = { id: "tiktok-follow", platform: "TikTok" as const, title: "Follow", accountName: "ModHorizon", accountHandle: "modhorizon", profileUrl: "https://www.tiktok.com/@modhorizon", credits: 3 };
+    const now = Date.now();
+    await recordSocialRewardReview(db, "owner", campaign, { approved: true, note: "accepted" }, now);
+    const reservation = (await holdCredits(db, "owner", "model", 5))!;
+    assert.equal(balance(), 8);
+    assert.equal(sqlite.prepare("SELECT social_reward_reserved FROM generation_credit_reservations WHERE id=?").get(reservation)!.social_reward_reserved, 3);
+    assert.equal(sqlite.prepare("SELECT purchased_reserved FROM generation_credit_reservations WHERE id=?").get(reservation)!.purchased_reserved, 2);
+    await completeCreditReservation(db, "owner", reservation, "refunded");
+    assert.equal(balance(), 13);
+    assert.equal(sqlite.prepare("SELECT social_reward_credits FROM billing_accounts WHERE id='owner'").get()!.social_reward_credits, 3);
+    assert.equal(sqlite.prepare("SELECT purchased_credits FROM billing_accounts WHERE id='owner'").get()!.purchased_credits, 10);
+
+    const second = (await holdCredits(db, "owner", "model", 3))!;
+    sqlite.prepare("UPDATE social_reward_claims SET expires_at=? WHERE account_id='owner'").run(Date.now() - 1);
+    await completeCreditReservation(db, "owner", second, "refunded");
+    assert.equal(sqlite.prepare("SELECT social_reward_credits FROM billing_accounts WHERE id='owner'").get()!.social_reward_credits, 0);
+    assert.equal(balance(), 10);
+  } finally { sqlite.close(); }
+});
+
+test("social reward expiry is recorded once and reduces only the social reward bucket", async () => {
+  const { db, sqlite, balance, ledger } = database();
+  try {
+    sqlite.prepare("UPDATE billing_accounts SET auth_subject='verified-owner',allowance_credits=0,purchased_credits=5,credit_balance=5 WHERE id='owner'").run();
+    const campaign = { id: "instagram-expiry", platform: "Instagram" as const, title: "Follow", accountName: "ModHorizon", accountHandle: "modhorizon", profileUrl: "https://www.instagram.com/modhorizon/", credits: 2 };
+    const now = Date.now();
+    await recordSocialRewardReview(db, "owner", campaign, { approved: true, note: "accepted" }, now);
+    sqlite.prepare("UPDATE social_reward_claims SET expires_at=? WHERE account_id='owner'").run(now - 1);
+    assert.equal(await expireSocialRewardCredits(db, "owner", now), 1);
+    assert.equal(await expireSocialRewardCredits(db, "owner", now), 0);
+    assert.equal(balance(), 5);
+    assert.equal(sqlite.prepare("SELECT social_reward_credits FROM billing_accounts WHERE id='owner'").get()!.social_reward_credits, 0);
+    assert.equal(ledger().filter((row: any) => row.reason === "social_reward_expiry").length, 1);
+  } finally { sqlite.close(); }
+});
+
 test("an ad started before UTC midnight can still grant inside its ten-minute claim window", async () => {
   const {db,sqlite,balance}=database();
   try {
@@ -234,18 +304,24 @@ test("paid top-ups deliver once per session despite duplicate events and later c
   const {db,sqlite,balance}=database();
   try {
     const metadata={account_id:"owner",plan_key:"starter",purchase_kind:"credit_pack",credits:"200",currency:"usd",expected_amount_cents:"1400"};
-    const item={id:"cs_paid",mode:"payment",payment_status:"paid",currency:"usd",amount_total:1400};
-    const deliver=async (event:string)=>db.batch([
+    const item={id:"cs_paid",mode:"payment",payment_status:"paid",currency:"usd",amount_subtotal:1400,amount_total:1400,total_details:{amount_discount:0,amount_tax:0,amount_shipping:0}};
+    const deliver=async (event:string,checkout=item)=>db.batch([
       db.prepare("INSERT OR IGNORE INTO stripe_webhook_events(event_id,event_type,received_at) VALUES(?,'checkout.session.completed',0)").bind(event),
-      ...paidTopupStatements(db,item,metadata,event,0),
+      ...paidTopupStatements(db,checkout,metadata,event,0),
     ]);
     // Account is now Free: an earlier Starter purchase must still be credited.
     await deliver("evt_1"); await deliver("evt_1"); await deliver("evt_2");
     assert.equal(balance(),300);
     assert.equal(sqlite.prepare("SELECT purchased_credits FROM billing_accounts WHERE id='owner'").get()!.purchased_credits,200);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM credit_purchases").get()!.n,1);
-    for(const overrides of [{amount_total:1399},{currency:"eur"},{payment_status:"unpaid"}])
+    for(const overrides of [{amount_subtotal:1399},{amount_total:1399},{total_details:{amount_discount:200,amount_tax:1,amount_shipping:0}},{total_details:{amount_discount:-1,amount_tax:0,amount_shipping:0}},{currency:"eur"},{payment_status:"unpaid"}])
       assert.throws(()=>paidTopupStatements(db,{...item,...overrides},metadata,"evt_bad",0));
+    const discounted = { ...item, id:"cs_discounted", amount_total:1120, total_details:{amount_discount:280,amount_tax:0,amount_shipping:0} };
+    await deliver("evt_discount",discounted);
+    assert.equal(balance(),500);
+    assert.equal(sqlite.prepare("SELECT amount_cents FROM credit_purchases WHERE checkout_id='cs_discounted'").get()!.amount_cents,1120);
+    for(const overrides of [{amount_total:0},{amount_total:1100,total_details:{amount_discount:280,amount_tax:0,amount_shipping:0}},{amount_total:1420,total_details:{amount_discount:0,amount_tax:20,amount_shipping:0}}])
+      assert.throws(()=>paidTopupStatements(db,{...item,...overrides},metadata,"evt_bad_discount",0));
     assert.throws(()=>paidTopupStatements(db,item,{...metadata,credits:"100"},"evt_bad",0));
   } finally {sqlite.close();}
 });

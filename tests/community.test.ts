@@ -42,7 +42,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql"]) sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
+  for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql"]) sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
   const d1: D1Database = {
     prepare: query => new Statement(sqlite, query),
     async batch<T>(statements: D1Statement[]): Promise<D1Result<T>[]> {
