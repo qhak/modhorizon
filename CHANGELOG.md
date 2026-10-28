@@ -1,4 +1,10 @@
 # Change notes
+## v0.24.2 - 2026-10-28
+
+- Make the signed-in account overview wider and clearer, emphasize the credit balance, group account settings, and put plan and reward links together.
+
+Validation: local account preview and settings interaction, TypeScript and Cloudflare build. No production deployment performed.
+
 ## v0.24.1 - 2026-10-28
 
 - Present each credit reservation and its return as one net generation activity, including older runs; show token details for new recorded usage and simplify the account layout.

@@ -47,19 +47,19 @@ export default function AccountPage() {
   }
   function submit(event:FormEvent){event.preventDefault();void action(mode==="reset"?"update-password":mode);}
   return <main className="account-shell"><VoidBackdrop /><nav><Link href="/">← ModHorizon</Link><Link href="/pricing">Plans & credits</Link><Link href="/create">Open workspace →</Link></nav>
-    <section className="account-card"><span className="account-logo" aria-hidden="true"><BrandMark size={56} /></span><div className="account-eyebrow">YOUR WORKSPACE</div><h1>{status?.user&&mode!=="reset"?"Your account":mode==="signup"?"Create your account":mode==="forgot"?"Reset your password":mode==="reset"?"Choose a new password":"Welcome back"}</h1>
+    <section className={`account-card${status?.user&&mode!=="reset"?" account-card-signed-in":""}`}><span className="account-logo" aria-hidden="true"><BrandMark size={56} /></span><div className="account-eyebrow">YOUR WORKSPACE</div><h1>{status?.user&&mode!=="reset"?"Your account":mode==="signup"?"Create your account":mode==="forgot"?"Reset your password":mode==="reset"?"Choose a new password":"Welcome back"}</h1>
       <p className="account-intro">Keep your plan and credits connected across devices.</p>
       {notice&&<p className="account-notice" role="status">{notice}</p>}
       {!status?<p>Loading account…</p>:!status.configured?<p className="account-notice">Account sign-in is being set up. Please check back shortly.</p>:status.user&&mode!=="reset"?<>
         <p className="account-email">{status.user.email}</p><p className="account-intro">Your email is verified.</p>
-        <BillingDashboard />
-        <Link className="account-text" href="/rewards">Browse free rewards</Link>
-        <Link className="account-primary" href="/pricing">View plan & buy credits</Link>
+        <details className="account-settings"><summary>Account settings</summary>
         <button className="account-secondary" disabled={busy} onClick={()=>void portal()}>Manage subscription</button>
         <button className="account-text" disabled={busy} onClick={()=>{setMode("forgot");setEmail(status.user!.email);}}>Send password reset email</button>
         <button className="account-text" disabled={busy} onClick={()=>void action("logout")}>Sign out</button>
         <Link className="account-text" href="/account/delete">Delete account</Link>
         {mode==="forgot"&&<button className="account-secondary" disabled={busy} onClick={()=>void action("forgot")}>Send reset link to {email}</button>}
+        </details>
+        <BillingDashboard />
       </>:<>
         {mode!=="forgot"&&mode!=="reset"&&<><button className="account-secondary account-google" disabled={busy||!status.googleEnabled} onClick={()=>void action("google")}><GoogleIcon size={19} />{status.googleEnabled?"Continue with Google":"Google sign-in coming soon"}</button><div className="account-divider">or use email</div></>}
         <form onSubmit={submit}>
