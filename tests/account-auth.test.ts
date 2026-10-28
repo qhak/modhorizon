@@ -36,7 +36,7 @@ test("account destinations cannot redirect outside the application",()=>{
 test("verified identity claims a guest once, recovers its existing account, and cannot merge owners",async()=>{
   const sqlite=new DatabaseSync(":memory:");
   try {
-    for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql"])sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
+    for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql","0011_generation_usage.sql"])sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
     sqlite.exec("INSERT INTO billing_accounts(id,credit_balance,created_at,updated_at) VALUES('guest',50,0,0),('second',70,0,0)");
     function statement(query:string,values:SQLInputValue[]=[]):D1Statement {
       return {bind:(...args)=>statement(query,args as SQLInputValue[]),first:async<T>()=>(sqlite.prepare(query).get(...values)??null) as T|null,

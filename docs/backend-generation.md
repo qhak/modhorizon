@@ -81,6 +81,27 @@ call retains the hold, rather than refunding a completed call. Crashes can also
 leave holds pending: an operator must reconcile old `held` reservations using
 provider records. Do not automatically release them solely because they are old.
 
+## Usage and reconciliation records
+
+Migration `0011_generation_usage.sql` adds a random generation ID and call type
+to each new paid-model reservation. Successful settlements atomically record the
+input and output token counts, whether those counts were provider-reported or
+estimated, the configured per-million rates used, and a bounded provider request
+ID when supplied in a response header. The account's credit history shows the
+charge, counts and identifiers for each settled call. Calls for generation and
+repairs share a generation ID. No prompt, source code or provider response text
+is stored in these accounting fields. These records follow financial-record
+retention and account deletion rules.
+
+Earlier calls do not have these details. Failed, incomplete or timed-out provider
+calls are still refunded and may have incurred provider costs; their usage and
+request IDs are not currently captured. Estimated counts are not provider billing
+evidence and can miss reasoning usage. A provider request ID may be absent, and
+provider dashboards may aggregate calls; reconciliation requires provider records.
+The charged amount is capped at the reservation and is not an exact invoice.
+Before production, review retention and privacy disclosures and validate the
+migration, access isolation, rates and the full paid flow in staging.
+
 ## Remaining launch work
 
 Browser guest sessions still need verified identity, account recovery and abuse

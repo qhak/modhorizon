@@ -170,7 +170,7 @@ function accountIsPaid(account: BillingAccount) {
   return account.plan !== "free" && (account.subscriptionStatus === "active" || account.subscriptionStatus === "trialing");
 }
 
-export async function reserveGenerationCredits(accountId: string, request: GenerateRequest, errors?: string[]) {
+export async function reserveGenerationCredits(accountId: string, request: GenerateRequest, errors?: string[], generationId?: string) {
   const modelId = request.modelId || "";
   if (!testingModelAllowed(modelId)) throw new BillingError("This model is disabled during testing. Choose GPT-6 Luna or a free-tier model.", 403);
   const model = findModel(modelId);
@@ -185,7 +185,7 @@ export async function reserveGenerationCredits(accountId: string, request: Gener
   const { reservedCredits: reserved } = quoteGeneration(account, request, errors);
   assertShaderRepairBudget(request, reserved, errors);
   if (model.provider === "demo") return { model, reserved: 0, reservationId: null, account };
-  const reservationId = await holdCredits(db, accountId, modelId, reserved);
+  const reservationId = await holdCredits(db, accountId, modelId, reserved, generationId ? { generationId, callKind: errors?.length ? "repair" : "generation" } : undefined);
   if (!reservationId) throw new BillingError(`This generation may use up to ${reserved} credits, but your balance cannot cover it.`, 402);
   return { model, reserved, reservationId, account };
 }
@@ -198,7 +198,12 @@ export async function settleGenerationCredits(accountId: string, modelId: string
   const { db } = await accountFromId(accountId);
   const actual = creditsForUsage(modelId, result.usage?.inputTokens ?? Math.ceil(JSON.stringify(result).length / 3), result.usage?.outputTokens ?? Math.ceil(JSON.stringify(result).length / 3));
   if (actual === null) throw new BillingError("Usage pricing is unavailable; your credit reservation is retained for reconciliation.");
-  return completeCreditReservation(db, accountId, reservationId, "settled", actual);
+  const model = findModel(modelId);
+  const usage = result.usage && model?.inputUsdPerMillion !== undefined && model.outputUsdPerMillion !== undefined ? {
+    ...result.usage, source: result.usageSource ?? "estimated" as const,
+    inputRate: model.inputUsdPerMillion, outputRate: model.outputUsdPerMillion, providerRequestId: result.providerRequestId,
+  } : undefined;
+  return completeCreditReservation(db, accountId, reservationId, "settled", actual, usage);
 }
 export async function refundGenerationCredits(accountId: string, reservationId: string | null) {
   if (!reservationId) return;

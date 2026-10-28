@@ -930,6 +930,7 @@ function ProjectSummary({ project, statusLabel }: { project: Project; statusLabe
         <div><dt><AlignLeft size={12} aria-hidden="true" /> Lines</dt><dd>{lines.toLocaleString()}</dd></div>
         <div><dt><Cpu size={12} aria-hidden="true" /> Model</dt><dd title={model}>{model}</dd></div>
       </dl>
+      {project.generationId && <p className="generation-usage-summary">{project.creditsSpent ?? 0} credits charged · <a href="/account">Credit history</a><br /><small>Generation ID: {project.generationId}</small></p>}
     </div>
   );
 }

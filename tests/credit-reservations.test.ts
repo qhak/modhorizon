@@ -31,7 +31,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql"])
+  for (const name of ["0001_billing.sql", "0002_generation_reservations.sql", "0003_credit_buckets.sql", "0004_account_identity.sql", "0005_scheduled_cancellation.sql", "0006_community.sql", "0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql","0011_generation_usage.sql"])
     sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
   sqlite.prepare(`INSERT INTO billing_accounts(id,credit_balance,allowance_credits,created_at,updated_at)
     VALUES('owner',100,100,0,0),('other',100,100,0,0)`).run();
@@ -63,6 +63,23 @@ test("duplicate settlement and a later refund charge only once", async () => {
     assert.equal(balance(), 88);
     assert.equal(ledger().length, 2);
     assert.equal(ledger().reduce((sum, row) => sum + Number(row.delta), 0), -12);
+  } finally { sqlite.close(); }
+});
+
+test("settlement records usage atomically, isolates it by account, and cannot overwrite it on retry", async () => {
+  const { db, sqlite } = database();
+  const { creditHistory } = await import("../src/lib/credit-history");
+  try {
+    const id = (await holdCredits(db, "owner", "gpt-6-luna", 4, { generationId: "generation-1", callKind: "generation" }))!;
+    const usage = { inputTokens: 2500, outputTokens: 14000, source: "reported" as const, inputRate: .1, outputRate: .5, providerRequestId: "req-123" };
+    await completeCreditReservation(db, "owner", id, "settled", 2, usage);
+    await completeCreditReservation(db, "owner", id, "settled", 4, { ...usage, outputTokens: 99999 });
+    const row = sqlite.prepare("SELECT input_tokens, output_tokens, input_rate, output_rate, charged_credits FROM generation_credit_reservations WHERE id=?").get(id)!;
+    assert.deepEqual({ ...row }, { input_tokens: 2500, output_tokens: 14000, input_rate: .1, output_rate: .5, charged_credits: 2 });
+    const owner = await creditHistory(db, "owner", null);
+    const entry = owner.entries.find(item => item.usage);
+    assert.deepEqual(entry?.usage, { generationId: "generation-1", callKind: "generation", inputTokens: 2500, outputTokens: 14000, source: "reported", chargedCredits: 2, providerRequestId: "req-123" });
+    assert.doesNotMatch(JSON.stringify(await creditHistory(db, "other", null)), /req-123|generation-1/);
   } finally { sqlite.close(); }
 });
 
@@ -120,13 +137,16 @@ test("a failed completion leaves the hold intact and can be retried safely", asy
   const { db, sqlite, balance, ledger } = database();
   try {
     const id = (await holdCredits(db, "owner", "model", 40))!;
+    const usage = { inputTokens: 100, outputTokens: 200, source: "reported" as const, inputRate: 1, outputRate: 2 };
     sqlite.exec("CREATE TRIGGER reject_ledger BEFORE INSERT ON credit_ledger BEGIN SELECT RAISE(ABORT,'simulated outage'); END");
-    await assert.rejects(completeCreditReservation(db, "owner", id, "settled", 12), /simulated outage/);
+    await assert.rejects(completeCreditReservation(db, "owner", id, "settled", 12, usage), /simulated outage/);
     assert.equal(balance(), 60);
     assert.equal(sqlite.prepare("SELECT state FROM generation_credit_reservations WHERE id=?").get(id)!.state, "held");
+    assert.equal(sqlite.prepare("SELECT input_tokens FROM generation_credit_reservations WHERE id=?").get(id)!.input_tokens, null);
     sqlite.exec("DROP TRIGGER reject_ledger");
-    await completeCreditReservation(db, "owner", id, "settled", 12);
+    await completeCreditReservation(db, "owner", id, "settled", 12, usage);
     assert.equal(balance(), 88);
+    assert.equal(sqlite.prepare("SELECT input_tokens FROM generation_credit_reservations WHERE id=?").get(id)!.input_tokens, 100);
     assert.equal(ledger().length, 2);
   } finally { sqlite.close(); }
 });

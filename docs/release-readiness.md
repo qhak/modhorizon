@@ -8,7 +8,7 @@ settings.
 
 - `origin/main` remains v0.15.0 (`9b09438`). The local `main` ref may be stale;
   compare with a freshly checked `origin/main` before preparing a merge.
-- v0.23.1 is pushed to `codex/community-showcases` and included in open PR #5.
+- v0.24.0 adds usage records for new settled calls to the `codex/community-showcases` release candidate.
   v0.22.0 had 229 passing tests plus TypeScript, Next.js production and
   Cloudflare Worker builds. The new slider change passed TypeScript, a Cloudflare
   Worker build and browser keyboard interaction; the full suite was not rerun.
@@ -27,13 +27,13 @@ settings.
 ### Release and deployment
 
 - [ ] Review the full `codex/community-showcases` diff against a freshly
-  fetched `origin/main` and decide whether v0.23.1 is the release scope. Resolve
+  fetched `origin/main` and decide whether v0.24.0 is the release scope. Resolve
   release-documentation drift without rewriting published history.
 - [ ] Confirm the current production Worker version, D1 migration state,
   bindings, secrets and public routes. The recorded state is not current-state
   proof.
 - [ ] Verify the production D1 migration ledger, then apply only missing
-  migrations in order through `0010_social_rewards.sql`. Take/verify the normal
+  migrations in order through `0011_generation_usage.sql`. Take/verify the normal
   production backup and confirm rollback/recovery steps before writes.
 - [ ] Configure and verify `APP_ORIGIN`, Supabase auth settings and a permanent
   server-side `COMMUNITY_MODERATOR_IDS` allowlist. An empty allowlist means no

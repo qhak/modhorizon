@@ -1,4 +1,5 @@
 import { createShaderCompiler } from "@/lib/shader-compiler";
+import { randomUUID } from "node:crypto";
 import { createAIProvider, limitedJson } from "@/lib/ai-provider";
 import { createBuildService } from "@/lib/build-service";
 import { generatePlugin } from "@/lib/generation";
@@ -61,10 +62,11 @@ export async function POST(request: Request) {
     const { account, env } = await accountFromRequest(request);
     const provider = createAIProvider(input.modelId || "");
     let creditsSpent = 0;
+    const generationId = randomUUID();
     const meteredProvider = {
       name: provider.name,
       async generate(modelRequest: typeof input, errors?: string[]) {
-        const reservation = await reserveGenerationCredits(account.id, modelRequest, errors);
+        const reservation = await reserveGenerationCredits(account.id, modelRequest, errors, generationId);
         let generated;
         try {
           generated = await provider.generate(modelRequest, errors);
@@ -85,6 +87,7 @@ export async function POST(request: Request) {
       shaderCompiler,
     );
     project.creditsSpent = creditsSpent;
+    project.generationId = generationId;
     project.reasoningEffort = input.reasoningEffort;
     bindArtifactOwner(project.id,account.id);
     if(await env.BILLING_DB?.prepare("SELECT 1 FROM billing_accounts WHERE id=? AND deletion_requested_at IS NOT NULL").bind(account.id).first()) {

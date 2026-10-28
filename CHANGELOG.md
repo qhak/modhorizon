@@ -1,4 +1,11 @@
 # Change notes
+## v0.24.0 - 2026-10-28
+
+- Record per-call credit settlement, token usage source, configured rates and available provider request IDs, linked by a generation ID and displayed in credit history.
+- Show the generation ID and credits charged on completed projects. Older and failed calls do not have complete usage records.
+
+Validation: automated tests, TypeScript, local migration and account preview, and Cloudflare build. No paid provider request or production deployment; production migration and staging acceptance remain outstanding.
+
 ## v0.23.5 - 2026-10-28
 
 - Allow local AI generation calls up to ten minutes and increase Luna's non-shader output budget to 32,000 tokens, reflected in credit reservations.

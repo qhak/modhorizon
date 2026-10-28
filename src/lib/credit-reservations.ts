@@ -11,21 +11,21 @@ type ReservationRow = {
 };
 
 /** Each D1 batch is atomic; capture the bucket allocation before debiting it. */
-export async function holdCredits(db: D1Database, accountId: string, modelId: string, amount: number) {
+export async function holdCredits(db: D1Database, accountId: string, modelId: string, amount: number, context?: { generationId: string; callKind: "generation" | "repair" }) {
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new BillingError("Invalid credit reservation.");
   const id = randomUUID(), now = Date.now();
   await expireRewardedAdCredits(db, accountId, now);
   await expireSocialRewardCredits(db, accountId, now);
   const result = await db.batch([
     db.prepare(`INSERT INTO generation_credit_reservations
-      (id,account_id,model_id,reserved_credits,created_at,allowance_reserved,purchased_reserved,rewarded_ad_reserved,social_reward_reserved,allowance_period)
+      (id,account_id,model_id,reserved_credits,created_at,allowance_reserved,purchased_reserved,rewarded_ad_reserved,social_reward_reserved,allowance_period,generation_id,call_kind)
       SELECT ?,id,?,?,?,MIN(allowance_credits,?),
         MAX(?-allowance_credits-rewarded_ad_credits-social_reward_credits,0),
         MIN(rewarded_ad_credits,MAX(?-allowance_credits,0)),
-        MIN(social_reward_credits,MAX(?-allowance_credits-rewarded_ad_credits,0)),allowance_period
+        MIN(social_reward_credits,MAX(?-allowance_credits-rewarded_ad_credits,0)),allowance_period,?,?
       FROM billing_accounts WHERE id=? AND credit_balance>=?
         AND allowance_credits+purchased_credits+rewarded_ad_credits+social_reward_credits>=? AND deletion_requested_at IS NULL`)
-      .bind(id, modelId, amount, now, amount, amount, amount, amount, accountId, amount, amount),
+      .bind(id, modelId, amount, now, amount, amount, amount, amount, context?.generationId ?? null, context?.callKind ?? null, accountId, amount, amount),
     db.prepare(`WITH ranked AS (
         SELECT id,credits_remaining,expires_at,granted_at,
           COALESCE(SUM(credits_remaining) OVER (
@@ -78,8 +78,10 @@ export async function holdCredits(db: D1Database, accountId: string, modelId: st
 export async function completeCreditReservation(
   db: D1Database, accountId: string, reservationId: string | null,
   outcome: "settled" | "refunded", actualCredits = 0,
+  usage?: { inputTokens: number; outputTokens: number; source: "reported" | "estimated"; inputRate: number; outputRate: number; providerRequestId?: string },
 ) {
   if (!Number.isSafeInteger(actualCredits) || actualCredits < 0) throw new BillingError("Invalid usage charge.");
+  if (usage && (!Number.isSafeInteger(usage.inputTokens) || usage.inputTokens < 0 || !Number.isSafeInteger(usage.outputTokens) || usage.outputTokens < 0 || !Number.isFinite(usage.inputRate) || usage.inputRate < 0 || !Number.isFinite(usage.outputRate) || usage.outputRate < 0)) throw new BillingError("Invalid usage details.");
   const row = await db.prepare(`SELECT id,reserved_credits,charged_credits,state,
     allowance_reserved,purchased_reserved,rewarded_ad_reserved,social_reward_reserved,allowance_period
     FROM generation_credit_reservations WHERE id=? AND account_id=?`)
@@ -92,9 +94,10 @@ export async function completeCreditReservation(
   const purchasedRefund = row.purchased_reserved - Math.max(charge - row.allowance_reserved - row.rewarded_ad_reserved - row.social_reward_reserved, 0);
   const now = Date.now(), reason = outcome === "settled" ? "generation_settlement" : "generation_refund";
   await db.batch([
-    db.prepare(`UPDATE generation_credit_reservations SET state=?,charged_credits=?,rewarded_ad_charged=?,social_reward_charged=?,completed_at=?,settlement_effects_applied=0
+    db.prepare(`UPDATE generation_credit_reservations SET state=?,charged_credits=?,rewarded_ad_charged=?,social_reward_charged=?,completed_at=?,settlement_effects_applied=0,
+      input_tokens=?,output_tokens=?,usage_source=?,input_rate=?,output_rate=?,provider_request_id=?
       WHERE id=? AND account_id=? AND state='held'`)
-      .bind(outcome, charge, rewardedAdCharged, socialRewardCharged, now, reservationId, accountId),
+      .bind(outcome, charge, rewardedAdCharged, socialRewardCharged, now, usage?.inputTokens ?? null, usage?.outputTokens ?? null, usage?.source ?? null, usage?.inputRate ?? null, usage?.outputRate ?? null, usage?.providerRequestId ?? null, reservationId, accountId),
     db.prepare(`WITH ranked AS (
         SELECT c.id,c.expires_at,c.granted_at,r.credits_reserved,
           COALESCE(SUM(r.credits_reserved) OVER (

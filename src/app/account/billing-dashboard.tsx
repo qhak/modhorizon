@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RewardedAds } from "./rewarded-ads";
 
-type Entry = { id: string; credits: number; description: string; modelId: string | null; createdAt: number };
+type Entry = { id: string; credits: number; description: string; modelId: string | null; createdAt: number;
+  usage: { generationId: string | null; callKind: "generation" | "repair" | null; inputTokens: number; outputTokens: number; source: "reported" | "estimated"; chargedCredits: number | null; providerRequestId: string | null } | null };
 type Summary = { plan: string; planName: string; balance: number; allowanceCredits: number; purchasedCredits: number;
   rewardedAdCredits: number; socialRewardCredits: number;
   subscriptionStatus: string; complimentary: boolean; hasBillingCustomer: boolean; periodEnd: number | null;
@@ -42,7 +43,7 @@ export default function BillingDashboard() {
       <Link className="account-secondary" href="/pricing">{summary.plan === "free" ? "Explore plans" : "Buy extra credits or change plan"}</Link>
       <div className="billing-section-heading"><h2>Credit history</h2></div>
       <p className="account-fine">Reservations hold credits before generation. Unused credits are returned afterward. Allowance resets replace the unused allowance.</p>
-      {entries.length === 0 ? <p className="account-intro">No credit activity yet.</p> : <ul className="credit-history" aria-label="Credit transactions">{entries.map(entry => <li key={entry.id}><div><strong>{entry.description}</strong><span>{date(entry.createdAt)}{entry.modelId ? ` · ${entry.modelId}` : ""}</span></div><span className={entry.credits > 0 ? "credit-positive" : "credit-neutral"}>{entry.credits > 0 ? "+" : ""}{entry.credits.toLocaleString()}</span></li>)}</ul>}
+      {entries.length === 0 ? <p className="account-intro">No credit activity yet.</p> : <ul className="credit-history" aria-label="Credit transactions">{entries.map(entry => <li key={entry.id}><div><strong>{entry.description}</strong><span>{date(entry.createdAt)}{entry.modelId ? ` · ${entry.modelId}` : ""}</span>{entry.usage && <><span>{entry.usage.callKind === "repair" ? "Repair" : "Generation"} · {entry.usage.chargedCredits} credits charged · {entry.usage.source === "reported" ? "Provider-reported" : "Estimated"} usage</span><span>{entry.usage.inputTokens.toLocaleString()} input · {entry.usage.outputTokens.toLocaleString()} output tokens</span>{entry.usage.generationId && <span>Generation ID: {entry.usage.generationId}</span>}{entry.usage.providerRequestId && <span>Provider request ID: {entry.usage.providerRequestId}</span>}</>}</div><span className={entry.credits > 0 ? "credit-positive" : "credit-neutral"}>{entry.credits > 0 ? "+" : ""}{entry.credits.toLocaleString()}</span></li>)}</ul>}
       {cursor && <button className="account-secondary" disabled={busy} onClick={() => void load(cursor)}>Load older activity</button>}
     </>}
   </section>;
