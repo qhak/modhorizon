@@ -12,6 +12,7 @@ import { shaderSkillContext } from "./shader-skills";
 import { shaderExampleContext } from "./shader-examples";
 import { shaderCompilerRepairContext } from "./shader-context";
 import { projectResponseSchema, normalizeProjectResponse, ShaderEnvelopeError } from "./project-response";
+import { generationReferenceContext } from "./generation-references";
 
 /** Local generation has more time for complex projects; hosted deadlines remain bounded. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
@@ -124,7 +125,7 @@ function systemPrompt(request: GenerateRequest): string {
 }
 
 function projectInput(request: GenerateRequest, errors?: string[]) {
-  const skills = usesBukkitApi(request) ? selectGenerationSkills(request.prompt) : [];
+  const skills = usesBukkitApi(request) ? selectGenerationSkills(request.prompt, request.target) : [];
   return JSON.stringify({
     artifactType: request.artifactType || "plugin",
     target: request.target || "paper",
@@ -132,6 +133,7 @@ function projectInput(request: GenerateRequest, errors?: string[]) {
     prompt: request.prompt,
     matchedSkills: skills.map(({ label, guidance }) => ({ label, guidance })),
     specialistSkills: selectArtifactSkills(request),
+    referenceGuidance: generationReferenceContext(request),
     ...(request.artifactType === "shader_pack" ? { shaderEngineeringExamples: shaderExampleContext(request), shaderSkillLibrary: shaderSkillContext(request) } : {}),
     currentProject: request.project,
     compilationErrors: errors,

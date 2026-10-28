@@ -1,4 +1,11 @@
 # Change notes
+## v0.25.0 - 2026-10-28
+
+- Add bounded, target- and version-aware generation reference guidance for plugins, mods, datapacks, resource packs and shaders, with model-tier context and source/evidence labels.
+- Include the curated context in provider requests and credit estimates; report selected guidance in project logs and use Folia-safe scheduler advice.
+
+Validation: full automated suite, TypeScript and Cloudflare build; provider request and selection fixtures. No paid model comparison or new Minecraft runtime acceptance performed. Loader build and artwork limitations remain.
+
 ## v0.24.3 - 2026-10-28
 
 - Show an estimate and first-pass credit reservation for signed-in generation and follow-ups, and wait for a quote matching the current request before enabling submission.
