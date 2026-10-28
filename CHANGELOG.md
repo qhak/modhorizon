@@ -1,4 +1,10 @@
 # Change notes
+## v0.22.1 - 2026-10-28
+
+- Refresh the Stripe and release-readiness guides to match the current verified-account, billing-portal, top-up promotion-code and migration behavior. Mark old deployment notes as historical and guide end-to-end payment checks toward an isolated test environment.
+
+Validation: documentation cross-check against current routes, configuration, migration and v0.22.0 test/build evidence; git diff --check. No tests, production settings, migrations or deployment changed.
+
 ## v0.22.0 - 2026-10-27
 
 - Allow Stripe promotion codes on credit pack Checkout. Webhooks verify the original server-quoted subtotal, discount arithmetic, zero tax/shipping, paid status, and currency before granting the quoted credits; billing history records the amount actually paid. Fully discounted or mismatched sessions grant nothing.

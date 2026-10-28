@@ -1,45 +1,38 @@
 # ModHorizon release readiness
 
-Status checked 27 October 2026. Recheck Git, Cloudflare, Supabase, Stripe and D1
+Status checked 28 October 2026. Recheck Git, Cloudflare, Supabase, Stripe and D1
 state before acting on any item: repository records do not prove current provider
 settings.
 
 ## Release baseline
 
-- `origin/main` is v0.15.0 (`9b09438`). The local `main` ref is stale; use the
-  remote-tracking branch when comparing release work.
-- v0.19.0 (`9384a11`) is pushed on `codex/community-showcases`, not merged or
-  recorded as deployed. Its 221 tests, TypeScript check and isolated production
-  build passed. The tracked local tree also has a pre-existing `next-env.d.ts`
-  modification; review and preserve it separately.
-- v0.18.2's two-account publishing acceptance was local. It did not exercise
-  production Cloudflare behavior. The v0.19.0 destructive provider operations
-  were fixture/mock tests; deletion remains disabled locally.
+- `origin/main` remains v0.15.0 (`9b09438`). The local `main` ref may be stale;
+  compare with a freshly checked `origin/main` before preparing a merge.
+- v0.22.1 is pushed on `codex/community-showcases` and included in open PR #5.
+  Automated evidence for the application code includes 229 tests,
+  TypeScript, Next.js production and Cloudflare Worker builds. This is source
+  and build evidence, not production deployment or end-to-end payment evidence.
+- v0.20.0 added disabled-by-default rewarded ads; v0.21.0 added the social
+  screenshot-rewards hub; v0.22.0 added safe Stripe promotion codes for credit
+  top-ups and additional social-reward tests. Social campaigns remain disabled
+  until exact profiles and review credentials are configured.
 - Historical deployment notes describe older versions and configurations. No
-  checked record confirms that v0.19.0 is live or that all production settings
-  still match those notes.
-- v0.20.0 added disabled-by-default rewarded ads and subscription promotion
-  codes; v0.21.0 adds the disabled-by-default social screenshot rewards hub.
-  Neither version is a production deployment. Apply migration 0009 before
-  rewarded ads and migration 0010 before social rewards. Configure exact social
-  profiles and OpenAI vision review, confirm platform rules, and complete
-  authenticated staging acceptance before enabling social campaigns.
+  current-state check confirms the deployed Worker, D1 migrations or provider
+  settings. Recheck those directly before any release or feature enablement.
 
 ## Required before a public release
 
 ### Release and deployment
 
-- [ ] Review the full `codex/community-showcases` diff against `origin/main` and
-  decide whether v0.19.0 is the release scope. Resolve the local `main` ref and
+- [ ] Review the full `codex/community-showcases` diff against a freshly
+  fetched `origin/main` and decide whether v0.22.1 is the release scope. Resolve
   release-documentation drift without rewriting published history.
-- [ ] Review the unrelated `next-env.d.ts` worktree change; preserve or restore
-  it only according to its owner and origin.
 - [ ] Confirm the current production Worker version, D1 migration state,
   bindings, secrets and public routes. The recorded state is not current-state
   proof.
-- [ ] Apply only missing D1 migrations in order, including `0006_community.sql`,
-  `0007_moderation_and_deletion.sql` and `0008_deletion_activity_guard.sql`.
-  Take/verify the normal production backup and confirm rollback/recovery steps.
+- [ ] Verify the production D1 migration ledger, then apply only missing
+  migrations in order through `0010_social_rewards.sql`. Take/verify the normal
+  production backup and confirm rollback/recovery steps before writes.
 - [ ] Configure and verify `APP_ORIGIN`, Supabase auth settings and a permanent
   server-side `COMMUNITY_MODERATOR_IDS` allowlist. An empty allowlist means no
   one can approve showcases.
