@@ -1,4 +1,10 @@
 # Change notes
+## v0.24.3 - 2026-10-28
+
+- Show an estimate and first-pass credit reservation for signed-in generation and follow-ups, and wait for a quote matching the current request before enabling submission.
+
+Validation: provider and quote tests, TypeScript, Cloudflare build, and local browser quote interaction. Estimates exclude extra repair calls and are not exact charges; no paid generation or production deployment performed.
+
 ## v0.24.2 - 2026-10-28
 
 - Make the signed-in account overview wider and clearer, emphasize the credit balance, group account settings, and put plan and reward links together.

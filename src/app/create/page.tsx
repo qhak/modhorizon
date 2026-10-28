@@ -1058,8 +1058,9 @@ export default function Home() {
   const [shaderRepairEnabled, setShaderRepairEnabled] = useState(false);
   const [shaderRepairCredits, setShaderRepairCredits] = useState(10);
   const isShaderRequest = (project?.artifactType ?? contentType) === "shader_pack";
-  const [referenceQuote, setReferenceQuote] = useState<{ estimatedCredits: number; reservedCredits: number } | null>(null);
+  const [referenceQuote, setReferenceQuote] = useState<{ body: string; estimatedCredits: number; reservedCredits: number; affordable: boolean } | null>(null);
   const [referenceQuoteError, setReferenceQuoteError] = useState("");
+  const [quoteRetry, setQuoteRetry] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // The files, build and test panels are optional; chat-only keeps just the conversation.
@@ -1077,7 +1078,7 @@ export default function Home() {
   useEffect(() => {
     setReferenceQuote(null);
     setReferenceQuoteError("");
-    if ((!attachments.length && !isShaderRequest) || !signedIn || prompt.trim().length < 12 || busy) return;
+    if (!signedIn || !billingAccount || prompt.trim().length < 12 || busy) return;
     if (new TextEncoder().encode(generationBody).length > 200_000) {
       setReferenceQuoteError("This message and its references exceed 200 KB. Remove a file or use a smaller image.");
       return;
@@ -1086,12 +1087,18 @@ export default function Home() {
     const timer = setTimeout(() => {
       fetch("/api/generate/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: generationBody, signal: controller.signal })
         .then(async response => { const result = await response.json(); if (!response.ok || !result.quote) throw new Error(result.error || "Credit estimate unavailable."); return result.quote; })
-        .then(quote => { if (!controller.signal.aborted) setReferenceQuote(quote); })
+        .then(quote => { if (!controller.signal.aborted) setReferenceQuote({ ...quote, body: generationBody }); })
         .catch(error => { if (!controller.signal.aborted) setReferenceQuoteError(error instanceof Error ? error.message : "Credit estimate unavailable."); });
     }, 400);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [generationBody, attachments.length, isShaderRequest, signedIn, prompt, busy]);
-  const referenceEstimate = attachments.length > 0 || isShaderRequest ? <p className="reference-note" role="status">{referenceQuoteError || (referenceQuote ? `Estimated ${referenceQuote.estimatedCredits} credits; reserves ${referenceQuote.reservedCredits} for this pass. Unused reserved credits are returned.` : prompt.trim().length >= 12 && signedIn ? "Estimating credits including references…" : "Add your prompt and sign in to see a credit estimate including references.")}</p> : null;
+  }, [generationBody, signedIn, Boolean(billingAccount), prompt, busy, quoteRetry]);
+  const currentQuote = referenceQuote?.body === generationBody ? referenceQuote : null;
+  const referenceEstimate = signedIn && prompt.trim().length >= 12 && !busy ? <div className="generation-quote" role="status">
+    {referenceQuoteError ? <span>{referenceQuoteError} <button type="button" onClick={() => setQuoteRetry(value => value + 1)}>Try again</button></span> : currentQuote ? <>
+      <span>Estimated <strong>{currentQuote.estimatedCredits} {currentQuote.estimatedCredits === 1 ? "credit" : "credits"}</strong> · {currentQuote.reservedCredits} temporarily reserved for the first AI pass</span>
+      <small>{currentQuote.affordable ? "Unused credits are returned. Actual usage may differ." : "Your balance cannot cover this reservation."}{CODE_TYPES.includes(project?.artifactType ?? contentType) ? " Build repairs may require additional credits." : ""}</small>
+    </> : <span>Calculating credit estimate…</span>}
+  </div> : null;
 
   const shaderCompilerOptions = isShaderRequest ? <div className="reference-note shader-compiler-options">
     <p>{services?.shaderCompilerConfigured ? "Local GLSL compilation runs before download. In-game appearance still needs testing." : "Static shader checks only. A local compiler is not configured."}</p>
@@ -1370,6 +1377,10 @@ export default function Home() {
     if (busy || readingAttachments || generationUnavailable || prompt.trim().length < 12 || (!current && (versionProblem || packProblem || typeUnavailable))) return;
     if (!signedIn) {
       window.location.assign("/account");
+      return;
+    }
+    if (!currentQuote || !currentQuote.affordable) {
+      setError(referenceQuoteError || (currentQuote ? "Your balance cannot cover the credit reservation." : "Wait for the credit estimate before generating."));
       return;
     }
     const text = prompt.trim();
@@ -1680,7 +1691,7 @@ export default function Home() {
                     type="submit"
                     className="composer-send"
                     aria-label={busy ? "Generating" : "Generate"}
-                    disabled={busy || readingAttachments || generationUnavailable || typeUnavailable || Boolean(versionProblem || packProblem) || prompt.trim().length < 12}
+                    disabled={busy || readingAttachments || generationUnavailable || typeUnavailable || Boolean(versionProblem || packProblem) || prompt.trim().length < 12 || (signedIn && (!currentQuote || !currentQuote.affordable))}
                     title={typeUnavailable ? `${contentLabel} generation isn't available yet.` : versionProblem ? versionProblem.title : packProblem ? packProblem.title : generationUnavailable ? "Add an AI provider key on the server to generate." : "Generate"}
                   >
                     {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowUp size={18} />}
@@ -1882,7 +1893,7 @@ export default function Home() {
                   <Button
                     size="icon"
                     aria-label="Send follow-up"
-                    disabled={busy || readingAttachments || generationUnavailable || prompt.trim().length < 12}
+                    disabled={busy || readingAttachments || generationUnavailable || prompt.trim().length < 12 || (signedIn && (!currentQuote || !currentQuote.affordable))}
                   >
                     {busy ? (
                       <LoaderCircle size={15} className="spin" />
