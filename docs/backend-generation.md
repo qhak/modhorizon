@@ -21,6 +21,12 @@ installation, validation limits and the free fixed sample download.
    A quote does not reserve funds; availability and balance are checked again.
 5. Refresh `GET /api/billing/account` afterward to show the settled balance.
 
+The signed-in Create workspace requests this quote for every valid prompt,
+including follow-ups. It waits for a quote matching the current request before
+enabling generation and offers a retry on quote errors. The displayed hold covers
+only the first model pass; plugin build repairs can require additional credits.
+Estimates are not an exact charge or authorization for a fixed total project cost.
+
 Example JSON input to both generation endpoints:
 
 ```json
