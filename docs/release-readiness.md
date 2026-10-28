@@ -8,7 +8,7 @@ settings.
 
 - `origin/main` remains v0.15.0 (`9b09438`). The local `main` ref may be stale;
   compare with a freshly checked `origin/main` before preparing a merge.
-- v0.23.1 is the current local candidate for open PR #5 on`r`n  `codex/community-showcases`; push it to update the PR.
+- v0.23.1 is pushed to `codex/community-showcases` and included in open PR #5.
   v0.22.0 had 229 passing tests plus TypeScript, Next.js production and
   Cloudflare Worker builds. The new slider change passed TypeScript, a Cloudflare
   Worker build and browser keyboard interaction; the full suite was not rerun.

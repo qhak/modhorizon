@@ -1,4 +1,10 @@
 # Change notes
+## v0.23.2 - 2026-10-28
+
+- Correct the release-readiness baseline to record v0.23.1 as pushed and included in PR #5.
+
+Validation: reviewed the pushed branch and release metadata. No application behavior or production settings changed.
+
 ## v0.23.1 - 2026-10-28
 
 - Refine the reasoning picker into a compact card with a discrete pill slider, current model and effort labels, and a reset-to-default control.
