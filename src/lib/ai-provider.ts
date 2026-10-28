@@ -13,16 +13,16 @@ import { shaderExampleContext } from "./shader-examples";
 import { shaderCompilerRepairContext } from "./shader-context";
 import { projectResponseSchema, normalizeProjectResponse, ShaderEnvelopeError } from "./project-response";
 
-/** Shader pipelines can need longer to generate than small gameplay projects. */
+/** Local generation has more time for complex projects; hosted deadlines remain bounded. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
   const local = process.env.NODE_ENV === "development" && process.env.MODHORIZON_LOCAL_ORIGIN === "http://127.0.0.1:3215";
-  const timeoutMs = request.artifactType === "shader_pack" ? (local ? 600_000 : 240_000) : defaultTimeoutMs;
+  const timeoutMs = local ? 600_000 : request.artifactType === "shader_pack" ? 240_000 : defaultTimeoutMs;
   const signal = AbortSignal.timeout(timeoutMs);
   try {
     return await serviceFetch(url, { ...init, signal });
   } catch (error) {
     if ((error instanceof Error && error.name === "TimeoutError") || signal.aborted)
-      throw new Error(`AI generation timed out after ${timeoutMs / 1000} seconds. No completed project was received. Try a smaller set of effects or a lower reasoning level.`);
+      throw new Error(`AI generation timed out after ${timeoutMs / 1000} seconds. No completed project was received. Try a smaller request or a lower reasoning level.`);
     throw error;
   }
 }

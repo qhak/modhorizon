@@ -213,7 +213,7 @@ test("every adapter uses the same model/artifact output ceiling as credit quotes
       expectedLimit = artifactType === "shader_pack" ? 32_000 : 16_000;
       assert.equal(generationOutputTokenLimit(artifactType), expectedLimit);
       for (const [adapter, model] of [["openai", "gpt-6-luna"], ["legacy", "gpt-6-luna"], ["anthropic", "claude-sonnet-5-5"], ["google", "gemini-3-flash-preview"]]) {
-        expectedLimit = artifactType === "shader_pack" ? (model === "gpt-6-luna" ? 64_000 : 32_000) : 16_000;
+        expectedLimit = artifactType === "shader_pack" ? (model === "gpt-6-luna" ? 64_000 : 32_000) : (model === "gpt-6-luna" ? 32_000 : 16_000);
         assert.equal(generationOutputTokenLimit(artifactType, model), expectedLimit);
         mode = adapter;
         if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }

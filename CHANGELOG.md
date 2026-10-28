@@ -1,4 +1,10 @@
 # Change notes
+## v0.23.5 - 2026-10-28
+
+- Allow local AI generation calls up to ten minutes and increase Luna's non-shader output budget to 32,000 tokens, reflected in credit reservations.
+
+Validation: targeted provider, timeout and credit quote tests; TypeScript and Cloudflare build. Provider, hosted and response limits remain; no live generation or deployment performed.
+
 ## v0.23.4 - 2026-10-28
 
 - Enlarge the reasoning slider handle to match the height of its track.

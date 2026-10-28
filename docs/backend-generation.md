@@ -67,7 +67,11 @@ D1 transaction. Completion changes a reservation from `held` to exactly one of
 Reservation ownership is checked on completion. Accounts cannot spend below zero.
 
 Successful responses settle against reported input and output usage, including
-Gemini thought tokens. All provider requests set a 16,000-token output limit.
+Gemini thought tokens. Luna allows up to 32,000 output tokens for non-shader
+projects and 64,000 for shaders; other models allow 16,000 and 32,000 respectively.
+Local generation requests have a 10-minute deadline per provider call. Hosted
+deadlines remain 90 seconds for OpenAI and Anthropic, 180 seconds for Gemini,
+and 240 seconds for shaders. Provider and hosting limits still apply.
 Low reasoning never reduces the hold below the configured output ceiling. Customers
 are charged at most their hold for a pass; estimates and configured rates still
 need review against actual provider costs before selling credits.
