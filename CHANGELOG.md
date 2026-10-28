@@ -1,4 +1,10 @@
 # Change notes
+## v0.23.1 - 2026-10-28
+
+- Refine the reasoning picker into a compact card with a discrete pill slider, current model and effort labels, and a reset-to-default control.
+
+Validation: TypeScript check, Cloudflare production build, browser preview and keyboard interaction. No production deployment or provider settings changed.
+
 ## v0.23.0 - 2026-10-28
 
 - Replace the reasoning effort menu with a discrete keyboard-accessible slider and clearly labeled supported levels. Keep each provider's default marked and close the picker safely when changing to a model without reasoning controls.

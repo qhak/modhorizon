@@ -8,7 +8,7 @@ settings.
 
 - `origin/main` remains v0.15.0 (`9b09438`). The local `main` ref may be stale;
   compare with a freshly checked `origin/main` before preparing a merge.
-- v0.23.0 is pushed on `codex/community-showcases` and included in open PR #5.
+- v0.23.1 is the current local candidate for open PR #5 on`r`n  `codex/community-showcases`; push it to update the PR.
   v0.22.0 had 229 passing tests plus TypeScript, Next.js production and
   Cloudflare Worker builds. The new slider change passed TypeScript, a Cloudflare
   Worker build and browser keyboard interaction; the full suite was not rerun.
@@ -16,7 +16,7 @@ settings.
 - v0.20.0 added disabled-by-default rewarded ads; v0.21.0 added the social
   screenshot-rewards hub; v0.22.0 added safe Stripe promotion codes for credit
   top-ups and additional social-reward tests; v0.23.0 adds the reasoning-effort
-  slider. Social campaigns remain disabled until exact profiles and review
+  slider, refined in v0.23.1. Social campaigns remain disabled until exact profiles and review
   credentials are configured.
 - Historical deployment notes describe older versions and configurations. No
   current-state check confirms the deployed Worker, D1 migrations or provider
@@ -27,7 +27,7 @@ settings.
 ### Release and deployment
 
 - [ ] Review the full `codex/community-showcases` diff against a freshly
-  fetched `origin/main` and decide whether v0.23.0 is the release scope. Resolve
+  fetched `origin/main` and decide whether v0.23.1 is the release scope. Resolve
   release-documentation drift without rewriting published history.
 - [ ] Confirm the current production Worker version, D1 migration state,
   bindings, secrets and public routes. The recorded state is not current-state

@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  RotateCcw,
   AlignLeft,
   Blocks,
   Brain,
@@ -23,6 +24,7 @@ import {
   Sun,
   Check,
   ChevronDown,
+  ChevronRight,
   CircleHelp,
   Code2,
   Copy,
@@ -320,6 +322,7 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
   const reasoning = reasoningFor(modelId);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const focusSliderOnOpen = useRef(false);
   const panelId = useId();
 
   useEffect(() => {
@@ -339,7 +342,10 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
     };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeOnEscape);
-    root.current?.querySelector<HTMLInputElement>(".reasoning-range")?.focus();
+    if (focusSliderOnOpen.current) {
+      root.current?.querySelector<HTMLInputElement>(".reasoning-range")?.focus();
+      focusSliderOnOpen.current = false;
+    }
     return () => {
       document.removeEventListener("pointerdown", closeOutside);
       document.removeEventListener("keydown", closeOnEscape);
@@ -350,6 +356,7 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
   const current = reasoning.levels.includes(value) ? value : reasoning.default;
   const currentIndex = reasoning.levels.indexOf(current);
   const defaultIndex = reasoning.levels.indexOf(reasoning.default);
+  const modelLabel = MODEL_OPTIONS.find((model) => model.id === modelId)?.label || "Selected model";
 
   return (
     <div
@@ -366,46 +373,53 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
         aria-controls={panelId}
         disabled={disabled}
         title="How much the model thinks before it answers"
-        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        onClick={(event) => {
+          focusSliderOnOpen.current = event.detail === 0;
+          setOpen((wasOpen) => !wasOpen);
+        }}
       >
         <span className="chip-select-icon"><Brain size={14} aria-hidden="true" /></span>
         <span>{REASONING_LABELS[current]}</span>
         <ChevronDown size={13} className="chip-chevron" aria-hidden="true" />
       </button>
       {open && (
-        <div id={panelId} className="reasoning-popover model-options" role="dialog" aria-label="Reasoning effort">
-          <div className="reasoning-popover-heading">
-            <strong>Reasoning</strong>
-            <span>{REASONING_LABELS[current]}{currentIndex === defaultIndex && <small>Default</small>}</span>
+        <div id={panelId} className="reasoning-popover model-options" role="dialog" aria-label={`Reasoning effort for ${modelLabel}`}>
+          <div className="reasoning-card-heading">
+            <span className="reasoning-card-icon" aria-hidden="true"><Brain size={14} /></span>
+            <div className="reasoning-card-current" aria-live="polite">
+              <strong>{REASONING_LABELS[current]}</strong>
+              <span>{modelLabel}<ChevronRight size={12} aria-hidden="true" /></span>
+            </div>
+            <button
+              type="button"
+              className="reasoning-reset"
+              aria-label={`Reset reasoning to default (${REASONING_LABELS[reasoning.default]})`}
+              title={`Reset to ${REASONING_LABELS[reasoning.default]}`}
+              disabled={currentIndex === defaultIndex}
+              onClick={() => onChange(reasoning.default)}
+            ><RotateCcw size={14} aria-hidden="true" /></button>
           </div>
-          <input
-            className="reasoning-range"
-            type="range"
-            min={0}
-            max={reasoning.levels.length - 1}
-            step={1}
-            value={currentIndex}
-            aria-label="Reasoning effort"
-            aria-valuetext={REASONING_LABELS[current]}
-            style={{ "--range-progress": `${currentIndex / Math.max(1, reasoning.levels.length - 1) * 100}%` } as CSSProperties}
-            onChange={(event) => onChange(reasoning.levels[Number(event.target.value)])}
-          />
-          <div className="reasoning-stops" style={{ "--reasoning-stop-count": reasoning.levels.length } as CSSProperties}>
-            {reasoning.levels.map((level, index) => (
-              <button
-                key={level}
-                type="button"
-                className={`reasoning-stop ${index === currentIndex ? "is-current" : ""}`}
-                aria-pressed={index === currentIndex}
-                onClick={() => onChange(level)}
-              >
-                <span className="reasoning-stop-dot" aria-hidden="true" />
-                <span>{REASONING_LABELS[level]}</span>
-                {index === defaultIndex && <small>Default</small>}
-              </button>
-            ))}
+          <div className="reasoning-track">
+            <input
+              className="reasoning-range"
+              type="range"
+              min={0}
+              max={reasoning.levels.length - 1}
+              step={1}
+              value={currentIndex}
+              aria-label="Reasoning effort"
+              aria-valuetext={REASONING_LABELS[current]}
+              aria-describedby={`${panelId}-hint`}
+              style={{ "--range-progress": `${currentIndex / Math.max(1, reasoning.levels.length - 1) * 100}%` } as CSSProperties}
+              onChange={(event) => onChange(reasoning.levels[Number(event.target.value)])}
+            />
+            <div className="reasoning-track-ticks" aria-hidden="true" style={{ "--reasoning-stop-count": reasoning.levels.length } as CSSProperties}>
+              {reasoning.levels.map((level, index) => (
+                <span key={level} className={index === currentIndex ? "is-current" : index < currentIndex ? "is-passed" : ""} />
+              ))}
+            </div>
           </div>
-          <p className="reasoning-help">Use the slider or choose a labeled level.</p>
+          <span id={`${panelId}-hint`} className="reasoning-visually-hidden">Use the left and right arrow keys to select a reasoning level. Default: {REASONING_LABELS[reasoning.default]}.</span>
         </div>
       )}
     </div>
