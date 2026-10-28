@@ -588,8 +588,8 @@ button.chip-select { cursor: pointer; }
 .reasoning-range:focus-visible { outline: none; }
 .reasoning-range::-webkit-slider-runnable-track { height: 26px; border-radius: 999px; background: linear-gradient(to right, #2684d7 0 var(--range-progress), #292a2d var(--range-progress) 100%); }
 .reasoning-range::-moz-range-track { height: 26px; border-radius: 999px; background: linear-gradient(to right, #2684d7 0 var(--range-progress), #292a2d var(--range-progress) 100%); }
-.reasoning-range::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: 4px; appearance: none; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px #0008; }
-.reasoning-range::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px #0008; }
+.reasoning-range::-webkit-slider-thumb { width: 26px; height: 26px; margin-top: 0; appearance: none; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px #0008; }
+.reasoning-range::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px #0008; }
 .reasoning-track-ticks { position: absolute; z-index: 2; inset: 0 10px; display: grid; grid-template-columns: repeat(var(--reasoning-stop-count), minmax(0, 1fr)); align-items: center; justify-items: center; pointer-events: none; }
 .reasoning-track-ticks span { width: 4px; height: 4px; border-radius: 50%; background: rgb(255 255 255 / .28); }
 .reasoning-track-ticks span.is-passed { background: rgb(255 255 255 / .56); }

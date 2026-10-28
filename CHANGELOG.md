@@ -1,4 +1,10 @@
 # Change notes
+## v0.23.4 - 2026-10-28
+
+- Enlarge the reasoning slider handle to match the height of its track.
+
+Validation: browser preview and slider interaction, and Cloudflare production build. No production deployment performed.
+
 ## v0.23.3 - 2026-10-28
 
 - Keep the reasoning picker in place when changing effort levels and keep it open after resetting to the default.
