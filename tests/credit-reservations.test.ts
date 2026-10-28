@@ -78,8 +78,26 @@ test("settlement records usage atomically, isolates it by account, and cannot ov
     assert.deepEqual({ ...row }, { input_tokens: 2500, output_tokens: 14000, input_rate: .1, output_rate: .5, charged_credits: 2 });
     const owner = await creditHistory(db, "owner", null);
     const entry = owner.entries.find(item => item.usage);
+    assert.equal(owner.entries.length, 1);
+    assert.equal(entry?.credits, -2);
+    assert.equal(entry?.description, "Generation completed");
     assert.deepEqual(entry?.usage, { generationId: "generation-1", callKind: "generation", inputTokens: 2500, outputTokens: 14000, source: "reported", chargedCredits: 2, providerRequestId: "req-123" });
     assert.doesNotMatch(JSON.stringify(await creditHistory(db, "other", null)), /req-123|generation-1/);
+  } finally { sqlite.close(); }
+});
+
+test("credit history groups held and refunded generations using their net ledger effects", async () => {
+  const { db, sqlite } = database();
+  const { creditHistory } = await import("../src/lib/credit-history");
+  try {
+    const refunded = (await holdCredits(db, "owner", "gpt-6-luna", 4))!;
+    await completeCreditReservation(db, "owner", refunded, "refunded");
+    await holdCredits(db, "owner", "gpt-6-luna", 3);
+    const { entries } = await creditHistory(db, "owner", null);
+    assert.equal(entries.length, 2);
+    assert.equal(entries.find(entry => entry.reservation?.state === "refunded")?.credits, 0);
+    assert.equal(entries.find(entry => entry.reservation?.state === "held")?.credits, -3);
+    assert.equal(entries.find(entry => entry.reservation?.state === "held")?.description, "Generation in progress");
   } finally { sqlite.close(); }
 });
 
@@ -451,12 +469,18 @@ test("credit history isolates accounts and paginates equal timestamps without mi
     for(let i=0;i<31;i++) sqlite.prepare("INSERT INTO credit_ledger(id,account_id,delta,reason,created_at) VALUES(?, 'owner', 1, 'manual_credit_pack', 1000)").run(`entry-${String(i).padStart(2,"0")}`);
     sqlite.prepare("INSERT INTO credit_ledger(id,account_id,delta,reason,created_at) VALUES('private-other','other',999,'manual_credit_pack',2000)").run();
     const first=await creditHistory(db,"owner",null);
-    assert.equal(first.entries.length,25);
+    assert.equal(first.entries.length,10);
     assert.ok(first.nextCursor);
     const second=await creditHistory(db,"owner",first.nextCursor);
-    assert.equal(second.entries.length,6);
-    assert.equal(second.nextCursor,null);
-    const all=[...first.entries,...second.entries];
+    assert.equal(second.entries.length,10);
+    assert.ok(second.nextCursor);
+    const third=await creditHistory(db,"owner",second.nextCursor);
+    assert.equal(third.entries.length,10);
+    assert.ok(third.nextCursor);
+    const fourth=await creditHistory(db,"owner",third.nextCursor);
+    assert.equal(fourth.entries.length,1);
+    assert.equal(fourth.nextCursor,null);
+    const all=[...first.entries,...second.entries,...third.entries,...fourth.entries];
     assert.equal(new Set(all.map(row=>row.id)).size,31);
     assert.ok(all.every(row=>row.credits===1 && row.description==="Extra credits purchased"));
     assert.doesNotMatch(JSON.stringify(first),/private-other|stripe_event/);

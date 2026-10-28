@@ -1,4 +1,10 @@
 # Change notes
+## v0.24.1 - 2026-10-28
+
+- Present each credit reservation and its return as one net generation activity, including older runs; show token details for new recorded usage and simplify the account layout.
+
+Validation: credit history and settlement tests, TypeScript, Cloudflare build and local account preview. Historic token usage remains unavailable; no production deployment performed.
+
 ## v0.24.0 - 2026-10-28
 
 - Record per-call credit settlement, token usage source, configured rates and available provider request IDs, linked by a generation ID and displayed in credit history.

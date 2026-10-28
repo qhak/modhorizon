@@ -51,7 +51,7 @@ export default function AccountPage() {
       <p className="account-intro">Keep your plan and credits connected across devices.</p>
       {notice&&<p className="account-notice" role="status">{notice}</p>}
       {!status?<p>Loading account…</p>:!status.configured?<p className="account-notice">Account sign-in is being set up. Please check back shortly.</p>:status.user&&mode!=="reset"?<>
-        <p className="account-email">{status.user.email}</p><p className="account-intro">Your email is verified. Monthly credits reset on renewal; purchased top-ups carry over.</p>
+        <p className="account-email">{status.user.email}</p><p className="account-intro">Your email is verified.</p>
         <BillingDashboard />
         <Link className="account-text" href="/rewards">Browse free rewards</Link>
         <Link className="account-primary" href="/pricing">View plan & buy credits</Link>

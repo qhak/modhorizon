@@ -40,3 +40,16 @@
 .account-card .deletion-checkbox { display:flex; gap:10px; align-items:flex-start; font-size:12px; line-height:1.7; }
 .account-card .deletion-checkbox input { width:16px; margin-top:4px; flex-shrink:0; }
 .account-card .account-danger { background:#8a3544; border-color:#b45260; }
+
+/* Credit activity groups each temporary hold and return into one readable entry. */
+.billing-balances { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.credit-history-intro { margin: 8px 0 0; }
+.credit-history { display: grid; gap: 8px; margin: 16px 0; }
+.credit-history li { align-items: flex-start; padding: 14px; border: 1px solid #292e39; border-radius: 12px; background: #101218; }
+.credit-history-main { min-width: 0; }
+.credit-history-amount { flex-shrink: 0; font-weight: 600; }
+.credit-history-amount small { color: #9598ab; font-size: 10px; font-weight: 400; }
+.credit-history-details { margin-top: 2px; color: #a9abba; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.credit-history-details summary { color: #9fc6ff; cursor: pointer; }
+.credit-history-details span { display: block; margin-top: 5px; }
+.credit-history-details summary:focus-visible { outline: 2px solid #8eb9ff; outline-offset: 3px; border-radius: 3px; }
