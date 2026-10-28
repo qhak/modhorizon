@@ -1,4 +1,10 @@
 # Change notes
+## v0.23.0 - 2026-10-28
+
+- Replace the reasoning effort menu with a discrete keyboard-accessible slider and clearly labeled supported levels. Keep each provider's default marked and close the picker safely when changing to a model without reasoning controls.
+
+Validation: TypeScript check, Cloudflare production build, and browser preview keyboard interaction passed. The automated test suite was not run. No production settings or deployment changed.
+
 ## v0.22.1 - 2026-10-28
 
 - Refresh the Stripe and release-readiness guides to match the current verified-account, billing-portal, top-up promotion-code and migration behavior. Mark old deployment notes as historical and guide end-to-end payment checks toward an isolated test environment.

@@ -8,14 +8,16 @@ settings.
 
 - `origin/main` remains v0.15.0 (`9b09438`). The local `main` ref may be stale;
   compare with a freshly checked `origin/main` before preparing a merge.
-- v0.22.1 is pushed on `codex/community-showcases` and included in open PR #5.
-  Automated evidence for the application code includes 229 tests,
-  TypeScript, Next.js production and Cloudflare Worker builds. This is source
-  and build evidence, not production deployment or end-to-end payment evidence.
+- v0.23.0 is pushed on `codex/community-showcases` and included in open PR #5.
+  v0.22.0 had 229 passing tests plus TypeScript, Next.js production and
+  Cloudflare Worker builds. The new slider change passed TypeScript, a Cloudflare
+  Worker build and browser keyboard interaction; the full suite was not rerun.
+  This is source/build evidence, not production deployment or payment acceptance.
 - v0.20.0 added disabled-by-default rewarded ads; v0.21.0 added the social
   screenshot-rewards hub; v0.22.0 added safe Stripe promotion codes for credit
-  top-ups and additional social-reward tests. Social campaigns remain disabled
-  until exact profiles and review credentials are configured.
+  top-ups and additional social-reward tests; v0.23.0 adds the reasoning-effort
+  slider. Social campaigns remain disabled until exact profiles and review
+  credentials are configured.
 - Historical deployment notes describe older versions and configurations. No
   current-state check confirms the deployed Worker, D1 migrations or provider
   settings. Recheck those directly before any release or feature enablement.
@@ -25,7 +27,7 @@ settings.
 ### Release and deployment
 
 - [ ] Review the full `codex/community-showcases` diff against a freshly
-  fetched `origin/main` and decide whether v0.22.1 is the release scope. Resolve
+  fetched `origin/main` and decide whether v0.23.0 is the release scope. Resolve
   release-documentation drift without rewriting published history.
 - [ ] Confirm the current production Worker version, D1 migration state,
   bindings, secrets and public routes. The recorded state is not current-state
