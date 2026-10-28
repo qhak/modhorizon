@@ -1,4 +1,5 @@
 import { createShaderCompiler } from "@/lib/shader-compiler";
+import { randomUUID } from "node:crypto";
 import { createAIProvider, limitedJson } from "@/lib/ai-provider";
 import { createBuildService } from "@/lib/build-service";
 import { generatePlugin } from "@/lib/generation";
@@ -11,6 +12,7 @@ import {
 } from "@/lib/validation";
 import { hasAllowedOrigin } from "@/lib/request-origin";
 import { accountFromRequest, BillingError, refundGenerationCredits, reserveGenerationCredits, settleGenerationCredits } from "@/lib/billing-service";
+import { bindArtifactOwner, removeArtifact } from "@/lib/project-store";
 
 export const runtime = "nodejs";
 // Hosting platforms may impose a lower limit; long hosted jobs need a durable queue.
@@ -57,13 +59,14 @@ export async function POST(request: Request) {
       throw new InputError("That model is unavailable. Connect its provider first.");
     const shaderCompiler = createShaderCompiler();
     if (input.shaderRepairCredits && !shaderCompiler) throw new InputError("Optional shader repair requires the local compiler service.");
-    const { account } = await accountFromRequest(request);
+    const { account, env } = await accountFromRequest(request);
     const provider = createAIProvider(input.modelId || "");
     let creditsSpent = 0;
+    const generationId = randomUUID();
     const meteredProvider = {
       name: provider.name,
       async generate(modelRequest: typeof input, errors?: string[]) {
-        const reservation = await reserveGenerationCredits(account.id, modelRequest, errors);
+        const reservation = await reserveGenerationCredits(account.id, modelRequest, errors, generationId);
         let generated;
         try {
           generated = await provider.generate(modelRequest, errors);
@@ -84,7 +87,13 @@ export async function POST(request: Request) {
       shaderCompiler,
     );
     project.creditsSpent = creditsSpent;
+    project.generationId = generationId;
     project.reasoningEffort = input.reasoningEffort;
+    bindArtifactOwner(project.id,account.id);
+    if(await env.BILLING_DB?.prepare("SELECT 1 FROM billing_accounts WHERE id=? AND deletion_requested_at IS NOT NULL").bind(account.id).first()) {
+      removeArtifact(project.id);
+      throw new BillingError("Account deletion started while this project was building.",409);
+    }
     return Response.json(
       { project },
       { headers: { "Cache-Control": "no-store" } },

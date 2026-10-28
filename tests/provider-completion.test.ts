@@ -113,7 +113,7 @@ test("all adapters receive targeted compiler repair guidance and exact source wi
 
 test("OpenAI completion status precedes parsing and text blocks are assembled in order", async t => {
   const restore = configure(); let payload: unknown; let calls = 0;
-  t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json(payload); });
+  t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json(payload, { headers: { "x-request-id": "req-provider-123" } }); });
   try {
     const provider = createAIProvider("gpt-6-luna");
     for (const badText of [text, '{"name":"Unfinished"']) {
@@ -134,6 +134,8 @@ test("OpenAI completion status precedes parsing and text blocks are assembled in
     const result = await provider.generate(request);
     assert.deepEqual(result.files, shaderPackFixture().files);
     assert.deepEqual(result.usage, { inputTokens: 1234, outputTokens: 5678 });
+    assert.equal(result.usageSource, "reported");
+    assert.equal(result.providerRequestId, "req-provider-123");
     assert.equal(calls, 6, "No hidden retries");
   } finally { restore(); }
 });
@@ -213,7 +215,7 @@ test("every adapter uses the same model/artifact output ceiling as credit quotes
       expectedLimit = artifactType === "shader_pack" ? 32_000 : 16_000;
       assert.equal(generationOutputTokenLimit(artifactType), expectedLimit);
       for (const [adapter, model] of [["openai", "gpt-6-luna"], ["legacy", "gpt-6-luna"], ["anthropic", "claude-sonnet-5-5"], ["google", "gemini-3-flash-preview"]]) {
-        expectedLimit = artifactType === "shader_pack" ? (model === "gpt-6-luna" ? 64_000 : 32_000) : 16_000;
+        expectedLimit = artifactType === "shader_pack" ? (model === "gpt-6-luna" ? 64_000 : 32_000) : (model === "gpt-6-luna" ? 32_000 : 16_000);
         assert.equal(generationOutputTokenLimit(artifactType, model), expectedLimit);
         mode = adapter;
         if (mode === "legacy") { delete process.env.OPENAI_API_KEY; process.env.AI_API_KEY = "fixture"; process.env.AI_MODEL = model; }

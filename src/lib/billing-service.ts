@@ -14,7 +14,10 @@ import { assertStripeEventMode, stripeMode, stripeReadiness } from "./stripe-con
 import { resolveAccountIdentity, verifiedAuthUser } from "./account-auth";
 import { subscriptionCancellationState } from "./plan-downgrade";
 import { testingModelAllowed } from "./model-access";
+import { expireDeletionCheckout, guardDeletedBillingEvent } from "./account-deletion-billing";
 import { authorizedBillingAccountId } from "./account-identity";
+import { expireRewardedAdCredits } from "./rewarded-ads";
+import { expireSocialRewardCredits } from "./social-rewards";
 export { BillingError } from "./billing-errors";
 
 export const BILLING_SESSION_COOKIE = "mh_session";
@@ -28,15 +31,25 @@ type BillingEnv = {
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_STUDIO?: string;
   STRIPE_PORTAL_CONFIGURATION_ID?: string;
+  REWARDED_ADS_ENABLED?: string;
+  GAM_REWARDED_AD_UNIT_PATH?: string;
+  SOCIAL_REWARDS_ENABLED?: string;
+  SOCIAL_REWARD_CAMPAIGNS_JSON?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
+  AI_API_KEY?: string;
+  AI_BASE_URL?: string;
+  AI_MODEL?: string;
+  SOCIAL_REWARD_REVIEW_MODEL?: string;
 };
 type BillingAccountRow = {
   auth_subject: string | null; auth_email: string | null;
-  id: string; plan_key: PlanId; credit_balance: number; free_week_start: number; allowance_credits: number; purchased_credits: number;
+  id: string; plan_key: PlanId; credit_balance: number; free_week_start: number; allowance_credits: number; purchased_credits: number; rewarded_ad_credits: number; social_reward_credits: number;
   stripe_subscription_id: string | null; subscription_status: string; cancel_at_period_end: number; current_period_end: number | null;
 };
 export type BillingAccount = {
   authenticated?: boolean; email?: string | null; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: number | null;
-  id: string; plan: PlanId; credits: number; subscriptionStatus: string; allowanceCredits?: number; purchasedCredits?: number;
+  id: string; plan: PlanId; credits: number; subscriptionStatus: string; allowanceCredits?: number; purchasedCredits?: number; rewardedAdCredits?: number; socialRewardCredits?: number;
 };
 
 export async function billingEnv(): Promise<BillingEnv> {
@@ -68,7 +81,7 @@ function weekStart(now: number) {
 
 async function findAccount(db: D1Database, token: string | undefined) {
   if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
-  const row = await db.prepare(`SELECT a.id, a.plan_key, a.credit_balance, a.free_week_start, a.allowance_credits, a.purchased_credits, a.auth_subject, a.auth_email,
+  const row = await db.prepare(`SELECT a.id, a.plan_key, a.credit_balance, a.free_week_start, a.allowance_credits, a.purchased_credits, a.rewarded_ad_credits, a.social_reward_credits, a.auth_subject, a.auth_email,
       a.stripe_subscription_id, a.subscription_status, a.cancel_at_period_end, a.current_period_end
     FROM billing_sessions s JOIN billing_accounts a ON a.id=s.account_id
     WHERE s.token_hash=? AND s.expires_at>?`).bind(tokenHash(token), Date.now()).first<BillingAccountRow>();
@@ -88,7 +101,7 @@ async function refreshFreeAllowance(db: D1Database, row: BillingAccountRow) {
   }
 }
 function serializeAccount(row: BillingAccountRow): BillingAccount {
-  return { cancelAtPeriodEnd: Boolean(row.cancel_at_period_end), currentPeriodEnd: row.current_period_end, id: row.id, plan: row.plan_key, credits: Number(row.credit_balance), subscriptionStatus: row.subscription_status, allowanceCredits: Number(row.allowance_credits), purchasedCredits: Number(row.purchased_credits), authenticated: Boolean(row.auth_subject), email: row.auth_email };
+  return { cancelAtPeriodEnd: Boolean(row.cancel_at_period_end), currentPeriodEnd: row.current_period_end, id: row.id, plan: row.plan_key, credits: Number(row.credit_balance), subscriptionStatus: row.subscription_status, allowanceCredits: Number(row.allowance_credits), purchasedCredits: Number(row.purchased_credits), rewardedAdCredits: Number(row.rewarded_ad_credits), socialRewardCredits: Number(row.social_reward_credits), authenticated: Boolean(row.auth_subject), email: row.auth_email };
 }
 
 async function resolveRequestAccount(db: D1Database, request: Request) {
@@ -103,11 +116,13 @@ export async function accountFromRequest(request: Request) {
   const { row } = await resolveRequestAccount(db, request);
   if (!row) throw new BillingError("Your session has expired. Refresh the page and try again.", 401);
   await refreshFreeAllowance(db, row);
+  await expireRewardedAdCredits(db, row.id);
+  await expireSocialRewardCredits(db, row.id);
   const fresh = await findAccountById(db, row.id);
   return { env, db, account: serializeAccount(fresh ?? row) };
 }
 async function findAccountById(db: D1Database, id: string) {
-  return db.prepare(`SELECT id,plan_key,credit_balance,free_week_start,allowance_credits,purchased_credits,stripe_subscription_id,subscription_status,auth_subject,auth_email,cancel_at_period_end,current_period_end
+  return db.prepare(`SELECT id,plan_key,credit_balance,free_week_start,allowance_credits,purchased_credits,rewarded_ad_credits,social_reward_credits,stripe_subscription_id,subscription_status,auth_subject,auth_email,cancel_at_period_end,current_period_end
     FROM billing_accounts WHERE id=?`).bind(id).first<BillingAccountRow>();
 }
 
@@ -155,7 +170,7 @@ function accountIsPaid(account: BillingAccount) {
   return account.plan !== "free" && (account.subscriptionStatus === "active" || account.subscriptionStatus === "trialing");
 }
 
-export async function reserveGenerationCredits(accountId: string, request: GenerateRequest, errors?: string[]) {
+export async function reserveGenerationCredits(accountId: string, request: GenerateRequest, errors?: string[], generationId?: string) {
   const modelId = request.modelId || "";
   if (!testingModelAllowed(modelId)) throw new BillingError("This model is disabled during testing. Choose GPT-6 Luna or a free-tier model.", 403);
   const model = findModel(modelId);
@@ -170,7 +185,7 @@ export async function reserveGenerationCredits(accountId: string, request: Gener
   const { reservedCredits: reserved } = quoteGeneration(account, request, errors);
   assertShaderRepairBudget(request, reserved, errors);
   if (model.provider === "demo") return { model, reserved: 0, reservationId: null, account };
-  const reservationId = await holdCredits(db, accountId, modelId, reserved);
+  const reservationId = await holdCredits(db, accountId, modelId, reserved, generationId ? { generationId, callKind: errors?.length ? "repair" : "generation" } : undefined);
   if (!reservationId) throw new BillingError(`This generation may use up to ${reserved} credits, but your balance cannot cover it.`, 402);
   return { model, reserved, reservationId, account };
 }
@@ -183,7 +198,12 @@ export async function settleGenerationCredits(accountId: string, modelId: string
   const { db } = await accountFromId(accountId);
   const actual = creditsForUsage(modelId, result.usage?.inputTokens ?? Math.ceil(JSON.stringify(result).length / 3), result.usage?.outputTokens ?? Math.ceil(JSON.stringify(result).length / 3));
   if (actual === null) throw new BillingError("Usage pricing is unavailable; your credit reservation is retained for reconciliation.");
-  return completeCreditReservation(db, accountId, reservationId, "settled", actual);
+  const model = findModel(modelId);
+  const usage = result.usage && model?.inputUsdPerMillion !== undefined && model.outputUsdPerMillion !== undefined ? {
+    ...result.usage, source: result.usageSource ?? "estimated" as const,
+    inputRate: model.inputUsdPerMillion, outputRate: model.outputUsdPerMillion, providerRequestId: result.providerRequestId,
+  } : undefined;
+  return completeCreditReservation(db, accountId, reservationId, "settled", actual, usage);
 }
 export async function refundGenerationCredits(accountId: string, reservationId: string | null) {
   if (!reservationId) return;
@@ -245,6 +265,7 @@ export async function createStripeCheckout(request: Request, account: BillingAcc
     const plan = account.plan as PaidPlanId;
     const { credits: packCredits, amountCents: unitAmountCents } = validateTopup(plan, body.credits);
     values.set("mode", "payment");
+    values.set("allow_promotion_codes", "true");
     values.set("line_items[0][price_data][currency]", "usd");
     values.set("line_items[0][price_data][unit_amount]", String(unitAmountCents));
     values.set("line_items[0][price_data][product_data][name]", `${packCredits.toLocaleString("en-US")} ModHorizon credits`);
@@ -259,7 +280,13 @@ export async function createStripeCheckout(request: Request, account: BillingAcc
   } else {
     throw new BillingError("Choose a valid plan or top-up quantity.", 400);
   }
+  const deletionStarted = async () => env.BILLING_DB ? !!await env.BILLING_DB.prepare("SELECT 1 FROM billing_accounts WHERE id=? AND deletion_requested_at IS NOT NULL").bind(account.id).first() : false;
+  if(await deletionStarted()) throw new BillingError("Account deletion is in progress.",409);
   const session = await stripePost(env, "checkout/sessions", values);
+  if(await deletionStarted()) {
+    if(typeof session.id === "string") await expireDeletionCheckout(env.STRIPE_SECRET_KEY!,session.id);
+    throw new BillingError("Account deletion is in progress; checkout was canceled.",409);
+  }
   if (typeof session.url !== "string") throw new BillingError("Stripe did not return a checkout URL.", 502);
   return { url: session.url };
 }
@@ -308,6 +335,8 @@ export async function processStripeWebhook(request: Request) {
     return { received: true, duplicate: !results[0]?.meta?.changes };
   };
 
+  if(await guardDeletedBillingEvent(db,env.STRIPE_SECRET_KEY,eventType,item)) return commit();
+
   if (eventType === "checkout.session.completed" || eventType === "checkout.session.async_payment_succeeded") {
     const metadata = object(item.metadata), accountId = metadata.account_id;
     const customerId = stripeId(item.customer), subId = stripeId(item.subscription);
@@ -330,21 +359,21 @@ export async function processStripeWebhook(request: Request) {
     }
   } else if (eventType === "invoice.payment_failed") {
     const subId = subscriptionIdFromInvoice(item);
-    if (subId) return commit([db.prepare("UPDATE billing_accounts SET subscription_status='past_due',updated_at=? WHERE stripe_subscription_id=? AND changes()=1").bind(now, subId)]);
+    if (subId) return commit([db.prepare("UPDATE billing_accounts SET subscription_status='past_due',updated_at=? WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1").bind(now, subId)]);
   } else if (eventType === "customer.subscription.deleted") {
     const subId = stripeId(item.id);
     if (subId) return commit([
       db.prepare(`INSERT INTO credit_ledger(id,account_id,delta,reason,stripe_event_id,created_at)
         SELECT ?,id,?-allowance_credits,'subscription_cancel_allowance',?,? FROM billing_accounts
-        WHERE stripe_subscription_id=? AND changes()=1`)
+        WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1`)
         .bind(randomUUID(),BILLING_PLANS.free.credits,eventId,now,subId),
-      db.prepare(`UPDATE billing_accounts SET plan_key='free',credit_balance=?+purchased_credits,allowance_credits=?,allowance_period=allowance_period+1,free_week_start=?,stripe_subscription_id=NULL,subscription_status='canceled',cancel_at_period_end=0,current_period_end=NULL,updated_at=? WHERE stripe_subscription_id=? AND changes()=1`)
+      db.prepare(`UPDATE billing_accounts SET plan_key='free',credit_balance=?+purchased_credits,allowance_credits=?,allowance_period=allowance_period+1,free_week_start=?,stripe_subscription_id=NULL,subscription_status='canceled',cancel_at_period_end=0,current_period_end=NULL,updated_at=? WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1`)
         .bind(BILLING_PLANS.free.credits,BILLING_PLANS.free.credits,weekStart(now),now,subId),
     ]);
   } else if (eventType === "customer.subscription.updated") {
     const subId = stripeId(item.id), status = item.status;
     const state = subscriptionCancellationState(item);
-    if (subId && typeof status === "string") return commit([db.prepare("UPDATE billing_accounts SET subscription_status=?,cancel_at_period_end=?,current_period_end=?,updated_at=? WHERE stripe_subscription_id=? AND changes()=1")
+    if (subId && typeof status === "string") return commit([db.prepare("UPDATE billing_accounts SET subscription_status=?,cancel_at_period_end=?,current_period_end=?,updated_at=? WHERE stripe_subscription_id=? AND deletion_requested_at IS NULL AND changes()=1")
       .bind(status, state.scheduled ? 1 : 0, state.periodEnd, now, subId)]);
   }
   return commit();

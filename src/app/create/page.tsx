@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  RotateCcw,
   AlignLeft,
   Blocks,
   Brain,
@@ -23,6 +24,7 @@ import {
   Sun,
   Check,
   ChevronDown,
+  ChevronRight,
   CircleHelp,
   Code2,
   Copy,
@@ -318,21 +320,112 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
   modelId: string; value: ReasoningLevel; onChange: (level: ReasoningLevel) => void; disabled: boolean;
 }) {
   const reasoning = reasoningFor(modelId);
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const focusSliderOnOpen = useRef(false);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!reasoningFor(modelId)) setOpen(false);
+  }, [modelId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        root.current?.querySelector<HTMLButtonElement>(".chip-select")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    if (focusSliderOnOpen.current) {
+      root.current?.querySelector<HTMLInputElement>(".reasoning-range")?.focus();
+      focusSliderOnOpen.current = false;
+    }
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
   if (!reasoning) return null;
   const current = reasoning.levels.includes(value) ? value : reasoning.default;
+  const currentIndex = reasoning.levels.indexOf(current);
+  const defaultIndex = reasoning.levels.indexOf(reasoning.default);
+  const modelLabel = MODEL_OPTIONS.find((model) => model.id === modelId)?.label || "Selected model";
+
   return (
-    <ChipMenu
-      label="Reasoning effort"
-      heading="Reasoning"
-      title="How much the model thinks before it answers"
-      icon={<Brain size={14} aria-hidden="true" />}
-      display={REASONING_LABELS[current]}
-      value={current}
-      onChange={(next) => onChange(next as ReasoningLevel)}
-      disabled={disabled}
-      compact
-      groups={[{ options: reasoning.levels.map((level) => ({ value: level, label: REASONING_LABELS[level], meta: level === reasoning.default ? "Default" : undefined })) }]}
-    />
+    <div
+      className="reasoning-picker"
+      ref={root}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false); }}
+    >
+      <button
+        type="button"
+        className="chip-select"
+        aria-label={`Reasoning effort: ${REASONING_LABELS[current]}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={panelId}
+        disabled={disabled}
+        title="How much the model thinks before it answers"
+        onClick={(event) => {
+          focusSliderOnOpen.current = event.detail === 0;
+          setOpen((wasOpen) => !wasOpen);
+        }}
+      >
+        <span className="chip-select-icon"><Brain size={14} aria-hidden="true" /></span>
+        <span>{REASONING_LABELS[current]}</span>
+        <ChevronDown size={13} className="chip-chevron" aria-hidden="true" />
+      </button>
+      {open && (
+        <div id={panelId} className="reasoning-popover model-options" role="dialog" aria-label={`Reasoning effort for ${modelLabel}`}>
+          <div className="reasoning-card-heading">
+            <span className="reasoning-card-icon" aria-hidden="true"><Brain size={14} /></span>
+            <div className="reasoning-card-current" aria-live="polite">
+              <strong>{REASONING_LABELS[current]}</strong>
+              <span>{modelLabel}<ChevronRight size={12} aria-hidden="true" /></span>
+            </div>
+            <button
+              type="button"
+              className="reasoning-reset"
+              aria-label={`Reset reasoning to default (${REASONING_LABELS[reasoning.default]})`}
+              title={`Reset to ${REASONING_LABELS[reasoning.default]}`}
+              disabled={currentIndex === defaultIndex}
+              onClick={() => {
+                root.current?.querySelector<HTMLInputElement>(".reasoning-range")?.focus();
+                onChange(reasoning.default);
+              }}
+            ><RotateCcw size={14} aria-hidden="true" /></button>
+          </div>
+          <div className="reasoning-track">
+            <input
+              className="reasoning-range"
+              type="range"
+              min={0}
+              max={reasoning.levels.length - 1}
+              step={1}
+              value={currentIndex}
+              aria-label="Reasoning effort"
+              aria-valuetext={REASONING_LABELS[current]}
+              aria-describedby={`${panelId}-hint`}
+              style={{ "--range-progress": `${currentIndex / Math.max(1, reasoning.levels.length - 1) * 100}%` } as CSSProperties}
+              onChange={(event) => onChange(reasoning.levels[Number(event.target.value)])}
+            />
+            <div className="reasoning-track-ticks" aria-hidden="true" style={{ "--reasoning-stop-count": reasoning.levels.length } as CSSProperties}>
+              {reasoning.levels.map((level, index) => (
+                <span key={level} className={index === currentIndex ? "is-current" : index < currentIndex ? "is-passed" : ""} />
+              ))}
+            </div>
+          </div>
+          <span id={`${panelId}-hint`} className="reasoning-visually-hidden">Use the left and right arrow keys to select a reasoning level. Default: {REASONING_LABELS[reasoning.default]}.</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -837,6 +930,7 @@ function ProjectSummary({ project, statusLabel }: { project: Project; statusLabe
         <div><dt><AlignLeft size={12} aria-hidden="true" /> Lines</dt><dd>{lines.toLocaleString()}</dd></div>
         <div><dt><Cpu size={12} aria-hidden="true" /> Model</dt><dd title={model}>{model}</dd></div>
       </dl>
+      {project.generationId && <p className="generation-usage-summary">{project.creditsSpent ?? 0} credits charged · <a href="/account">Credit history</a><br /><small>Generation ID: {project.generationId}</small></p>}
     </div>
   );
 }

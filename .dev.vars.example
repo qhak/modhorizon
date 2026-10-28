@@ -15,11 +15,26 @@ AI_PROVIDER=openai-compatible
 # STRIPE_PRICE_PRO=price_...
 # STRIPE_PRICE_STUDIO=price_...
 
+# Rewarded Google Ad Manager web ads are disabled unless both values are set.
+# Before enabling, create a rewarded web ad unit and configure a Google-certified
+# consent message/CMP for users in the UK, EEA, and Switzerland.
+# REWARDED_ADS_ENABLED=false
+# GAM_REWARDED_AD_UNIT_PATH=/NETWORK_CODE/AD_UNIT_CODE
+
 # Dedicated managed accounts (runtime bindings, not NEXT_PUBLIC_ build variables).
 # SUPABASE_URL=https://PROJECT.supabase.co
 # SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 # APP_ORIGIN=https://modhorizon.callout-ai.workers.dev
 # AUTH_GOOGLE_ENABLED=false
+# Community publishing: trusted Supabase user IDs, comma-separated. Empty disables approval.
+# COMMUNITY_MODERATOR_IDS=
+
+# Self-service deletion stays disabled until disposable staging acceptance passes.
+# Server-only admin secret; never use NEXT_PUBLIC_ or commit a real value.
+# SUPABASE_SECRET_KEY=
+ACCOUNT_DELETION_ENABLED=false
+# Development mode additionally requires ALLOW_LOCAL_ACCOUNT_DELETION=true.
+# ALLOW_LOCAL_ACCOUNT_DELETION=false
 
 # Optional explicit Stripe customer portal configuration.
 # STRIPE_PORTAL_CONFIGURATION_ID=bpc_...

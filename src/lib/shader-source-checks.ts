@@ -11,6 +11,19 @@ export function checkShaderSourceContracts(files: GeneratedFile[]): void {
     .map(file => [file.path, file.content]));
   const includes = new Map<string, string[]>();
   for (const [path, content] of sources) {
+    const clean = maskShaderComments(content);
+    // Iris parses registered clear colors in Java before the driver sees GLSL.
+    // Its vec4 parser indexes four comma-separated floats even for legal GLSL
+    // splat constructors, so vec4(0.0) can throw IndexOutOfBoundsException.
+    // Leave conditionally compiled declarations to runtime analysis.
+    if (!/^[ \t]*#[ \t]*(?:if|ifdef|ifndef|elif|else)\b/m.test(clean)) {
+      for (const match of clean.matchAll(/\bconst\s+vec4\s+((?:colortex\d+|shadowcolor\d+|gcolor|gdepth|gnormal|composite|gaux[1-4])ClearColor)\s*=\s*vec4\s*\(([^()]*)\)\s*;/g)) {
+        const values = match[2].split(",").map(value => value.trim());
+        const literal = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[fF]?$/;
+        if (values.length !== 4 || values.some(value => !literal.test(value)))
+          throw new Error(`${path}: ${match[1]} needs four explicit numeric components, for example vec4(0.0, 0.0, 0.0, 0.0). Iris cannot load scalar or expression-based clear-color constructors even when GLSL compilation passes.`);
+      }
+    }
     const dependencies = [...maskShaderComments(content).matchAll(/^[ \t]*#[ \t]*include[ \t]+"([^"]+)"/gm)]
       .map(match => match[1].startsWith("/") ? `shaders${match[1]}`
         : path.slice(0, path.lastIndexOf("/") + 1) + match[1]);

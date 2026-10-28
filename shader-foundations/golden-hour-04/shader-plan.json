@@ -1,0 +1,123 @@
+{
+  "goal": "Authored sunset04: directional golden twilight, warm cloud edges, readable sky-exposed terrain and stronger water highlights. Retains water03 optical coverage, waves and reflection trace.",
+  "referenceSummary": "Two supplied images show low, warm sunset light; orange-pink horizons; cooler upper sky; distant haze; cloud formations; and landscape reflected in water. One image has a forest silhouette and mirror-like lake, the other a detailed village, vegetation, and rippled golden water. The images suggest strong directional light and scene reflections, but cannot establish exact time, rendering method, texture pack, or hidden material detail. Detailed block appearance likely depends in part on texture assets, which this text-only project cannot supply.",
+  "pipeline": [
+    "Opaque terrain and cutout terrain use compatibility geometry inputs, preserve UV/tint/alpha testing, and shade using decoded lightmap coordinates, player-space normals, warm directional sunlight, and a filtered shadow map. The shadow pass uses the same player-space receiver position and cutout alpha test.",
+    "Sky and water share a world-direction radiance function: time-of-day palette, sun glow/disc, night moon/stars, rain response, and a moving 2D cloud-density field. Vanilla cloud geometry is retained only as a faint tinted layer; its block silhouette is not transformed into rounded geometry.",
+    "deferred samples opaque colortex0 and depthtex1, substitutes shared sky radiance only for clear-depth pixels, and writes the pre-translucency scene snapshot to colortex4 (RGBA16F). It never reads and writes the same attachment.",
+    "Water and other supported translucent passes write straight-alpha surfaces into colortex1. The buffer is explicitly cleared to transparent; configured blending accumulates premultiplied RGB and alpha. Water alone uses mapped block ID, a camera-stationary animated noise normal, opaque depth, and bounded SSR against colortex4.",
+    "composite restores shared sky radiance at clear depth, composites the premultiplied colortex1 overlay over opaque colortex0, and writes colortex0. Sky fallback, including clouds and celestial radiance, is shared with the water reflection fallback. No separate tone-map or bloom pass is applied.",
+    "Local revision: shared mhDistanceHaze uses far on terrain/water; water RGB and alpha converge to viewing sky at far distance. Continuous lower sky replaces branch jump; vanilla clouds disabled for the custom 2D layer.",
+    "Water layer separates Fresnel reflection, depth-dependent neutral transmission and lit scatter. Divide covered radiance by coverage before SRC_ALPHA overlay blending so reflection is not attenuated twice. Preserve far-viewing-sky RGB/alpha convergence.",
+    "Sunset response persists independently of day fade; shared sky radiance feeds water reflection. Sky-exposure-gated twilight fill preserves dark interiors. No global exposure increase."
+  ],
+  "features": [
+    {
+      "name": "Warm directional sunlight and cast terrain shadows",
+      "kind": "shadows",
+      "priority": 1,
+      "status": "implemented",
+      "technique": "Decode sky/block exposure from transformed lightmap coordinates, retain biome texture and vertex tint, shade with world/player-space sun and normals, and apply a bounded 3x3 depth comparison from the paired cutout-aware shadow pass. Terrain fog blends distant geometry toward shared sky radiance.",
+      "files": [
+        "shaders/gbuffers_terrain.vsh",
+        "shaders/gbuffers_terrain.fsh",
+        "shaders/gbuffers_terrain_cutout.vsh",
+        "shaders/gbuffers_terrain_cutout.fsh",
+        "shaders/shadow.vsh",
+        "shaders/shadow.fsh",
+        "shaders/lib/terrain_lighting.glsl"
+      ],
+      "limitations": "Source-level implementation only; shadow matrices, alphaTestRef binding, and visual behavior require Iris runtime verification. No volumetric light shafts."
+    },
+    {
+      "name": "Weather-aware warm sky and distant haze",
+      "kind": "sky",
+      "priority": 1,
+      "status": "implemented",
+      "technique": "Use one player/world-direction sky radiance function for sky geometry, clear-depth restoration, and reflection fallback. Derive solar elevation from the transformed sun direction and world up; blend day/night, low-sun glow, rain, disc, moon, and stars. Terrain applies distance-based view-space haze.",
+      "files": [
+        "shaders/gbuffers_skybasic.vsh",
+        "shaders/gbuffers_skybasic.fsh",
+        "shaders/deferred.vsh",
+        "shaders/deferred.fsh",
+        "shaders/composite.vsh",
+        "shaders/composite.fsh",
+        "shaders/lib/sky_common.glsl"
+      ],
+      "limitations": "Celestial discs and stars are procedural approximations; original textured moon phases are not preserved in clear-depth pixels. Haze is depth/distance blending, not volumetric scattering. No bloom. Local revision changes horizon/cloud palette and shape; procedural 2D layer, not volumetric. Minecraft acceptance pending."
+    },
+    {
+      "name": "Landscape water reflections and translucent composition",
+      "kind": "reflections",
+      "priority": 1,
+      "status": "implemented",
+      "technique": "Map water separately from lava and other translucent terrain. Generate low-amplitude, world-position-anchored noise ripples; reflect a view-space ray through a bounded depth-tested SSR trace of the opaque colortex4 snapshot, with shared sky fallback, edge confidence, Fresnel weighting, shallow/deep tint, and a transparent premultiplied overlay. Local water03: optical-path attenuation and consistent straight-alpha reflection/scatter coverage.",
+      "files": [
+        "shaders/gbuffers_water.vsh",
+        "shaders/gbuffers_water.fsh",
+        "shaders/deferred.fsh",
+        "shaders/composite.fsh",
+        "shaders/block.properties",
+        "shaders/shaders.properties",
+        "shaders/lib/sky_common.glsl",
+        "shaders/lib/water_balance.glsl"
+      ],
+      "limitations": "SSR only reflects opaque geometry visible in the current screen snapshot; off-screen, occluded, and translucent objects use sky/tint fallback. Water depth/transmission and refraction are approximate. Requires in-game checks for buffer orientation and overlap behavior. Neutral scalar attenuation and artist-selected reflectance; not spectral transport, refraction or total internal reflection. Visual acceptance pending."
+    },
+    {
+      "name": "Natural-looking cloud detail",
+      "kind": "sky",
+      "priority": 2,
+      "status": "approximation",
+      "technique": "A time/weather-responsive, warped 2D density field is part of shared sky radiance, so it appears in sky, clear-depth restoration, and reflection fallback. Vanilla cloud geometry is retained at low opacity and warm-tinted.",
+      "files": [
+        "shaders/lib/sky_common.glsl",
+        "shaders/gbuffers_clouds.vsh",
+        "shaders/gbuffers_clouds.fsh",
+        "shaders/deferred.fsh",
+        "shaders/composite.fsh"
+      ],
+      "limitations": "The procedural field is a 2D sky layer, not volumetric cloud transport. Tinting vanilla cloud geometry cannot make its silhouette rounded; duplicate or block-shaped geometry may remain depending on render order and cloud settings. Local revision changes horizon/cloud palette and shape; procedural 2D layer, not volumetric. Minecraft acceptance pending."
+    },
+    {
+      "name": "Detailed-looking block surfaces",
+      "kind": "other",
+      "priority": 2,
+      "status": "omitted",
+      "technique": "No texture assets are generated by this text-only project. Directional light and shadows can improve depth cues but cannot add albedo, normal, or specular detail absent from the installed resource pack.",
+      "files": [],
+      "limitations": "Install a compatible detailed block resource pack for non-pixelated sand, stone, wood, and foliage. Normal/specular atlas integration is not included."
+    },
+    {
+      "name": "Rendering preservation for common translucent and hand/entity layers",
+      "kind": "baseline",
+      "priority": 2,
+      "status": "approximation",
+      "technique": "Provide lightmap-compatible geometry paths for entities, hand, items, and block entities; route water, glass-like terrain, translucent entities/blocks, particles, and weather into the explicitly cleared overlay and composite it once.",
+      "files": [
+        "shaders/gbuffers_entities.vsh",
+        "shaders/gbuffers_entities.fsh",
+        "shaders/gbuffers_hand.vsh",
+        "shaders/gbuffers_hand.fsh",
+        "shaders/gbuffers_item.vsh",
+        "shaders/gbuffers_item.fsh",
+        "shaders/gbuffers_water.fsh",
+        "shaders/gbuffers_block_translucent.fsh",
+        "shaders/gbuffers_entities_translucent.fsh",
+        "shaders/gbuffers_particles.fsh",
+        "shaders/gbuffers_particles_translucent.fsh",
+        "shaders/gbuffers_weather.fsh"
+      ],
+      "limitations": "Entity, item, and hand paths retain combined lightmap lighting but do not receive terrain shadow mapping. Other engine/mod-specific render layers use Iris fallbacks and need testing. Lightning and special modded layers are not customized."
+    },
+    {
+      "name": "Volumetric sun shafts and bloom",
+      "kind": "atmosphere",
+      "priority": 3,
+      "status": "omitted",
+      "technique": "Not implemented; a warm sky glow and distance haze are not occlusion-aware shafts or highlight-extraction bloom.",
+      "files": [],
+      "limitations": "The references show bright low sun and atmospheric glow, but this project does not trace shadow-occluded rays or blur isolated highlights. A separate bounded post-processing layer would be the next step."
+    }
+  ]
+}

@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     }
     return Response.json({
       summary: { plan: account.plan, planName: BILLING_PLANS[account.plan].name, balance: account.credits,
-        allowanceCredits: account.allowanceCredits, purchasedCredits: account.purchasedCredits,
+        allowanceCredits: account.allowanceCredits, purchasedCredits: account.purchasedCredits, rewardedAdCredits: account.rewardedAdCredits, socialRewardCredits: account.socialRewardCredits,
         subscriptionStatus: account.subscriptionStatus, complimentary: account.plan !== "free" && !row?.stripe_subscription_id,
         hasBillingCustomer: Boolean(row?.stripe_customer_id), periodEnd, cancelAtPeriodEnd: scheduled, renewalUnavailable,
         priceCents: BILLING_PLANS[account.plan].priceCents }, ...history,

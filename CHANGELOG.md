@@ -1,4 +1,171 @@
 # Change notes
+## v0.24.2 - 2026-10-28
+
+- Make the signed-in account overview wider and clearer, emphasize the credit balance, group account settings, and put plan and reward links together.
+
+Validation: local account preview and settings interaction, TypeScript and Cloudflare build. No production deployment performed.
+
+## v0.24.1 - 2026-10-28
+
+- Present each credit reservation and its return as one net generation activity, including older runs; show token details for new recorded usage and simplify the account layout.
+
+Validation: credit history and settlement tests, TypeScript, Cloudflare build and local account preview. Historic token usage remains unavailable; no production deployment performed.
+
+## v0.24.0 - 2026-10-28
+
+- Record per-call credit settlement, token usage source, configured rates and available provider request IDs, linked by a generation ID and displayed in credit history.
+- Show the generation ID and credits charged on completed projects. Older and failed calls do not have complete usage records.
+
+Validation: automated tests, TypeScript, local migration and account preview, and Cloudflare build. No paid provider request or production deployment; production migration and staging acceptance remain outstanding.
+
+## v0.23.5 - 2026-10-28
+
+- Allow local AI generation calls up to ten minutes and increase Luna's non-shader output budget to 32,000 tokens, reflected in credit reservations.
+
+Validation: targeted provider, timeout and credit quote tests; TypeScript and Cloudflare build. Provider, hosted and response limits remain; no live generation or deployment performed.
+
+## v0.23.4 - 2026-10-28
+
+- Enlarge the reasoning slider handle to match the height of its track.
+
+Validation: browser preview and slider interaction, and Cloudflare production build. No production deployment performed.
+
+## v0.23.3 - 2026-10-28
+
+- Keep the reasoning picker in place when changing effort levels and keep it open after resetting to the default.
+
+Validation: TypeScript check, Cloudflare build, and browser interaction. No production deployment performed.
+
+## v0.23.2 - 2026-10-28
+
+- Correct the release-readiness baseline to record v0.23.1 as pushed and included in PR #5.
+
+Validation: reviewed the pushed branch and release metadata. No application behavior or production settings changed.
+
+## v0.23.1 - 2026-10-28
+
+- Refine the reasoning picker into a compact card with a discrete pill slider, current model and effort labels, and a reset-to-default control.
+
+Validation: TypeScript check, Cloudflare production build, browser preview and keyboard interaction. No production deployment or provider settings changed.
+
+## v0.23.0 - 2026-10-28
+
+- Replace the reasoning effort menu with a discrete keyboard-accessible slider and clearly labeled supported levels. Keep each provider's default marked and close the picker safely when changing to a model without reasoning controls.
+
+Validation: TypeScript check, Cloudflare production build, and browser preview keyboard interaction passed. The automated test suite was not run. No production settings or deployment changed.
+
+## v0.22.1 - 2026-10-28
+
+- Refresh the Stripe and release-readiness guides to match the current verified-account, billing-portal, top-up promotion-code and migration behavior. Mark old deployment notes as historical and guide end-to-end payment checks toward an isolated test environment.
+
+Validation: documentation cross-check against current routes, configuration, migration and v0.22.0 test/build evidence; git diff --check. No tests, production settings, migrations or deployment changed.
+
+## v0.22.0 - 2026-10-27
+
+- Allow Stripe promotion codes on credit pack Checkout. Webhooks verify the original server-quoted subtotal, discount arithmetic, zero tax/shipping, paid status, and currency before granting the quoted credits; billing history records the amount actually paid. Fully discounted or mismatched sessions grant nothing.
+- Add social reward campaign URL, one-time claim, daily limit, expiry, credit allocation and refund coverage; update migration fixtures for the social rewards schema.
+
+Validation: all 229 tests, TypeScript check, Next.js production build and Cloudflare Worker build pass. No production migration, Stripe setting change or deployment was run. Real Stripe test-mode checkout still needs owner acceptance.
+
+## v0.21.0 - 2026-10-27
+
+- Add one Rewards hub for optional rewarded ads and configurable social follow campaigns. Free accounts can submit one PNG/JPEG screenshot per campaign; server-side vision review checks the configured profile and visible Following state, with a three-review daily cap.
+- Add private in-memory screenshot processing, a separate seven-day social-credit bucket, generation reservation/refund/expiry accounting, account deletion cleanup, and social reward ledger labels. Keep social rewards disabled until official account URLs and a vision API key are configured.
+- Document campaign setup, privacy limits, and rollout requirements. No D1 migration or production deployment was run.
+
+Validation: TypeScript, Next.js production build, Cloudflare Worker build, and in-memory migrations 0001-0010 pass. No test suite was added or run. Social profile configuration, real provider acceptance, and production migration/deployment remain outstanding. Screenshot review is heuristic and cannot prove authenticity or an ongoing follow.
+
+
+## v0.20.0 - 2026-10-27
+
+- Add an opt-in Google Ad Manager rewarded web ad flow for verified Free accounts, capped at five completed ads per UTC day. Each completion grants one separate credit that expires after seven days; generation spends weekly or monthly allowance first, then ad rewards, then purchased credits.
+- Bind one-time ad claims to the signed-in account, reject replayed rewards, include ad credits in billing history and account deletion, and safely restore unexpired ad credits after refunded or partially used generation.
+- Keep ad serving disabled until the server feature flag and valid GAM ad-unit path are configured. Document publisher setup and the UK, EEA and Swiss consent gate. Subscription Checkout displays Stripe promotion codes; top-up Checkout remains amount-validated without discounts.
+
+Validation: 225 tests, TypeScript check, and Next.js production build pass. No live ads, production migration or deployment was run. Google Ad Manager network/ad-unit setup, a certified consent flow for relevant regions, and real browser/ad-fill acceptance remain outstanding. GPT web completion is client-reported and can be forged by a determined client; account caps and one-use server claims limit replay but do not provide cryptographic completion proof.
+
+## v0.19.1 - 2026-10-27
+
+- Consolidate the current release baseline, production launch gates, verification evidence and broader capability gaps in `docs/release-readiness.md`.
+- Distinguish the pushed v0.19.0 source candidate from `origin/main` v0.15.0 and from a production deployment; record external acceptance still required for identity, billing, generation, community and deletion.
+
+Validation: documentation and version metadata review. No production settings, deployments, migrations or external accounts were changed.
+
+## v0.19.0 - 2026-10-26
+
+- Add profile/comment reporting, searchable moderation, hide/restore controls and transactional action records. Hidden creators and their public work/screenshots disappear; their accounts cannot override the restriction.
+- Add a disabled-by-default self-service deletion flow with recent verified sign-in, typed confirmation and disclosed billing/data retention. Pending deletion blocks access and new generation/checkout activity while retryable cleanup removes owned community data, cancels billing and removes provider sign-in.
+- Guard late billing events, in-flight writes and artifact downloads against deletion races. Preserve unrelated users and disconnected financial records; unowned legacy artifacts must be regenerated.
+- Document setup, recovery, retention limits and disposable staging acceptance in docs/community-moderation-and-deletion.md. Apply D1 migrations 0007/0008 before serving this release.
+
+Validation: 221 tests and TypeScript pass; isolated production build checked. Local browser report/deletion controls and anonymous/cross-origin API guards checked. Destructive provider calls use fixtures/mocked network only; local deletion remains disabled. No production migration/deployment, real account deletion or live subscription cancellation. Separate staging provider/billing acceptance and retention policy remain required before enabling production deletion.
+
+
+## v0.18.2 - 2026-10-26
+
+- Refresh saved creator-profile state immediately so a newly registered handle locks without a page reload. Reproduce the stale editable field and verify the corrected first-save behavior with a second confirmed account.
+- Refresh server-rendered profile statistics after follow/unfollow so the header matches the updated control without a manual reload.
+- Remove invalid owner Edit/Unpublish controls for moderation-hidden showcases; server enforcement remains authoritative.
+- Record real local two-account community acceptance: private draft/screenshot isolation, denied non-moderator access, review submission/approval, public discovery, edit withdrawal and explicit unpublishing. See docs/community-acceptance-20261026.md for completed and pending checks.
+
+Validation: 204 tests, TypeScript and isolated production build pass. Existing confirmed-account sessions and local D1 data were used; no production migration/deployment or billable generation. Viewer interactions, report hiding, owner resubmission rejection and temporary permission cleanup also verified; production acceptance remains separate.
+
+
+## v0.18.1 - 2026-10-26
+
+- Replace slogan-heavy community headings, form labels and empty states with direct descriptions. Use concrete sample project names and shorter preview/testing notes while retaining privacy and review information.
+- Preserve the existing layout and visual style.
+
+Validation: TypeScript check and local browser review pass. Copy-only change; no behavior, schema or deployment changes.
+
+
+## v0.18.0 - 2026-10-26
+
+- Add community Explore, public creator profiles and stable showcase pages in the existing dark graphite/starfield design, with filtering, screenshots, external release links, likes, follows and discussion.
+- Add explicit drafts, review submission, trusted moderator approval and report hiding. Preserve private workspace data; successful builds prefill only basic showcase fields. Bound uploads/writes, enforce ownership and same-origin requests, and prevent stale-review approvals.
+- Add production-origin canonical metadata, structured data, sitemap and robots controls. Local, sample, filtered and private views stay non-indexable. Include labelled design samples without seeding real posts.
+
+Validation: 204 tests, TypeScript checks and production build pass; local D1 migration applied. Desktop/mobile preview and anonymous routes checked. No deployment or live database changes; authenticated staging acceptance and launch moderation/retention work remain. See docs/community.md.
+
+
+## v0.17.2 - 2026-10-25
+
+- Repair OreGlow's Iris loader failure: use four explicit colortex6ClearColor components rather than the GLSL-valid scalar splat. Reproduce the exact reported index exception with the installed Iris parser, then verify the repaired constructor is accepted.
+- Add a conservative loader-metadata source check and regression; teach the generator the parser/GLSL distinction within the existing context budget. Preserve ordinary GLSL splats and conditional-source handling.
+- Package separate test02 shader/material ZIPs without overwriting test01. Target companion metadata to the current Lunar client's verified Minecraft 1.21.11, including mandatory min/max formats.
+
+Validation: 192 TypeScript tests, typecheck, six native GPU regressions, 38 stages/19 links and installed-Iris parser reproduction/repair checks pass. Full Minecraft load and visual retest remain pending. No provider call or deployment.
+
+## v0.17.1 - 2026-10-25
+
+- Add a separate authored OreGlow shader and paired material pack: mineral-only self-brightness from LabPBR specular alpha, strict ore-ID gating and a bounded screen-space halo. Keep host stone normally lit, clear emission on opaque occluders and retain underwater attenuation/far haze.
+- Reuse the retained sunset04 water/sky algorithms. Ship 18 opaque albedo PNGs and 18 masked emission maps with exact 254 emission/255 no-emission handling. No dynamic light propagation, hidden-ore visibility or full PBR claim; the original shader-free pack stays unchanged.
+- Add reproducible pair packaging, dependency/installation notes, two PNG/material tests and six native GPU regressions. The candidate is authored, not a billable AI response or a visually accepted model example.
+
+Validation: 191 TypeScript tests, typecheck, six native GPU tests, 38 compiled stages/19 links, source validation and independent PNG decoding pass. Minecraft appearance/performance and Iris atlas/attachment integration still need owner acceptance. No provider call or deployment.
+
+## v0.17.0 - 2026-10-25
+
+- Add shader-free ore visibility textures for all 18 normal, deepslate and Nether ore variants on 1.21.1-1.21.11. Bounded brightness/outline recipes render real 16x16 PNGs while retaining opaque source pixels and unrelated host-stone details.
+- Extend texture previews, short-prompt guidance, validation, ZIP packaging and an authored sample. Explicitly distinguish contrast from emission: no glow, lighting/fog bypass, hidden-ore visibility or transparency holes. Keep diamond-tool recolors working.
+- Record the owner's successful live cherry-red tool-pack test and retain that prior pack. Add fixed ore masks, official source provenance and a reproducible extraction script.
+
+Validation: 189 TypeScript tests, typecheck, production Next.js build, independent PNG decoding and local HTTP checks pass. Minecraft ore appearance acceptance and a fresh model-generated ore pack remain separate from offline fixtures. No billable model call or deployment.
+
+## v0.16.0 - 2026-10-25
+
+- Add vanilla diamond-tool recoloring for resource packs on 1.21.1-1.21.11. Bounded model-authored color recipes render as actual 16x16 PNGs with preserved vanilla alpha, silhouettes, wooden handles and shading. Recipes stay editable but are excluded from the installable ZIP.
+- Add matching PNG previews, a short example prompt, accurate scope notices, pinned Mojang asset provenance and reproducible extraction/sample scripts. Worn armor, block textures and original art remain unsupported; no placeholder files are added to bypass validation.
+- Verify PNG CRC/decompression and pixel preservation for all five tools, strict recipes/version/path rejection, ZIP contents and generation-to-storage behavior with an offline fixture.
+
+Validation: 181 TypeScript tests, typecheck, production Next.js build and local creation/catalog HTTP checks pass. Authored sample is distinct from a live AI response. Minecraft visual acceptance remains pending; no billable provider call or production deployment.
+
+## v0.15.1 - 2026-10-25
+
+- Add authored sunset04 over retained water03: directional golden twilight, peach cloud edge light, stronger water highlights and sky-exposed ambient fill. Preserve dark interiors, optical coverage, reflection trace and waves.
+- Add a reproducible builder and GLSL regressions for sunset contrast, outdoor/cave separation, unchanged day/deep-night response and water contracts. Previous candidates retained.
+
+Validation: four native GPU tests pass; 38 stages compile and 19 programs link. Minecraft appearance/performance acceptance pending. No model call or deployment. Candidate not yet promoted as a visually accepted generator reference.
 
 ## v0.15.0 - 2026-10-25
 

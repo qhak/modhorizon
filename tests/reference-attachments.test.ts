@@ -126,5 +126,6 @@ test("missing usage falls back to an image-inclusive estimate", async t => {
     const request = validateRequest({ ...base, attachments: [image] });
     const result = await createAIProvider("gpt-6-luna").generate(request);
     assert.ok(result.usage!.inputTokens >= ESTIMATED_IMAGE_INPUT_TOKENS);
+    assert.equal(result.usageSource, "estimated");
   } finally { if (previous === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previous; }
 });

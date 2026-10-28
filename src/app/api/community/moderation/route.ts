@@ -1,0 +1,5 @@
+import {requireCommunityModerator,communityResponse,communityBody} from "@/lib/community-access";
+import {communityId,CommunityError} from "@/lib/community";
+export const runtime="nodejs";
+export async function GET(request:Request){return communityResponse(async()=>{const {db}=await requireCommunityModerator(request);return db.moderationQueue();});}
+export async function PATCH(request:Request){return communityResponse(async()=>{const {db}=await requireCommunityModerator(request);const body=await communityBody(request);if(!["approve","reject","hide"].includes(String(body.action)))throw new CommunityError("Choose approve, reject or hide.");if(body.action==="approve"&&(!Number.isSafeInteger(body.updatedAt)||Number(body.updatedAt)<0))throw new CommunityError("Refresh the review and include its update timestamp.");return db.moderatePost(communityId(body.id),body.action as "approve"|"reject"|"hide",typeof body.note==="string"?body.note:"",typeof body.updatedAt==="number"?body.updatedAt:undefined);});}

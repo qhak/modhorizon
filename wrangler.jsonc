@@ -24,7 +24,10 @@
   ],
   "vars": {
     "AI_PROVIDER": "openai-compatible",
-    "AI_TESTING_MODE": "true"
+    "AI_TESTING_MODE": "true",
+    "SOCIAL_REWARDS_ENABLED": "false",
+    "SOCIAL_REWARD_CAMPAIGNS_JSON": "[]",
+    "SOCIAL_REWARD_REVIEW_MODEL": "gpt-6-luna"
   },
   "observability": {
     "enabled": true,

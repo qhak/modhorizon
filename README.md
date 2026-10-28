@@ -1,6 +1,6 @@
 # ModHorizon
 
-Current release: **v0.15.0**. See [change notes](CHANGELOG.md) for version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-source-generation.md).
+Integrated baseline on `main`: **v0.15.0**. The pushed v0.19.0 community/moderation candidate is not merged or recorded as deployed. See the [release-readiness checklist](docs/release-readiness.md) for the checked baseline, production gates and capability limits; [change notes](CHANGELOG.md) document version-by-version changes and validation. Earlier batch/prototype descriptions below are historical; current generation and billing behavior is documented in [the backend guide](docs/backend-generation.md), and full shader-code generation in [the shader workflow](docs/shader-generation-workflow.md).
 
 ## Configured local testing
 

@@ -13,11 +13,11 @@ export function renewalCreditStatements(db: D1Database, accountId: string, subsc
     // Delta is new minus unused monthly allowance. Purchased credits are untouched.
     db.prepare(`INSERT INTO credit_ledger(id,account_id,delta,reason,stripe_event_id,created_at)
       SELECT ?,id,?-allowance_credits,'subscription_credit_grant',?,? FROM billing_accounts
-      WHERE id=? AND stripe_subscription_id=? AND plan_key<>'free' AND last_invoice_period_start<? AND changes()=1`)
+      WHERE id=? AND deletion_requested_at IS NULL AND stripe_subscription_id=? AND plan_key<>'free' AND last_invoice_period_start<? AND changes()=1`)
       .bind(randomUUID(),credits,eventId,now,accountId,subscriptionId,periodStart),
     db.prepare(`UPDATE billing_accounts SET credit_balance=?+purchased_credits,allowance_credits=?,
       allowance_period=allowance_period+1,last_invoice_period_start=?,subscription_status='active',updated_at=?
-      WHERE id=? AND stripe_subscription_id=? AND last_invoice_period_start<? AND changes()=1`)
+      WHERE id=? AND deletion_requested_at IS NULL AND stripe_subscription_id=? AND last_invoice_period_start<? AND changes()=1`)
       .bind(credits,credits,periodStart,now,accountId,subscriptionId,periodStart),
   ];
 }
@@ -29,11 +29,11 @@ export function initialSubscriptionStatements(db: D1Database, accountId: string,
     // Never let late checkout events replace or reset an already attached subscription.
     db.prepare(`INSERT INTO credit_ledger(id,account_id,delta,reason,stripe_event_id,created_at)
       SELECT ?,id,?-allowance_credits,'subscription_credit_grant',?,? FROM billing_accounts
-      WHERE id=? AND stripe_subscription_id IS NULL AND changes()=1`)
+      WHERE id=? AND deletion_requested_at IS NULL AND stripe_subscription_id IS NULL AND changes()=1`)
       .bind(randomUUID(),credits,eventId,now,accountId),
     db.prepare(`UPDATE billing_accounts SET plan_key=?,credit_balance=?+purchased_credits,allowance_credits=?,
       allowance_period=allowance_period+1,stripe_customer_id=COALESCE(?,stripe_customer_id),stripe_subscription_id=?,
-      subscription_status='active',updated_at=? WHERE id=? AND stripe_subscription_id IS NULL AND changes()=1`)
+      subscription_status='active',updated_at=? WHERE id=? AND deletion_requested_at IS NULL AND stripe_subscription_id IS NULL AND changes()=1`)
       .bind(plan,credits,credits,customerId,subscriptionId,now,accountId),
   ];
 }

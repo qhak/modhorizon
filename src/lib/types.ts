@@ -39,6 +39,7 @@ export type Project = {
   /** The model's note about what it built; may contain workspace commands from chat-commands.ts. */
   message?: string;
   creditsSpent?: number;
+  generationId?: string;
   error?: string;
 };
 export type GenerateRequest = {
@@ -55,7 +56,7 @@ export type GenerateRequest = {
   reasoningEffort?: ReasoningEffort;
   project?: { name: string; files: GeneratedFile[] };
 };
-export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string; shaderReport?: ShaderReport; usage?: TokenUsage };
+export type GeneratedProject = { name: string; files: GeneratedFile[]; message?: string; shaderReport?: ShaderReport; usage?: TokenUsage; usageSource?: "reported" | "estimated"; providerRequestId?: string };
 export type BuildResult = {
   success: boolean;
   logs: string[];

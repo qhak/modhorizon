@@ -9,6 +9,16 @@ import { shaderPackFixture } from "./fixtures/shader-pack";
 const file = (path: string, content: string) => ({ path: `shaders/${path}`, content });
 const fragment = (content: string) => file("composite.fsh", content);
 
+test("Iris loader clear-color directives require four literal components even though GLSL allows splats", () => {
+  for (const value of ["0.0", "0.0, 0.0", "0.0, 0.0, 0.0", "ZERO, 0.0, 0.0, 0.0"])
+    assert.throws(() => checkShaderSourceContracts([fragment(`const vec4 colortex6ClearColor = vec4(${value});`)]), /four explicit numeric components.*Iris cannot load/);
+  assert.doesNotThrow(() => checkShaderSourceContracts([fragment("const vec4 colortex6ClearColor = vec4(0.0, 0.0, 0.0, 0.0);")]));
+  assert.doesNotThrow(() => checkShaderSourceContracts([fragment("// const vec4 colortex6ClearColor = vec4(0.0);\nvec4 ordinary = vec4(0.0);")]));
+  const project = shaderPackFixture();
+  project.files.find(item => item.path === "shaders/gbuffers_terrain.fsh")!.content += "\nconst vec4 colortex6ClearColor = vec4(0.0);";
+  assert.throws(() => validateProject(project, "shader_pack", "iris", "1.21.11"), /four explicit numeric components/);
+});
+
 test("reachable direct and indirect include cycles fail with the actual chain", () => {
   assert.throws(() => checkShaderSourceContracts([fragment('#include "composite.fsh"')]), /include cycle: shaders\/composite.fsh -> shaders\/composite.fsh/);
   assert.throws(() => checkShaderSourceContracts([

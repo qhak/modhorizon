@@ -13,16 +13,16 @@ import { shaderExampleContext } from "./shader-examples";
 import { shaderCompilerRepairContext } from "./shader-context";
 import { projectResponseSchema, normalizeProjectResponse, ShaderEnvelopeError } from "./project-response";
 
-/** Shader pipelines can need longer to generate than small gameplay projects. */
+/** Local generation has more time for complex projects; hosted deadlines remain bounded. */
 async function generationFetch(request: GenerateRequest, url: URL, init: RequestInit, defaultTimeoutMs = 90_000) {
   const local = process.env.NODE_ENV === "development" && process.env.MODHORIZON_LOCAL_ORIGIN === "http://127.0.0.1:3215";
-  const timeoutMs = request.artifactType === "shader_pack" ? (local ? 600_000 : 240_000) : defaultTimeoutMs;
+  const timeoutMs = local ? 600_000 : request.artifactType === "shader_pack" ? 240_000 : defaultTimeoutMs;
   const signal = AbortSignal.timeout(timeoutMs);
   try {
     return await serviceFetch(url, { ...init, signal });
   } catch (error) {
     if ((error instanceof Error && error.name === "TimeoutError") || signal.aborted)
-      throw new Error(`AI generation timed out after ${timeoutMs / 1000} seconds. No completed project was received. Try a smaller set of effects or a lower reasoning level.`);
+      throw new Error(`AI generation timed out after ${timeoutMs / 1000} seconds. No completed project was received. Try a smaller request or a lower reasoning level.`);
     throw error;
   }
 }
@@ -192,7 +192,7 @@ export function normalizedUsage(value: unknown): TokenUsage | undefined {
     : undefined;
 }
 
-function parseGeneratedProject(content: string | undefined, request: GenerateRequest, usage?: TokenUsage): GeneratedProject {
+function parseGeneratedProject(content: string | undefined, request: GenerateRequest, usage?: TokenUsage, requestId?: string): GeneratedProject {
   if (typeof content !== "string" || !content.trim())
     throw new Error("AI provider returned no project text. No automatic retry was made.");
   let parsed: unknown;
@@ -207,11 +207,17 @@ function parseGeneratedProject(content: string | undefined, request: GenerateReq
     // Measure the actual provider text, including full source, when usage is missing.
     const outputTokens = usage?.outputTokens ?? Math.ceil(content.length / 3.5);
     const inputTokens = usage?.inputTokens ?? estimateProviderInputTokens(request);
-    return { ...project, usage: { inputTokens, outputTokens } };
+    return { ...project, usage: { inputTokens, outputTokens }, usageSource: usage ? "reported" : "estimated", providerRequestId: requestId };
   } catch (error) {
     if (error instanceof InputError || error instanceof ShaderEnvelopeError) throw new Error(`${request.artifactType === "shader_pack" ? "Shader pack structure check failed" : "Generated project validation failed"}: ${error.message}`);
     throw new Error("Generated project could not be validated because of an internal error. No automatic retry was made.");
   }
+}
+
+/** Keep only a bounded, plain provider request identifier, never response content. */
+function providerRequestId(response: Response) {
+  const id = response.headers.get("x-request-id") || response.headers.get("request-id");
+  return id && /^[A-Za-z0-9_.:-]{1,128}$/.test(id) ? id : undefined;
 }
 
 const MAX_PROVIDER_RESPONSE_BYTES = 400_000;
@@ -345,7 +351,7 @@ class OpenAIProvider implements AIProvider {
       if (data.incomplete_details?.reason === "content_filter" || data.output?.some(item => item.content?.some(part => part.type === "refusal"))) throw refusalError();
       if (data.status && data.status !== "completed") throw new Error("AI provider did not complete project generation. No automatic retry was made.");
     }
-    return parseGeneratedProject(content, request, normalizedUsage(data.usage));
+    return parseGeneratedProject(content, request, normalizedUsage(data.usage), providerRequestId(response));
   }
 }
 
@@ -398,7 +404,7 @@ class AnthropicProvider implements AIProvider {
       ?.filter((part) => part.type === "text")
       .map((part) => part.text || "")
       .join("\n");
-    return parseGeneratedProject(content, request, normalizedUsage(data.usage));
+    return parseGeneratedProject(content, request, normalizedUsage(data.usage), providerRequestId(response));
   }
 }
 
@@ -462,7 +468,7 @@ class GeminiProvider implements AIProvider {
       .filter((part) => part.type === "text")
       .map((part) => part.text || "")
       .join("\n");
-    return parseGeneratedProject(content, request, normalizedUsage(data.usage || data.usageMetadata));
+    return parseGeneratedProject(content, request, normalizedUsage(data.usage || data.usageMetadata), providerRequestId(response));
   }
 }
 

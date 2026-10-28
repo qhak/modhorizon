@@ -18,6 +18,8 @@ import { maskShaderComments, normalizeShaderMatrices, normalizeShaderUniformOwne
 import { checkShaderSourceContracts } from "./shader-source-checks";
 import { SHADER_PROGRAM_PATH } from "./shader-programs";
 import { PROJECT_NAME_PATTERN, REQUIRED_SHADER_STAGE_PATHS } from "./project-response";
+import { parseItemRecolor, supportsItemRecolorVersion } from "./item-textures";
+import { parseOreTexture, supportsOreTextureVersion } from "./ore-textures";
 
 export const MAX_REQUEST_BYTES = 200_000;
 const MAX_SOURCE_BYTES = 150_000;
@@ -189,7 +191,7 @@ function validateDescriptor(files: Files, platform: PlatformId, version: string)
     throw new InputError("Sponge plugins need a main class annotated with @Plugin.");
 }
 
-function validateResourcePack(files: Files) {
+function validateResourcePack(files: Files, version?: string) {
   const metadata = files.find((file) => file.path === "pack.mcmeta");
   if (!metadata) throw new InputError("Resource packs need a root pack.mcmeta file.");
   let parsed: unknown;
@@ -204,6 +206,18 @@ function validateResourcePack(files: Files) {
   for (const file of files.filter((item) => item.path.endsWith(".json") || item.path.endsWith(".mcmeta"))) {
     try { JSON.parse(file.content); }
     catch { throw new InputError(`${file.path} must contain valid JSON.`); }
+    if (file.path.endsWith(".recolor.json")) {
+      if (!supportsItemRecolorVersion(version))
+        throw new InputError("Item texture recoloring currently supports Minecraft 1.21.1–1.21.11. Other versions can still use text resource assets.");
+      try { parseItemRecolor(file.path, file.content); }
+      catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid item texture recolor."); }
+    }
+    if (file.path.endsWith(".ore.json")) {
+      if (!supportsOreTextureVersion(version))
+        throw new InputError("Ore visibility textures currently support Minecraft 1.21.1–1.21.11.");
+      try { parseOreTexture(file.path, file.content); }
+      catch (error) { throw new InputError(error instanceof Error ? error.message : "Invalid ore texture recipe."); }
+    }
   }
 }
 
@@ -323,7 +337,7 @@ export function validateProject(
   let files = project.files.map((file: unknown) => {
     if (!file || typeof file !== "object") throw new InputError("Invalid source file.");
     const { path, content } = file as Record<string, unknown>;
-    if (typeof path !== "string" || path.length > 200 || path.includes("..") || path.startsWith("/") || path.includes("\\") || !allowedPath(path, artifactType))
+    if (typeof path !== "string" || path.length > 200 || /[\u0000-\u001f\u007f]/.test(path) || path.includes("..") || path.startsWith("/") || path.includes("\\") || !allowedPath(path, artifactType))
       throw new InputError(code
         ? "Only Java sources and recognised plugin or mod descriptors are accepted; build scripts and unsafe paths are blocked."
         : `Unsupported ${artifactType.replace("_", " ")} file path. ${ARTIFACT_EXPERTS[artifactType].sourcePaths}`);
@@ -345,7 +359,7 @@ export function validateProject(
     repairs.push(...normalized.repairs);
     uniformRepairs.push(...uniforms.repairs);
   }
-  if (artifactType === "resource_pack") validateResourcePack(files);
+  if (artifactType === "resource_pack") validateResourcePack(files, version);
   else if (artifactType === "shader_pack") {
     if (!options.allowIncompleteShader) validateShaderPack(files);
   }

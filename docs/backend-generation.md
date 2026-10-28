@@ -67,7 +67,11 @@ D1 transaction. Completion changes a reservation from `held` to exactly one of
 Reservation ownership is checked on completion. Accounts cannot spend below zero.
 
 Successful responses settle against reported input and output usage, including
-Gemini thought tokens. All provider requests set a 16,000-token output limit.
+Gemini thought tokens. Luna allows up to 32,000 output tokens for non-shader
+projects and 64,000 for shaders; other models allow 16,000 and 32,000 respectively.
+Local generation requests have a 10-minute deadline per provider call. Hosted
+deadlines remain 90 seconds for OpenAI and Anthropic, 180 seconds for Gemini,
+and 240 seconds for shaders. Provider and hosting limits still apply.
 Low reasoning never reduces the hold below the configured output ceiling. Customers
 are charged at most their hold for a pass; estimates and configured rates still
 need review against actual provider costs before selling credits.
@@ -76,6 +80,27 @@ Provider failures refund a reservation. A database failure after a successful AI
 call retains the hold, rather than refunding a completed call. Crashes can also
 leave holds pending: an operator must reconcile old `held` reservations using
 provider records. Do not automatically release them solely because they are old.
+
+## Usage and reconciliation records
+
+Migration `0011_generation_usage.sql` adds a random generation ID and call type
+to each new paid-model reservation. Successful settlements atomically record the
+input and output token counts, whether those counts were provider-reported or
+estimated, the configured per-million rates used, and a bounded provider request
+ID when supplied in a response header. The account's credit history shows the
+charge, counts and identifiers for each settled call. Calls for generation and
+repairs share a generation ID. No prompt, source code or provider response text
+is stored in these accounting fields. These records follow financial-record
+retention and account deletion rules.
+
+Earlier calls do not have these details. Failed, incomplete or timed-out provider
+calls are still refunded and may have incurred provider costs; their usage and
+request IDs are not currently captured. Estimated counts are not provider billing
+evidence and can miss reasoning usage. A provider request ID may be absent, and
+provider dashboards may aggregate calls; reconciliation requires provider records.
+The charged amount is capped at the reservation and is not an exact invoice.
+Before production, review retention and privacy disclosures and validate the
+migration, access isolation, rates and the full paid flow in staging.
 
 ## Remaining launch work
 

@@ -12,7 +12,7 @@ export const CHAT_COMMANDS: readonly ChatCommand[] = [
   { name: "entity", args: "<entity id>", use: "a mob or entity the project adds or changes" },
   { name: "recipe", args: "<recipe>", use: "a crafting recipe the project adds" },
   { name: "keybind", args: "<key>", use: "a key binding the mod adds" },
-  { name: "texture", args: "<texture path>", use: "a texture the pack still needs, since images aren't generated" },
+  { name: "texture", args: "<texture path>", use: "an unsupported texture that still needs to be supplied; do not mark supported tool recolors or ore PNGs as missing when their recipes are included" },
   { name: "shader", args: "<setting>", use: "an option in shaders.properties" },
   { name: "dependency", args: "<plugin or mod>", use: "something else that must be installed" },
   { name: "version", args: "<version>", use: "the Minecraft or API version it targets" },

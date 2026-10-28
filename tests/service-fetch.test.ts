@@ -45,7 +45,7 @@ test("AI providers and builder reject redirects without sending credentials to a
   }
 });
 
-test("shader deadlines distinguish configured localhost from hosted requests without automatic retries", async t => {
+test("generation deadlines distinguish configured localhost from hosted requests without automatic retries", async t => {
   const values = { AI_TESTING_MODE: "false", OPENAI_API_KEY: "fixture", ANTHROPIC_API_KEY: "fixture", GEMINI_FREE_API_KEY: "fixture", NODE_ENV: "test", MODHORIZON_LOCAL_ORIGIN: "" };
   const previous = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
   Object.assign(process.env, values);
@@ -74,8 +74,10 @@ test("shader deadlines distinguish configured localhost from hosted requests wit
     for (const model of ["gpt-6-luna", "claude-sonnet-5-5", "gemini-3-flash-preview"]) {
       await assert.rejects(createAIProvider(model).generate({ ...request, artifactType: "shader_pack", target: "iris" }), /timed out after 600 seconds/);
       assert.equal(deadlines.at(-1), 600_000);
+      await assert.rejects(createAIProvider(model).generate(request), /timed out after 600 seconds/);
+      assert.equal(deadlines.at(-1), 600_000);
     }
-    assert.equal(calls, 9);
+    assert.equal(calls, 12);
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;

@@ -83,7 +83,13 @@ export async function generateArtifact(
         project.logs.push(resourcePackFormat(request.version) === undefined
           ? `Kept the pack_format from the generated pack.mcmeta. The server's compatibility table doesn't list Minecraft ${request.version}.`
           : `Set pack metadata for Minecraft ${request.version} from the server's compatibility table.`);
-      if (artifactType === "resource_pack") project.logs.push("This packager accepts text assets only; requested textures or other binary assets may still need to be added separately.");
+      if (artifactType === "resource_pack") {
+        const textures = generated.files.filter(file => file.path.endsWith(".recolor.json") || file.path.endsWith(".ore.json")).length;
+        project.logs.push(textures
+          ? `Rendered ${textures} supported texture(s) as real 16×16 PNGs. Review the texture previews and test in Minecraft.`
+          : "This pack contains text resource assets. No supported PNG textures were requested by the returned source.");
+        project.logs.push("Texture support covers diamond-tool recolors and high-contrast ores. Ore textures do not glow, emit light, remove water fog or reveal hidden blocks. Worn armor and original artwork remain unsupported; review the model message for omissions.");
+      }
       if (artifactType === "shader_pack") {
         const features = generated.shaderReport!.features;
         project.logs.push(`Shader feature report: ${features.filter(item => item.status === "implemented").length} reported implemented, ${features.filter(item => item.status === "approximation").length} approximated, ${features.filter(item => item.status === "omitted").length} omitted. Effects are not runtime-verified.`);
