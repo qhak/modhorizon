@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { saveArtifact } from "./project-store";
 import { validateProject } from "./validation";
 import { selectGenerationSkills } from "./generation-skills";
+import { generationReferenceContext } from "./generation-references";
 import { expertFor, selectArtifactSkills, usesBukkitApi } from "./artifact-experts";
 import { packageMinecraftPack, resourcePackFormat } from "./packager";
 import { PLATFORMS, describeTarget, isPlatformId } from "./platforms";
@@ -46,10 +47,12 @@ export async function generateArtifact(
         : `Generating ${expertFor(artifactType).label} source for Minecraft ${request.version} (${target}) using ${model}.`,
     );
     const skills = [
-      ...(usesBukkitApi({ artifactType, target }) ? selectGenerationSkills(request.prompt) : []),
+      ...(usesBukkitApi({ artifactType, target }) ? selectGenerationSkills(request.prompt, target) : []),
       ...selectArtifactSkills({ ...request, artifactType, target }),
     ];
     if (skills.length) project.logs.push(`Applied skills: ${skills.map((skill) => skill.label).join(", ")}.`);
+    const references = generationReferenceContext({ ...request, artifactType, target });
+    if (references.cards.length) project.logs.push(`Selected reference guidance: ${references.cards.map(card => card.title).join(", ")}. Guidance is not evidence that this project was tested.`);
     let generated = validateProject(await provider.generate({ ...request, artifactType, target }), artifactType, target, request.version);
     project.name = generated.name;
     project.files = generated.files;

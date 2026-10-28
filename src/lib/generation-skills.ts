@@ -45,8 +45,10 @@ export const GENERATION_SKILLS: GenerationSkill[] = [
   },
 ];
 
-export function selectGenerationSkills(prompt: string): GenerationSkill[] {
+export function selectGenerationSkills(prompt: string, target?: string): GenerationSkill[] {
   const selected = GENERATION_SKILLS.filter((skill) => skill.pattern.test(prompt));
   // Keep the instruction bundle focused when a prompt matches many categories.
-  return selected.slice(0, 5);
+  return selected.slice(0, 5).map(skill => target === "folia" && skill.id === "timed-mechanics"
+    ? { ...skill, guidance: "For timed mechanics on Folia, schedule entity and region work through the appropriate Folia scheduler for its owner; use global or async scheduling only for suitable non-entity work. Never use the ordinary Bukkit scheduler for region-owned world or player changes. Keep task handles, cancel them on disable, and guard block and world boundaries." }
+    : skill);
 }

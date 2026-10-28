@@ -111,6 +111,7 @@ test("development example returns honest preview and correct zombie listener", a
   assert.match(project.files[0].content, /PotionEffectType.SPEED, 200, 1/);
   assert.match(project.files[0].content, /killer == null/);
   assert.match(project.logs.join(" "), /compilation has not run/);
+  assert.match(project.logs.join(" "), /Selected reference guidance/);
 });
 
 test("mock refuses other prompts, extra instructions, and follow-up edits", async () => {

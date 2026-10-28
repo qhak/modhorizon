@@ -104,7 +104,9 @@ export function selectArtifactSkills(request: GenerateRequest) {
   return SPECIALIST_SKILLS[artifactType]
     .filter((skill) => skill.pattern.test(request.prompt))
     .slice(0, 4)
-    .map(({ label, guidance }) => ({ label, guidance }));
+    .map(({ label, guidance }) => ({ label, guidance: request.target === "folia" && label === "Server-thread safety"
+      ? "On Folia use the owning entity or region scheduler for game-state access; use global or async tasks only for suitable work and do not assume a single server thread."
+      : guidance }));
 }
 
 export function artifactSystemPrompt(request: GenerateRequest): string {
