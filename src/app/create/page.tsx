@@ -396,7 +396,10 @@ function ReasoningPicker({ modelId, value, onChange, disabled }: {
               aria-label={`Reset reasoning to default (${REASONING_LABELS[reasoning.default]})`}
               title={`Reset to ${REASONING_LABELS[reasoning.default]}`}
               disabled={currentIndex === defaultIndex}
-              onClick={() => onChange(reasoning.default)}
+              onClick={() => {
+                root.current?.querySelector<HTMLInputElement>(".reasoning-range")?.focus();
+                onChange(reasoning.default);
+              }}
             ><RotateCcw size={14} aria-hidden="true" /></button>
           </div>
           <div className="reasoning-track">

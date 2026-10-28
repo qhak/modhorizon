@@ -1,4 +1,10 @@
 # Change notes
+## v0.23.3 - 2026-10-28
+
+- Keep the reasoning picker in place when changing effort levels and keep it open after resetting to the default.
+
+Validation: TypeScript check, Cloudflare build, and browser interaction. No production deployment performed.
+
 ## v0.23.2 - 2026-10-28
 
 - Correct the release-readiness baseline to record v0.23.1 as pushed and included in PR #5.

@@ -569,6 +569,8 @@ button.chip-select { cursor: pointer; }
 .chip-menu-options .model-option { min-height: 44px; }
 .chip-menu-options.is-compact .model-option { min-height: 36px; padding: 7px 9px; }
 .reasoning-picker { position: relative; flex-shrink: 0; }
+.reasoning-picker > .chip-select { width: 116px; }
+.reasoning-picker > .chip-select .chip-chevron { margin-left: auto; }
 .reasoning-popover.model-options { left: auto; right: 0; top: calc(100% + 8px); width: min(286px, calc(100vw - 32px)); max-height: none; overflow: visible; padding: 12px 12px 11px; border: 1px solid rgb(255 255 255 / .08); border-radius: 17px; background: rgb(25 26 29 / .98); box-shadow: 0 16px 40px -18px #000, 0 0 0 1px rgb(255 255 255 / .025); }
 .reasoning-card-heading { display: grid; grid-template-columns: 22px minmax(0, 1fr) 22px; align-items: center; gap: 4px; margin: 0 1px 13px; }
 .reasoning-card-icon { display: flex; align-items: center; justify-content: flex-start; color: #4f9cff; }
