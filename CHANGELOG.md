@@ -1,4 +1,10 @@
 # Change notes
+## v0.27.0 - 2026-10-29
+
+- Prepare feature-flagged device observation storage and owner-only review with a short-lived desktop connection. Device review remains disabled and never blocks signups.
+
+Validation: 246 automated tests and TypeScript check; Cloudflare build. End-to-end signup, local browser pairing, retention automation, privacy review, configuration and deployment remain outstanding.
+
 ## v0.26.0 - 2026-10-29
 
 - Add a disabled device-signal validation and matching foundation for future signup review. No collection, storage, dashboard access, or blocking is connected.

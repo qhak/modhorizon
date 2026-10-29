@@ -33,6 +33,7 @@ export async function purgeAccountContent(db:D1Database, ownerId:string) {
   const ownedPosts="SELECT id FROM community_posts WHERE owner_id=?";
   const ownedComments="SELECT id FROM community_comments WHERE owner_id=? OR post_id IN (SELECT id FROM community_posts WHERE owner_id=?)";
   await db.batch([
+    db.prepare("DELETE FROM device_risk_observations WHERE account_id=?").bind(ownerId),
     db.prepare(`DELETE FROM community_content_reports WHERE owner_id=? OR (target_kind='profile' AND target_id IN (SELECT handle FROM community_profiles WHERE owner_id=?)) OR (target_kind='comment' AND target_id IN (${ownedComments}))`).bind(ownerId,ownerId,ownerId,ownerId),
     db.prepare(`DELETE FROM community_moderation_actions WHERE moderator_id=? OR target_id IN (${ownedPosts}) OR target_id IN (${ownedComments}) OR target_id IN (SELECT handle FROM community_profiles WHERE owner_id=?)`).bind(ownerId,ownerId,ownerId,ownerId,ownerId),
     db.prepare(`DELETE FROM community_reports WHERE owner_id=? OR post_id IN (${ownedPosts})`).bind(ownerId,ownerId),

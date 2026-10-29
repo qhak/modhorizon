@@ -7,7 +7,8 @@ import { BrandMark } from "@/components/brand-mark";
 import { GoogleIcon } from "@/components/brand-icons";
 import BillingDashboard from "./billing-dashboard";
 
-type AuthStatus = { configured:boolean; googleEnabled:boolean; user:{id:string;email:string}|null; deletionPending?:boolean };
+type AuthStatus = { configured:boolean; googleEnabled:boolean; user:{id:string;email:string}|null; deletionPending?:boolean; deviceRiskEnabled?:boolean };
+const deviceRiskPendingKey = 'mh-device-risk-pending';
 export default function AccountPage() {
   const [status,setStatus] = useState<AuthStatus|null>(null);
   const [mode,setMode] = useState("login");
@@ -24,6 +25,13 @@ export default function AccountPage() {
       if(data.user){
         const linked=await fetch("/api/billing/session",{method:"POST"});
         if(!linked.ok)setNotice("You are signed in, but your credit balance could not be loaded. Please refresh before purchasing.");
+        try {
+          if(data.deviceRiskEnabled && localStorage.getItem(deviceRiskPendingKey)==='1') {
+            const {collectDeviceSignals}=await import('@/lib/device-risk/collector.mjs');
+            const risk=await fetch('/api/device-risk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(await collectDeviceSignals())});
+            if(risk.ok && (await risk.json()).recorded === true) localStorage.removeItem(deviceRiskPendingKey);
+          }
+        } catch { /* Device review is optional; never block account sign-in. */ }
       }
       setStatus(data);
     }).catch(()=>setNotice("Account service unavailable. Please refresh to try again."));
@@ -31,9 +39,10 @@ export default function AccountPage() {
   async function action(name:string) {
     setBusy(true);setNotice("");
     try {
+      if(status?.deviceRiskEnabled && (name==='signup' || name==='google')) { try { localStorage.setItem(deviceRiskPendingKey,'1'); } catch { /* Sign-in remains available. */ } }
       const response = await fetch("/api/auth/action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:name,email,password})});
       const data=await response.json();
-      if(!response.ok)throw new Error(data.error||"Please try again.");
+      if(!response.ok){ if(name==='signup'||name==='google') { try { localStorage.removeItem(deviceRiskPendingKey); } catch {} } throw new Error(data.error||"Please try again."); }
       setPassword("");
       if(data.redirect){window.location.assign(data.redirect);return;}
       setNotice(data.message);
@@ -69,6 +78,7 @@ export default function AccountPage() {
         </form>
         <div className="account-links">{mode==="login"?<><button onClick={()=>{setMode("signup");setNotice("");}}>Create an account</button><button onClick={()=>{setMode("forgot");setNotice("");}}>Forgot password?</button></>:<button onClick={()=>{setMode("login");setNotice("");}}>Back to sign in</button>}</div>
         {mode==="signup"&&<p className="account-fine">We’ll email you a confirmation link. Open it in this browser to keep your existing credits.</p>}
+        {status.deviceRiskEnabled && (mode==='signup'||status.googleEnabled) && <p className="account-fine">When creating an account, device and browser signals may be used to review repeat signup abuse.</p>}
       </>}
     </section></main>;
 }
