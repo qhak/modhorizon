@@ -1,4 +1,10 @@
 # Change notes
+## v0.26.0 - 2026-10-29
+
+- Add a disabled device-signal validation and matching foundation for future signup review. No collection, storage, dashboard access, or blocking is connected.
+
+Validation: 238 automated tests and TypeScript check. Browser integration, privacy review, secure owner access and deployment remain outstanding.
+
 ## v0.25.0 - 2026-10-28
 
 - Add bounded, target- and version-aware generation reference guidance for plugins, mods, datapacks, resource packs and shaders, with model-tier context and source/evidence labels.
