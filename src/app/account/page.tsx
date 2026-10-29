@@ -7,7 +7,8 @@ import { BrandMark } from "@/components/brand-mark";
 import { GoogleIcon } from "@/components/brand-icons";
 import BillingDashboard from "./billing-dashboard";
 
-type AuthStatus = { configured:boolean; googleEnabled:boolean; user:{id:string;email:string}|null; deletionPending?:boolean };
+type AuthStatus = { configured:boolean; googleEnabled:boolean; user:{id:string;email:string}|null; deletionPending?:boolean; deviceRiskEnabled?:boolean };
+const deviceRiskPendingKey = 'mh-device-risk-pending';
 export default function AccountPage() {
   const [status,setStatus] = useState<AuthStatus|null>(null);
   const [mode,setMode] = useState("login");
@@ -15,6 +16,7 @@ export default function AccountPage() {
   const [password,setPassword] = useState("");
   const [notice,setNotice] = useState("");
   const [busy,setBusy] = useState(false);
+  const [deviceRiskConsent,setDeviceRiskConsent] = useState(false);
   useEffect(()=>{
     const query = new URLSearchParams(window.location.search);
     if(query.get("mode")==="reset")setMode("reset");
@@ -24,6 +26,13 @@ export default function AccountPage() {
       if(data.user){
         const linked=await fetch("/api/billing/session",{method:"POST"});
         if(!linked.ok)setNotice("You are signed in, but your credit balance could not be loaded. Please refresh before purchasing.");
+        try {
+          if(data.deviceRiskEnabled && localStorage.getItem(deviceRiskPendingKey)==='1') {
+            const {collectDeviceSignals}=await import('@/lib/device-risk/collector.mjs');
+            const risk=await fetch('/api/device-risk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(await collectDeviceSignals())});
+            if(risk.ok && (await risk.json()).recorded === true) localStorage.removeItem(deviceRiskPendingKey);
+          }
+        } catch { /* Device review is optional; never block account sign-in. */ }
       }
       setStatus(data);
     }).catch(()=>setNotice("Account service unavailable. Please refresh to try again."));
@@ -31,9 +40,10 @@ export default function AccountPage() {
   async function action(name:string) {
     setBusy(true);setNotice("");
     try {
+      if(status?.deviceRiskEnabled && (name==='signup' || name==='login' || name==='google')) { try { if(deviceRiskConsent) localStorage.setItem(deviceRiskPendingKey,'1'); else localStorage.removeItem(deviceRiskPendingKey); } catch { /* Sign-in remains available. */ } }
       const response = await fetch("/api/auth/action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:name,email,password})});
       const data=await response.json();
-      if(!response.ok)throw new Error(data.error||"Please try again.");
+      if(!response.ok){ if(name==='signup'||name==='login'||name==='google') { try { localStorage.removeItem(deviceRiskPendingKey); } catch {} } throw new Error(data.error||"Please try again."); }
       setPassword("");
       if(data.redirect){window.location.assign(data.redirect);return;}
       setNotice(data.message);
@@ -61,6 +71,7 @@ export default function AccountPage() {
         </details>
         <BillingDashboard />
       </>:<>
+        {status.deviceRiskEnabled && (mode==='signup'||mode==='login') && <label className="account-fine"><input type="checkbox" checked={deviceRiskConsent} onChange={event=>setDeviceRiskConsent(event.target.checked)} /> I agree to a device and browser fingerprint being collected for this test and reviewed by the project owner. This is optional; I can sign in without it.</label>}
         {mode!=="forgot"&&mode!=="reset"&&<><button className="account-secondary account-google" disabled={busy||!status.googleEnabled} onClick={()=>void action("google")}><GoogleIcon size={19} />{status.googleEnabled?"Continue with Google":"Google sign-in coming soon"}</button><div className="account-divider">or use email</div></>}
         <form onSubmit={submit}>
           {mode!=="reset"&&<label>Email address<input name="email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={event=>setEmail(event.target.value)}/></label>}
@@ -69,6 +80,7 @@ export default function AccountPage() {
         </form>
         <div className="account-links">{mode==="login"?<><button onClick={()=>{setMode("signup");setNotice("");}}>Create an account</button><button onClick={()=>{setMode("forgot");setNotice("");}}>Forgot password?</button></>:<button onClick={()=>{setMode("login");setNotice("");}}>Back to sign in</button>}</div>
         {mode==="signup"&&<p className="account-fine">We’ll email you a confirmation link. Open it in this browser to keep your existing credits.</p>}
+        {status.deviceRiskEnabled && (mode==='signup'||mode==='login') && <p className="account-fine">This test compares device signals to help review repeat signups. It does not block accounts.</p>}
       </>}
     </section></main>;
 }

@@ -12,6 +12,7 @@ import { communityId, validateCommunityPost, validateCommunityProfile } from "..
 
 import { reportCommunityContent, moderateCommunityContent, contentModerationQueue } from "../src/lib/community-moderation";
 import { deleteAccount, beginAccountDeletion, recentDeletionSignIn } from "../src/lib/account-deletion";
+import { recordDevice, listRiskObservations } from '../src/lib/device-risk-service';
 import { deletionConfigured } from "../src/lib/account-deletion-provider";
 import { holdCredits, completeCreditReservation } from "../src/lib/credit-reservations";
 import { resolveAccountIdentity } from "../src/lib/account-identity";
@@ -42,7 +43,7 @@ class Statement implements D1Statement {
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql","0011_generation_usage.sql"]) sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
+  for(const name of ["0001_billing.sql","0002_generation_reservations.sql","0003_credit_buckets.sql","0004_account_identity.sql","0005_scheduled_cancellation.sql","0006_community.sql","0007_moderation_and_deletion.sql","0008_deletion_activity_guard.sql","0009_rewarded_ads.sql","0010_social_rewards.sql","0011_generation_usage.sql","0012_device_risk.sql"]) sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
   const d1: D1Database = {
     prepare: query => new Statement(sqlite, query),
     async batch<T>(statements: D1Statement[]): Promise<D1Result<T>[]> {
@@ -336,9 +337,43 @@ function billingOwner(sqlite:DatabaseSync,ownerId="owner-alice-private") {
  sqlite.prepare("INSERT INTO credit_ledger(id,account_id,delta,reason,created_at) VALUES('ledger-test','billing-alice',20,'initial',0)").run();
 }
 
+test('device record writes are rejected after deletion begins',async()=>{
+ const {db,sqlite}=database(); try {
+  billingOwner(sqlite); await beginAccountDeletion(db.db,'owner-alice-private');
+  await recordDevice({DEVICE_RISK_ENABLED:'true',DEVICE_RISK_HMAC_SECRET:'x'.repeat(32),DEVICE_RISK_OWNER_EMAIL:'owner@example.com',BILLING_DB:db.db},{id:'owner-alice-private',email:'private@example.com'},{version:1,deviceId:'device'},Date.now());
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM device_risk_observations').get()!.n,0);
+ } finally {sqlite.close();}
+});
+
+test('device records are compared and returned only to the owner',async()=>{
+ const {db,sqlite}=database(); try {
+  const env={DEVICE_RISK_ENABLED:'true',DEVICE_RISK_HMAC_SECRET:'x'.repeat(32),DEVICE_RISK_OWNER_EMAIL:'owner@example.com',BILLING_DB:db.db};
+  const signals={version:1,deviceId:'example-device',canvas:'a'.repeat(64)};
+  await recordDevice(env,{id:'person-1',email:'first@example.com'},signals,1000);
+  await recordDevice(env,{id:'person-2',email:'second@example.com'},signals,2000);
+  assert.equal(await listRiskObservations(env,{id:'other',email:'other@example.com'},3000),null);
+  const rows=await listRiskObservations(env,{id:'owner',email:'owner@example.com'},3000);
+  assert.equal(rows?.length,2);assert.equal(rows?.[0].bestMatch?.score,65);assert.equal(rows?.[0].bestMatch?.action,'review');
+  assert.equal(JSON.stringify(rows).includes('example-device'),false);
+ } finally {sqlite.close();}
+});
+
+test('the same account can be observed on two devices without duplicate rows',async()=>{
+ const {db,sqlite}=database(); try {
+  const env={DEVICE_RISK_ENABLED:'true',DEVICE_RISK_HMAC_SECRET:'x'.repeat(32),DEVICE_RISK_OWNER_EMAIL:'owner@example.com',BILLING_DB:db.db};
+  const user={id:'person-1',email:'first@example.com'};
+  await recordDevice(env,user,{version:1,deviceId:'device-a'},1000);
+  await recordDevice(env,user,{version:1,deviceId:'device-b'},2000);
+  await recordDevice(env,user,{version:1,deviceId:'device-a'},3000);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM device_risk_observations').get()!.n,2);
+ } finally {sqlite.close();}
+});
+
 test("account deletion removes only owned community data and access, retaining disconnected financial records",async()=>{
  const {db,sqlite}=database();try{
   await owners(db);billingOwner(sqlite);
+  sqlite.prepare("INSERT INTO device_risk_observations(account_id,device_key,created_at,protected_signals) VALUES(?,?,?,?)").run("owner-alice-private","a",1,"{}");
+  sqlite.prepare("INSERT INTO device_risk_observations(account_id,device_key,created_at,protected_signals) VALUES(?,?,?,?)").run("owner-bob-private","b",1,"{}");
   const alice=await db.savePost("owner-alice-private",input("Alice deleted showcase",true)),bob=await db.savePost("owner-bob-private",input("Bob retained showcase",true));
   await db.moderatePost(alice.id,"approve");await db.moderatePost(bob.id,"approve");
   await db.addComment("owner-alice-private",bob.id,"Owned comment to remove.");await db.addComment("owner-bob-private",alice.id,"Comment on the removed showcase.");
@@ -347,6 +382,8 @@ test("account deletion removes only owned community data and access, retaining d
   let authDeleted=false;
   await deleteAccount(db.db,"owner-alice-private",{stopBilling:async()=>{},revokeAuth:async()=>{},deleteAuth:async()=>{authDeleted=true;}});
   assert.ok(authDeleted);assert.equal(await db.getProfile("alice"),null);assert.equal((await db.getPost(bob.id))?.title,"Bob retained showcase");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM device_risk_observations WHERE account_id='owner-alice-private'").get()!.n,0);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM device_risk_observations WHERE account_id='owner-bob-private'").get()!.n,1);
   assert.equal((await db.listComments(bob.id)).length,1);assert.equal((await db.getPost(bob.id))?.likes,0);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM billing_sessions").get()!.n,0);
   const billing=sqlite.prepare("SELECT auth_subject,auth_email,credit_balance,deleted_at FROM billing_accounts WHERE id='billing-alice'").get()!;

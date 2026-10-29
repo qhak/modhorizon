@@ -1,4 +1,10 @@
 # Change notes
+## v0.28.0 - 2026-10-29
+
+- Add opt-in device-risk review for authenticated accounts, including protected signal hashes, multiple observed devices, owner-only review and desktop pairing. Scores are uncalibrated and do not block accounts.
+
+Validation: automated tests, TypeScript and Cloudflare build. Online owner pairing and real signup flows require verification; feature is disabled by default and is not deployed to the main website.
+
 ## v0.24.2 - 2026-10-28
 
 - Make the signed-in account overview wider and clearer, emphasize the credit balance, group account settings, and put plan and reward links together.
